@@ -288,31 +288,45 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         words = []
         if possible_srts:
             latest_srt = sorted(possible_srts, key=lambda p: p.stat().st_mtime, reverse=True)[0]
-            words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=clip_start)
+            words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
             # Check if SRT contains Arabic or non-English text
             sample_words = " ".join(w.get("word", "") for w in words[:10])
             if any('\u0600' <= c <= '\u06FF' for c in sample_words):
                 sys.stderr.write(f"[Server] Discarding Arabic SRT {latest_srt.name}, generating English transcription...\n")
                 try:
                     fresh_segs = engine.transcribe_video(engine.UPLOADS / video_filename, language="en")
-                    engine.write_clip_srt(fresh_segs, clip_start, clip_end, latest_srt)
-                    words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=clip_start)
+                    engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), latest_srt)
+                    words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
                 except Exception as e:
                     sys.stderr.write(f"[Server] English re-transcribe error: {e}\n")
 
-        # If no words from SRT, generate word chunks from plan reason or title
+        # If no words from SRT, try on-the-fly Whisper transcription or generate clean speech chunks
+        if not words:
+            video_full_path = engine.UPLOADS / video_filename
+            if video_full_path.exists():
+                try:
+                    sys.stderr.write(f"[Server] Transcribing {video_filename} on the fly for subtitles...\n")
+                    fresh_segs = engine.transcribe_video(video_full_path, language="en")
+                    if fresh_segs:
+                        target_srt = engine.OUTPUTS / f"{Path(video_filename).stem}.srt"
+                        engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), target_srt)
+                        words = engine.parse_srt_to_karaoke_words(target_srt, clip_start=0.0)
+                except Exception as e:
+                    sys.stderr.write(f"[Server] On-the-fly transcription notice: {e}\n")
+
         if not words:
             sample_text = (plan.get("reason") or "Experience this viral moment with automated dynamic captions.").split()
-            step = clip_dur / max(1, len(sample_text))
+            dur_calc = float(meta.get("duration", clip_dur))
+            step = dur_calc / max(1, len(sample_text))
             for i, w in enumerate(sample_text):
-                w_st = clip_start + i * step
-                w_en = w_st + step
+                w_st = i * step
+                w_en = (i + 1) * step
                 words.append({
                     "word": w,
                     "start": round(w_st, 3),
                     "end": round(w_en, 3),
-                    "relStart": round(i * step, 3),
-                    "relEnd": round((i + 1) * step, 3),
+                    "relStart": round(w_st, 3),
+                    "relEnd": round(w_en, 3),
                     "emoji": "🔥" if i % 4 == 0 else "",
                     "emphasis": i % 3 == 0,
                 })
@@ -323,28 +337,42 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             {"start": round(clip_start + 4.2, 2), "end": round(clip_start + 5.1, 2), "duration": 0.9, "label": "Breath Pause (-0.9s)"}
         ]
 
+        dur = float(meta.get("duration") or clip_end or 30.0)
+        if dur <= 0:
+            dur = 30.0
+        dur_rounded = round(dur, 2)
+
+        # Proportional candidate windows adapted to actual video duration
+        w1_en = min(dur_rounded, 28.5)
+        w2_st = min(round(dur_rounded * 0.15, 2), max(0.0, dur_rounded - 15.0))
+        w2_en = min(dur_rounded, round(w2_st + 19.5, 2))
+        w3_st = min(round(dur_rounded * 0.35, 2), max(0.0, dur_rounded - 12.0))
+        w3_en = min(dur_rounded, round(w3_st + 20.0, 2))
+        w4_st = min(round(dur_rounded * 0.50, 2), max(0.0, dur_rounded - 10.0))
+        w4_en = min(dur_rounded, round(w4_st + 15.0, 2))
+
         # Generate Rich Categorized Viral Moments for Multi-Clip Selection (Continuous Master Track)
         pro_viral_candidates = [
             {
                 "id": "clip-viral-0",
-                "title": "MASTER VIDEO (CONTINUOUS 58s) 🎬",
+                "title": f"MASTER VIDEO (CONTINUOUS {int(dur_rounded)}s) 🎬",
                 "tag": "⭐ FULL MASTER TRACK",
                 "start": 0.0,
-                "end": 58.05,
-                "duration": 58.05,
+                "end": dur_rounded,
+                "duration": dur_rounded,
                 "score": 100,
                 "hookScore": 99,
                 "pacingScore": 98,
                 "retentionScore": 99,
-                "reason": "Complete continuous 58s master video track: 100% uncut and ready for manual split-editing, trimming, and custom caption styling.",
+                "reason": f"Complete continuous {int(dur_rounded)}s master video track: 100% uncut and ready for manual split-editing, trimming, and custom caption styling.",
             },
             {
                 "id": "clip-viral-1",
                 "title": "HIGH-ENERGY OPENING HOOK 🤯",
                 "tag": "🔥 #1 VIRAL HOOK",
                 "start": 0.0,
-                "end": 28.5,
-                "duration": 28.5,
+                "end": round(w1_en, 2),
+                "duration": round(w1_en, 2),
                 "score": 99,
                 "hookScore": 99,
                 "pacingScore": 96,
@@ -355,9 +383,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "id": "clip-viral-2",
                 "title": "HIGH TENSION & EMOTIONAL PEAK 💥",
                 "tag": "⚡ CONTROVERSY / DEBATE",
-                "start": 4.5,
-                "end": 24.0,
-                "duration": 19.5,
+                "start": round(w2_st, 2),
+                "end": round(w2_en, 2),
+                "duration": round(w2_en - w2_st, 2),
                 "score": 96,
                 "hookScore": 95,
                 "pacingScore": 94,
@@ -368,9 +396,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "id": "clip-viral-3",
                 "title": "DEEP VALUE INSIGHT & STRATEGY 💎",
                 "tag": "💡 VALUE BOMB",
-                "start": 28.0,
-                "end": 48.0,
-                "duration": 20.0,
+                "start": round(w3_st, 2),
+                "end": round(w3_en, 2),
+                "duration": round(w3_en - w3_st, 2),
                 "score": 94,
                 "hookScore": 93,
                 "pacingScore": 92,
@@ -381,40 +409,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "id": "clip-viral-4",
                 "title": "RAW REALITY & EXTREME CHALLENGES ⚠️",
                 "tag": "🚀 CLIMAX MOMENT",
-                "start": 8.5,
-                "end": 22.0,
-                "duration": 13.5,
+                "start": round(w4_st, 2),
+                "end": round(w4_en, 2),
+                "duration": round(w4_en - w4_st, 2),
                 "score": 92,
                 "hookScore": 94,
                 "pacingScore": 90,
                 "retentionScore": 91,
                 "reason": "Extreme reflection: The unvarnished truth behind viral physical productions and stunts.",
-            },
-            {
-                "id": "clip-viral-5",
-                "title": "HOW TO BUILD A DIGITAL EMPIRE 📖",
-                "tag": "📖 CORE STORY",
-                "start": 34.0,
-                "end": 57.0,
-                "duration": 23.0,
-                "score": 90,
-                "hookScore": 88,
-                "pacingScore": 90,
-                "retentionScore": 91,
-                "reason": "Narrative arc: Exploring how top performers reinvest every dollar back into their productions.",
-            },
-            {
-                "id": "clip-viral-6",
-                "title": "AUDIENCE CALL-TO-ACTION & CLIMAX 🎯",
-                "tag": "🎯 HIGH RETENTION",
-                "start": 29.0,
-                "end": 45.0,
-                "duration": 16.0,
-                "score": 88,
-                "hookScore": 89,
-                "pacingScore": 88,
-                "retentionScore": 89,
-                "reason": "Community resonance: Addressing high-demand creator audience questions with punchy clarity.",
             },
         ]
 
@@ -428,7 +430,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 for w in words
                 if w["start"] >= c_st - 0.2 and w["end"] <= c_en + 0.2
             ]
-            cand["transcript"] = c_words if c_words else words[:10]
+            cand["transcript"] = c_words if c_words else words
+            cand["words"] = cand["transcript"]
             all_viral_moments.append(cand)
 
         analysis = {
@@ -603,7 +606,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
             # Step 5: Format Karaoke Transcript Words (OpenClipper styling)
             clip_words = []
-            raw_clip_words = top_moment.get("words", [])
+            raw_clip_words = top_moment.get("words", []) or all_words
             for i, w in enumerate(raw_clip_words):
                 w_st = float(w.get("start", 0.0))
                 w_en = float(w.get("end", 0.0))
@@ -619,6 +622,46 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         "emoji": "🔥" if i % 4 == 0 else ("⚡" if i % 7 == 0 else ""),
                         "emphasis": i % 3 == 0,
                     })
+
+            if not clip_words and all_words:
+                for i, w in enumerate(all_words):
+                    w_st = float(w.get("start", 0.0))
+                    w_en = float(w.get("end", 0.0))
+                    clip_words.append({
+                        "word": str(w.get("word") or w.get("text", "")).strip(),
+                        "start": round(w_st, 3),
+                        "end": round(w_en, 3),
+                        "relStart": round(w_st, 3),
+                        "relEnd": round(w_en, 3),
+                        "emoji": "🔥" if i % 4 == 0 else ("⚡" if i % 7 == 0 else ""),
+                        "emphasis": i % 3 == 0,
+                    })
+
+            # Ensure every moment has both transcript and words populated
+            top_moment["transcript"] = clip_words
+            top_moment["words"] = clip_words
+            for m in viral_moments:
+                m_st = float(m.get("start", 0.0))
+                m_en = float(m.get("end", duration))
+                m_raw = m.get("words", []) or all_words
+                m_trans = []
+                for idx, w in enumerate(m_raw):
+                    w_st = float(w.get("start", 0.0))
+                    w_en = float(w.get("end", 0.0))
+                    if w_st >= m_st - 0.2 and w_en <= m_en + 0.2:
+                        m_trans.append({
+                            "word": str(w.get("word") or w.get("text", "")).strip(),
+                            "start": round(w_st, 3),
+                            "end": round(w_en, 3),
+                            "relStart": max(0.0, round(w_st - m_st, 3)),
+                            "relEnd": max(0.1, round(w_en - m_st, 3)),
+                            "emoji": "🔥" if idx % 4 == 0 else ("⚡" if idx % 7 == 0 else ""),
+                            "emphasis": idx % 3 == 0,
+                        })
+                if not m_trans:
+                    m_trans = clip_words
+                m["transcript"] = m_trans
+                m["words"] = m_trans
 
             # Assemble complete project state
             project_id = f"proj_auto_{int(time.time())}"
@@ -765,6 +808,23 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             # 2. Faster-Whisper Speech Transcription (< 1.5s for 30s clip)
             sys.stderr.write(f"[AI-Multimodal] Running Whisper speech transcription (English Priority)...\n")
             segments = engine.transcribe_video(video_path, model_size=model_size, language="en")
+            if not segments:
+                dur_fb = float(meta.get("duration", 30.0))
+                sample_text = "Experience this viral moment with automated dynamic captions.".split()
+                step = dur_fb / max(1, len(sample_text))
+                fb_words = []
+                for i, w in enumerate(sample_text):
+                    fb_words.append({
+                        "word": w,
+                        "start": round(i * step, 2),
+                        "end": round((i + 1) * step, 2),
+                    })
+                segments = [{
+                    "start": 0.0,
+                    "end": dur_fb,
+                    "text": "Experience this viral moment with automated dynamic captions.",
+                    "words": fb_words,
+                }]
 
             # 3. Multimodal Audio & Speech Viral Window Scoring
             min_dur = max(10.0, target_dur - 10.0)
@@ -807,10 +867,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             recommended_broll = ai_plan.get("recommended_broll", "minecraft-parkour")
             recommended_style = ai_plan.get("caption_style", "Hormozi Pop")
 
-            # 5. Generate and save SRT subtitle
-            srt_name = f"{video_path.stem}_clip_{int(clip_start)}s_{int(clip_end)}s.srt"
+            # 5. Generate and save SRT subtitle (both full master SRT and clip-specific SRT)
+            srt_name = f"{video_path.stem}.srt"
             srt_path = engine.OUTPUTS / srt_name
-            engine.write_clip_srt(segments, clip_start, clip_end, srt_path)
+            engine.write_clip_srt(segments, 0.0, float(meta.get("duration", 3600.0)), srt_path)
+            clip_srt_path = engine.OUTPUTS / f"{video_path.stem}_clip_{int(clip_start)}s_{int(clip_end)}s.srt"
+            engine.write_clip_srt(segments, clip_start, clip_end, clip_srt_path)
 
             # 6. Topic Visual Image (Disabled by default - no intrusive overlays)
             img_meta = None

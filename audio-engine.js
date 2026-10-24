@@ -1809,21 +1809,50 @@
      * Helper: Returns the active word and surrounding 3-4 word karaoke phrase chunk at `timeSec`
      */
     getCaptionStateAtTime(analysisOrMoment, timeSec, wordsPerChunk = 4) {
-      if (!analysisOrMoment) return null;
+      if (!analysisOrMoment) {
+        if (typeof window !== 'undefined' && window.WhopState && window.WhopState.analysis) {
+          analysisOrMoment = window.WhopState.analysis;
+        } else {
+          return null;
+        }
+      }
       let words = [];
-      if (Array.isArray(analysisOrMoment.transcript)) {
+      if (Array.isArray(analysisOrMoment.transcript) && analysisOrMoment.transcript.length > 0) {
         words = analysisOrMoment.transcript;
+      } else if (Array.isArray(analysisOrMoment.words) && analysisOrMoment.words.length > 0) {
+        words = analysisOrMoment.words;
       } else if (
         Array.isArray(analysisOrMoment.viralMoments) &&
         analysisOrMoment.viralMoments.length > 0
       ) {
-        analysisOrMoment.viralMoments.forEach((m) => {
-          if (Array.isArray(m.transcript)) words.push(...m.transcript);
-        });
+        const topMom = analysisOrMoment.viralMoments[0];
+        if (Array.isArray(topMom.transcript) && topMom.transcript.length > 0) {
+          words = topMom.transcript;
+        } else if (Array.isArray(topMom.words) && topMom.words.length > 0) {
+          words = topMom.words;
+        } else {
+          analysisOrMoment.viralMoments.forEach((m) => {
+            if (Array.isArray(m.transcript)) words.push(...m.transcript);
+            else if (Array.isArray(m.words)) words.push(...m.words);
+          });
+        }
+      }
+      if (words.length === 0 && typeof window !== 'undefined' && window.WhopState) {
+        const st = window.WhopState;
+        if (st.analysis && Array.isArray(st.analysis.transcript) && st.analysis.transcript.length > 0) {
+          words = st.analysis.transcript;
+        } else if (st.analysis && Array.isArray(st.analysis.viralMoments) && st.analysis.viralMoments.length > 0) {
+          const m0 = st.analysis.viralMoments[0];
+          if (Array.isArray(m0.transcript) && m0.transcript.length > 0) words = m0.transcript;
+          else if (Array.isArray(m0.words) && m0.words.length > 0) words = m0.words;
+        }
       }
       if (words.length === 0) return null;
 
-      // Match either absolute `start..end` or clip-relative `relStart..relEnd`
+      // Match either absolute `start..end`, clip-relative `relStart..relEnd`, or time-shifted
+      const firstW = words[0];
+      const firstStart = typeof firstW.start === 'number' ? firstW.start : 0;
+
       let activeIdx = words.findIndex((w) => timeSec >= w.start && timeSec <= w.end + 0.08);
       if (activeIdx === -1) {
         activeIdx = words.findIndex(
@@ -1833,10 +1862,15 @@
             timeSec <= w.relEnd + 0.08
         );
       }
+      if (activeIdx === -1 && firstStart > 20.0 && timeSec < 60.0) {
+        const shiftedTime = timeSec + firstStart;
+        activeIdx = words.findIndex((w) => shiftedTime >= w.start && shiftedTime <= w.end + 0.08);
+      }
       if (activeIdx === -1) {
         // Find nearest word prior to timeSec
         for (let i = words.length - 1; i >= 0; i--) {
-          if (timeSec >= words[i].start) {
+          const wSt = typeof words[i].relStart === 'number' ? words[i].relStart : words[i].start;
+          if (timeSec >= wSt) {
             activeIdx = i;
             break;
           }

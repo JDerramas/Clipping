@@ -499,8 +499,41 @@
   }
 
   function getActiveClip() {
-    if (!state.analysis || !Array.isArray(state.analysis.viralMoments)) return null;
-    return state.analysis.viralMoments[state.activeClipIndex] || state.analysis.viralMoments[0] || null;
+    if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+      if (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0) {
+        return {
+          id: 'clip-fallback',
+          title: state.clipTitle || 'Master Video Track',
+          start: state.trimStart || 0,
+          end: state.trimEnd || (state.streamDuration || 30),
+          transcript: state.analysis.transcript,
+          words: state.analysis.transcript,
+        };
+      }
+      return null;
+    }
+    const clip = state.analysis.viralMoments[state.activeClipIndex] || state.analysis.viralMoments[0] || null;
+    if (clip) {
+      if (!Array.isArray(clip.transcript) || clip.transcript.length === 0) {
+        if (Array.isArray(clip.words) && clip.words.length > 0) {
+          clip.transcript = clip.words.map((w, idx) => ({
+            word: String(w.word || w.text || '').trim(),
+            start: typeof w.start === 'number' ? w.start : (idx * 0.35),
+            end: typeof w.end === 'number' ? w.end : ((idx + 1) * 0.35),
+            relStart: typeof w.relStart === 'number' ? w.relStart : (typeof w.start === 'number' ? w.start : idx * 0.35),
+            relEnd: typeof w.relEnd === 'number' ? w.relEnd : (typeof w.end === 'number' ? w.end : (idx + 1) * 0.35),
+            emoji: w.emoji || (idx % 5 === 0 ? '🔥' : ''),
+            emphasis: Boolean(w.emphasis)
+          }));
+        } else if (Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0) {
+          clip.transcript = state.analysis.transcript;
+        }
+      }
+      if (!Array.isArray(clip.words) && Array.isArray(clip.transcript)) {
+        clip.words = clip.transcript;
+      }
+    }
+    return clip;
   }
 
   // =========================================================================
@@ -805,9 +838,16 @@
   function renderTranscriptCloud() {
     const clip = getActiveClip();
     dom.transcriptWordCloud.innerHTML = '';
-    if (!clip || !Array.isArray(clip.transcript)) return;
+    const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+      ? clip.transcript
+      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
 
-    clip.transcript.forEach((item, wIdx) => {
+    if (words.length === 0) {
+      dom.transcriptWordCloud.innerHTML = '<span class="text-xs text-slate-400" style="padding: 12px; display: inline-block;">Generating word-by-word karaoke captions...</span>';
+      return;
+    }
+
+    words.forEach((item, wIdx) => {
       const chip = document.createElement('span');
       chip.className = 'transcript-word-chip';
       chip.dataset.start = item.start;
@@ -892,6 +932,14 @@
   function applyBackendAutoEditResult(data, forcedClipIdx) {
     if (data.analysis) {
       state.analysis = data.analysis;
+      if (Array.isArray(data.analysis.viralMoments) && data.analysis.viralMoments.length > 0) {
+        data.analysis.viralMoments.forEach((m) => {
+          if ((!Array.isArray(m.transcript) || m.transcript.length === 0) && Array.isArray(data.analysis.transcript)) {
+            m.transcript = data.analysis.transcript;
+            m.words = data.analysis.transcript;
+          }
+        });
+      }
       renderViralMomentsList();
     }
 
@@ -2269,9 +2317,9 @@
 
   function drawKaraokeCaptionsOnCanvas(ctx, W, H, timeSec) {
     const clip = getActiveClip();
-    if (!clip || !window.WhopAudioEngine) return;
+    if (!window.WhopAudioEngine) return;
 
-    const capState = window.WhopAudioEngine.getCaptionStateAtTime(clip, timeSec, 4);
+    const capState = window.WhopAudioEngine.getCaptionStateAtTime(clip || state.analysis, timeSec, 4);
     if (!capState || !capState.chunkWords || capState.chunkWords.length === 0) return;
 
     ctx.save();
@@ -2534,9 +2582,13 @@
 
     const clip = getActiveClip();
     let segments = [];
-    if (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0) {
-      for (let i = 0; i < clip.transcript.length; i += 3) {
-        const chunk = clip.transcript.slice(i, i + 3);
+    const capWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+      ? clip.transcript
+      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
+
+    if (capWords.length > 0) {
+      for (let i = 0; i < capWords.length; i += 3) {
+        const chunk = capWords.slice(i, i + 3);
         segments.push({
           id: `cap-chunk-${i}`,
           chunkStartIdx: i,
@@ -3480,6 +3532,14 @@
     state.customMainFileName = data.filename;
     state.streamDuration = data.duration || 60;
     state.analysis = data.analysis;
+    if (state.analysis && Array.isArray(state.analysis.viralMoments) && state.analysis.viralMoments.length > 0) {
+      state.analysis.viralMoments.forEach((m) => {
+        if ((!Array.isArray(m.transcript) || m.transcript.length === 0) && Array.isArray(state.analysis.transcript)) {
+          m.transcript = state.analysis.transcript;
+          m.words = state.analysis.transcript;
+        }
+      });
+    }
 
     dom.mainVideoEl.src = data.video_url;
     dom.mainVideoEl.load();
@@ -6026,8 +6086,15 @@
       switchInspectorTab,
       rippleTrimIn,
       rippleTrimOut,
+      loadProjectFromServer,
+      getActiveClip,
+      renderTranscriptCloud,
+      fetchActiveProject,
     };
     window.WhopState = state;
+    window.getActiveClip = getActiveClip;
+    window.loadProjectFromServer = loadProjectFromServer;
+    window.renderTranscriptCloud = renderTranscriptCloud;
     window.splitClipAtPlayhead = splitClipAtPlayhead;
     window.deleteSelectedCapCutItem = deleteSelectedCapCutItem;
     window.switchInspectorTab = switchInspectorTab;
