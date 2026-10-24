@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ssemble × WhopClip Studio — Pro Viral Short-Form Auto-Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Hidden HTML5 Video Elements for Local Video & Custom B-Roll Ingestion -->
+  <div class="hidden-media-pool" aria-hidden="true">
+    <video id="mainVideoEl" playsinline crossorigin="anonymous"></video>
+    <video id="brollVideoEl" playsinline loop muted crossorigin="anonymous"></video>
+    <input type="file" id="mainVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
+    <input type="file" id="brollVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
+    <input type="file" id="importProjectFileInput" accept=".json,application/json" />
+    <input type="file" id="visualOverlayFileInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" />
+  </div>
+
+  <!-- =====================================================================
+       TOP STUDIO HEADER BAR
+       ===================================================================== -->
+  <header class="studio-header">
+    <!-- Left: Brand Identity -->
+    <div class="header-brand">
+      <div class="brand-logo" title="Ssemble × WhopClip Pro Studio">
+        <svg viewBox="0 0 24 24" fill="none" class="brand-icon">
+          <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h4A1.5 1.5 0 0 1 11 5.5v13A1.5 1.5 0 0 1 9.5 20h-4A1.5 1.5 0 0 1 4 18.5v-13Z" fill="#E11D48"/>
+          <path d="M13 5.5A1.5 1.5 0 0 1 14.5 4h4A1.5 1.5 0 0 1 20 5.5v6A1.5 1.5 0 0 1 18.5 13h-4A1.5 1.5 0 0 1 13 11.5v-6Z" fill="#6366F1"/>
+          <path d="M13 16.5A1.5 1.5 0 0 1 14.5 15h4a1.5 1.5 0 0 1 1.5 1.5v2A1.5 1.5 0 0 1 18.5 20h-4a1.5 1.5 0 0 1-1.5-1.5v-2Z" fill="#10B981"/>
+        </svg>
+        <span class="brand-pulse"></span>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title-row">
+          <span class="brand-name">Ssemble <span class="brand-x">×</span> WhopClip</span>
+          <span class="brand-badge">PRO STUDIO</span>
+        </div>
+        <span class="brand-subtitle">AI Viral Retention &amp; Bounty Auto-Editor</span>
+      </div>
+    </div>
+
+    <!-- Center: Active Whop Bounty Campaign Selector + 1-Click Auto-Edit -->
+    <div class="header-center-controls">
+      <div class="campaign-selector-pill">
+        <span class="campaign-dot"></span>
+        <span class="campaign-label">FORMAT:</span>
+        <select id="campaignSelect" class="campaign-select" aria-label="Short-Form Video Format">
+          <option value="tiktok-viral" data-cpm="2.50" data-handle="@Creator • 9:16">TikTok Viral Short (9:16)</option>
+          <option value="youtube-shorts" data-cpm="2.00" data-handle="@Creator • 9:16">YouTube Shorts (9:16)</option>
+          <option value="instagram-reels" data-cpm="2.20" data-handle="@Creator • 9:16">Instagram Reels (9:16)</option>
+          <option value="capcut-master" data-cpm="3.00" data-handle="@Creator • 9:16">CapCut Vertical Master (9:16)</option>
+        </select>
+        <span id="headerEstPayoutBadge" class="campaign-payout-badge" title="Estimated Viral Reach">9:16 HD Pro</span>
+      </div>
+
+      <button id="openSsembleHubBtn" class="btn-ssemble-hub" title="Open Ssemble AI Auto-Clipping Hub (View all AI-generated Shorts clips)">
+        <span class="ai-sparkle">🤖</span>
+        <span>Ssemble AI Hub</span>
+        <span id="ssembleHeaderCount" class="ssemble-count-pill">14</span>
+      </button>
+
+      <button id="oneClickAutoEditBtn" class="btn-auto-edit" title="Run AI 1-Click Viral Auto-Edit (Full 9:16 Vertical, Hormozi Captions, Jump-Cut Zooms, No Split)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
+        </svg>
+        <span>1-Click Auto-Edit</span>
+        <span class="btn-kbd">AI</span>
+      </button>
+    </div>
+
+    <!-- Right: Prominent Save Clip, Saved Vault & Export 9:16 Video -->
+    <div class="header-actions">
+      <button id="saveClipBtn" class="btn-studio btn-save-clip" title="Save current clip, thumbnail &amp; settings to Saved Clips Vault (Ctrl+S)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        <span>Save Clip</span>
+      </button>
+
+      <button id="openSavedVaultBtn" class="btn-studio btn-saved-vault" title="Open Saved Clips Vault to load, manage or download saved clips">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Saved Clips</span>
+        <span id="savedClipsCountBadge" class="vault-count-badge">1</span>
+      </button>
+
+      <button id="openExportModalBtn" class="btn-studio btn-export-primary" title="Render &amp; Export 9:16 Vertical Video (.WEBM/.MP4), .SRT Captions, or Project File">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Export 9:16 Video</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       CONNECTED 4-ENGINE AI AUTO-EDITOR STATUS BAR
+       ===================================================================== -->
+  <div class="repo-engines-bar" id="repoEnginesBar" title="Active 4-Engine Auto-Editing Pipeline">
+    <div class="repo-bar-label">
+      <span class="pulse-engine-dot"></span>
+      <span class="repo-bar-title">CONNECTED AI ENGINES:</span>
+    </div>
+    <div class="repo-badges-container" id="repoBadgesContainer">
+      <div class="repo-badge active" id="badgeAutoVideoEditor" title="kiy0ni/auto-video-editor: Audio energy curves, sentence boundary snapping & jump cuts">
+        <span class="badge-icon">✂️</span>
+        <span class="badge-name">auto-video-editor</span>
+        <span class="badge-tag">JUMP-CUTS</span>
+      </div>
+      <div class="repo-badge active" id="badgeAutoclip" title="Gutsken/Autoclip: Casiez 1-Euro adaptive low-pass filter & viral hook evaluator">
+        <span class="badge-icon">🎯</span>
+        <span class="badge-name">Autoclip</span>
+        <span class="badge-tag">1€ FILTER</span>
+      </div>
+      <div class="repo-badge active" id="badgeBridgeclip" title="bridge-mind/bridgeclip: Hardware-accelerated YuNet ONNX face detection (38ms OpenCV DNN) & presenter framing">
+        <span class="badge-icon">👁️</span>
+        <span class="badge-name">bridgeclip</span>
+        <span class="badge-tag">YuNet ONNX</span>
+      </div>
+      <div class="repo-badge active" id="badgeOpenClipper" title="GrepCut/OpenClipper: NormalizedBox geometric transforms & viral typography">
+        <span class="badge-icon">📐</span>
+        <span class="badge-name">OpenClipper</span>
+        <span class="badge-tag">SMART CROP</span>
+      </div>
+    </div>
+    <div class="repo-pipeline-status" id="repoPipelineStatus">
+      <span class="status-check">🟢</span>
+      <span class="status-text">4/4 ENGINES CONNECTED</span>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MAIN 3-COLUMN WORKSPACE + BOTTOM MULTI-TRACK TIMELINE
+       ===================================================================== -->
+  <main class="studio-workspace">
+    <!-- ===================================================================
+         LEFT SIDEBAR: SOURCE INGESTION & AI VIRAL CLIP FINDER
+         =================================================================== -->
+    <aside class="sidebar sidebar-left" aria-label="Source Video &amp; AI Viral Moments">
+      <!-- Source Ingestion Panel -->
+      <section class="panel-section source-ingest-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            Source Stream / Video
+          </h2>
+          <span id="activeSourceBadge" class="status-pill status-emerald">60FPS DEMO</span>
+        </div>
+
+        <!-- Ssemble AI Auto-Applies Hero Banner -->
+        <div class="ssemble-hero-banner" id="ssembleHeroBanner">
+          <div class="ssemble-hero-top">
+            <div class="ssemble-hero-title-wrap">
+              <span class="ai-sparkle-icon">🤖</span>
+              <span class="ssemble-hero-title">AI auto-applies everything</span>
+            </div>
+            <span class="ssemble-pro-tag">SSEMBLE AUTO</span>
+          </div>
+          <div class="ssemble-features-grid">
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header">
+                <span class="ssemble-pill-icon">💬</span>
+                <span class="ssemble-auto-tag">AUTO</span>
+              </div>
+              <strong class="ssemble-pill-name">Auto Captions</strong>
+              <span class="ssemble-pill-desc">Animated, styled subtitles</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header">
+                <span class="ssemble-pill-icon">🎯</span>
+                <span class="ssemble-auto-tag">AUTO</span>
+              </div>
+              <strong class="ssemble-pill-name">Hook Detection</strong>
+              <span class="ssemble-pill-desc">Starts at most engaging moment</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header">
+                <span class="ssemble-pill-icon">🎵</span>
+                <span class="ssemble-auto-tag">AUTO</span>
+              </div>
+              <strong class="ssemble-pill-name">Trending Audio</strong>
+              <span class="ssemble-pill-desc">Matched to your content style</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header">
+                <span class="ssemble-pill-icon">📱</span>
+                <span class="ssemble-auto-tag">AUTO</span>
+              </div>
+              <strong class="ssemble-pill-name">9:16 Reframing</strong>
+              <span class="ssemble-pill-desc">Auto-crops to vertical format</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Dropzone + URL Bar -->
+        <div id="videoDropzone" class="upload-dropzone" role="button" tabindex="0" title="Click or drop a local .MP4, .WEBM, or .MOV video file">
+          <div class="dropzone-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="dropzone-text">
+            <span id="dropzoneMainLabel" class="dropzone-primary">Upload Local Video (.MP4 / .MOV)</span>
+            <span id="dropzoneSubLabel" class="dropzone-secondary">Or drag &amp; drop raw podcast / stream file</span>
+          </div>
+        </div>
+
+        <!-- Stream / YouTube URL Ingestion -->
+        <div class="url-ingest-row">
+          <input
+            type="text"
+            id="streamUrlInput"
+            class="studio-input url-input"
+            placeholder="Paste YouTube, Twitch, Kick or Whop link..."
+            aria-label="Stream URL"
+          />
+          <button id="extractUrlBtn" class="btn-mini btn-accent" title="Analyze Video Link &amp; Extract Viral Cuts">
+            Extract
+          </button>
+        </div>
+
+        <!-- Target Clip Duration Option -->
+        <div class="duration-option-wrap" style="margin-top: 10px; background: #131326; border: 1px solid #252545; border-radius: 8px; padding: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <span class="tiny-label" style="font-weight: 700; color: #f59e0b;">⏱️ TARGET CLIP DURATION:</span>
+            <span id="targetDurationDisplay" class="mono-val" style="color: #10b981; font-size: 11px; font-weight: 700;">30s (TikTok/Shorts)</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+            <button type="button" class="duration-preset-btn active" data-dur="30" style="padding: 6px 4px; font-size: 11px; font-weight: 600; background: #1e1e38; border: 1px solid #6366f1; color: #fff; border-radius: 6px; cursor: pointer;">⚡ 15–30s</button>
+            <button type="button" class="duration-preset-btn" data-dur="45" style="padding: 6px 4px; font-size: 11px; font-weight: 600; background: #0f0f1e; border: 1px solid #252545; color: #94a3b8; border-radius: 6px; cursor: pointer;">🔥 30–45s</button>
+            <button type="button" class="duration-preset-btn" data-dur="60" style="padding: 6px 4px; font-size: 11px; font-weight: 600; background: #0f0f1e; border: 1px solid #252545; color: #94a3b8; border-radius: 6px; cursor: pointer;">📖 45–60s</button>
+          </div>
+          <input type="range" id="targetDurationSlider" min="15" max="90" step="5" value="30" style="width: 100%; accent-color: #6366f1; cursor: pointer;" />
+        </div>
+
+        <!-- AI Brain & Model Engine Selector -->
+        <div class="ai-brain-wrap" style="margin-top: 10px; background: #131326; border: 1px solid #252545; border-radius: 8px; padding: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <span class="tiny-label" style="font-weight: 700; color: #a855f7;">🧠 AI AUTO-EDIT BRAIN:</span>
+            <span id="activeAiBadge" class="status-pill status-indigo" style="font-size: 9px; padding: 2px 6px;">MULTIMODAL VISION</span>
+          </div>
+          <select id="aiModelSelect" class="studio-input" style="width: 100%; font-size: 11.5px; background: #0f0f1e; border: 1px solid #252545; color: #f1f5f9; padding: 6px 8px; border-radius: 6px; cursor: pointer;">
+            <option value="gemini-2.5-flash">✨ Google Gemini 2.5 Flash Multimodal (Vision + Audio)</option>
+            <option value="qwen-omni">⚡ Qwen 2.5 Omni / VL (Vision Multimodal)</option>
+            <option value="multimodal-local" selected>🤖 Hybrid Multimodal (OpenCV Vision Flow + Whisper)</option>
+            <option value="qwen-text">🧠 Local Qwen3-4B (Text Only)</option>
+          </select>
+          <div id="geminiKeyRow" class="gemini-key-row hidden" style="margin-top: 6px;">
+            <input type="password" id="geminiApiKeyInput" class="studio-input" placeholder="Paste Gemini API Key (e.g. AIzaSy...)" style="width: 100%; font-size: 11px; background: #090914; border: 1px solid #6366f1; color: #f1f5f9; padding: 6px 8px; border-radius: 4px;" />
+          </div>
+          <div style="margin-top: 6px; font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+            <span style="color: #10b981;">⚡ FAST PARTIAL DL:</span> Slices 30s-60s highlight section in ~2s (no full video download).
+          </div>
+        </div>
+
+        <!-- Your Real Project Videos Library -->
+        <div class="video-library-wrap" style="margin-top: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span class="tiny-label" style="font-weight:700; color:#38bdf8;">📁 YOUR PROJECT VIDEOS:</span>
+            <button type="button" id="refreshVideosBtn" class="btn-micro" title="Refresh local video list" style="padding:2px 8px; font-size:10px; background:#1e1e38; border:1px solid #333355; color:#cbd5e1; border-radius:4px; cursor:pointer;">🔄 Refresh</button>
+          </div>
+          <select id="serverVideoSelect" class="studio-input" style="width:100%; font-size:12px; background:#0f0f1e; border:1px solid #252545; color:#f1f5f9; padding:8px 10px; border-radius:6px; cursor:pointer;">
+            <option value="">Loading videos...</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- AI Viral Moments List -->
+      <section class="panel-section viral-moments-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2c.5 4.5 3.5 7.5 8 8-4.5.5-7.5 3.5-8 8-.5-4.5-3.5-7.5-8-8 4.5-.5 7.5-3.5 8-8z"/>
+            </svg>
+            Ssemble AI Viral Clips
+          </h2>
+          <span id="viralCountBadge" class="count-pill">14 SHORTS</span>
+        </div>
+
+        <!-- Ssemble Video Metadata & Sorting Bar -->
+        <div class="ssemble-video-meta-bar" id="ssembleVideoMetaBar">
+          <div class="ssemble-title-line">
+            <div class="ssemble-title-left">
+              <span class="ssemble-badge-red">YOUTUBE</span>
+              <strong id="ssembleActiveVideoTitle" class="ssemble-video-title">The Full Story of MrBeast</strong>
+            </div>
+            <a id="ssembleViewOriginalLink" href="https://youtu.be/c8VcUnz3nVc" target="_blank" class="ssemble-external-link" title="Open YouTube video in new tab">
+              View original video ↗
+            </a>
+          </div>
+          <div class="ssemble-meta-info-row">
+            <span class="ssemble-info-item">⏱️ <span id="ssembleMetaDuration">00:10:00 (00:00:00 - 00:10:00)</span></span>
+            <span class="ssemble-info-item">🌐 Language: <strong id="ssembleMetaLang">English</strong></span>
+            <span class="ssemble-info-item">🎨 Template: <strong id="ssembleMetaTemplate" style="color:#6366f1;">hormozi1</strong></span>
+          </div>
+          <div class="ssemble-controls-row">
+            <div class="ssemble-pref-len">
+              <span class="ssemble-control-label">Length:</span>
+              <div class="ssemble-len-group" id="ssembleLenGroup">
+                <button type="button" class="ssemble-len-btn active" data-len="30">15–30s</button>
+                <button type="button" class="ssemble-len-btn" data-len="45">30–45s</button>
+                <button type="button" class="ssemble-len-btn" data-len="60">45–60s</button>
+                <button type="button" class="ssemble-len-btn" data-len="all">All</button>
+              </div>
+            </div>
+            <div class="ssemble-sort-wrap">
+              <span class="ssemble-control-label">Sort:</span>
+              <div class="ssemble-sort-btns" id="ssembleSortBtns">
+                <button type="button" id="ssembleSortScoreBtn" class="ssemble-sort-pill active" title="Sort by highest virality score">Score 🔥</button>
+                <button type="button" id="ssembleSortTimeBtn" class="ssemble-sort-pill" title="Sort chronologically by timestamp">Time ⏱️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="viralMomentsList" class="viral-moments-list">
+          <!-- Populated dynamically by clipper-app.js -->
+        </div>
+      </section>
+    </aside>
+
+    <!-- ===================================================================
+         CENTER STAGE: REAL-TIME 60FPS 9:16 VERTICAL CANVAS PREVIEW
+         =================================================================== -->
+    <section class="center-stage" aria-label="9:16 Vertical Canvas Preview">
+      <!-- Top Canvas Utility Bar -->
+      <div class="canvas-toolbar">
+        <div class="clip-title-editor">
+          <span class="tiny-badge">ACTIVE CLIP</span>
+          <input
+            type="text"
+            id="activeClipTitleInput"
+            class="clip-title-input"
+            value="Viral Highlight Moment"
+            aria-label="Active Clip Title"
+            title="Click to rename this clip before saving"
+          />
+        </div>
+
+        <div class="canvas-toolbar-actions">
+          <button id="toggleHardEditBtn" class="btn-chip" title="Toggle Hard Edits (Jump cuts, camera shake, strobe flash)">
+            <span style="color:#f59e0b;">⚡</span>
+            <span id="hardFxStatusText">Hard FX: OFF</span>
+          </button>
+
+          <button id="quickAddVisualBtn" class="btn-chip" title="Add Visual Image or Video Overlay">
+            <span style="color:#38bdf8;">🖼️</span>
+            <span>+ Add Visual</span>
+          </button>
+
+          <button id="toggleSafeZoneBtn" class="btn-chip" title="Toggle TikTok / Reels / Shorts UI Safe-Zone Guide">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+            <span>Safe Zones</span>
+          </button>
+
+          <button id="snapshotPngBtn" class="btn-chip" title="Download current 1080x1920 frame as PNG thumbnail">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>PNG Frame</span>
+          </button>
+
+          <button id="canvasQuickSaveBtn" class="btn-chip btn-chip-save" title="Save current clip to Vault">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+            </svg>
+            <span>Quick Save</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 9:16 Phone Viewport Wrapper -->
+      <div class="phone-stage-container">
+        <div id="phoneFrameWrap" class="phone-frame-wrap">
+          <canvas id="previewCanvas" width="1080" height="1920" aria-label="9:16 Short-Form Video Canvas"></canvas>
+
+          <!-- Live Recording Indicator Overlay (shown during Export) -->
+          <div id="recordingOverlayBadge" class="recording-overlay-badge hidden">
+            <span class="rec-dot"></span>
+            <span id="recordingStatusText">REC 9:16 • 0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Canvas Status Telemetry -->
+      <div class="canvas-telemetry-bar">
+        <div class="telemetry-item">
+          <span class="telemetry-dot dot-green"></span>
+          <span id="telemetryResolution">1080×1920 (9:16) • 60 FPS</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">LAYOUT:</span>
+          <span id="telemetryLayout" class="telemetry-val">Full Screen 9:16 (No Split)</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">3D FX:</span>
+          <span id="telemetry3DFx" class="telemetry-val" style="color:#06b6d4;">Clean (None)</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">VIRAL SCORE:</span>
+          <span id="telemetryScore" class="telemetry-val score-emerald">99/100 🔥</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         RIGHT SIDEBAR: 6-TAB STUDIO INSPECTOR
+         =================================================================== -->
+    <aside class="sidebar sidebar-right" aria-label="Studio Inspector Controls">
+      <!-- 6 Inspector Navigation Tabs -->
+      <nav class="inspector-tabs" role="tablist">
+        <button type="button" class="inspector-tab active" data-tab="layout" role="tab" aria-selected="true" title="Aspect & Framing">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="13" x2="21" y2="13"/>
+          </svg>
+          <span>Layout</span>
+        </button>
+        <button type="button" class="inspector-tab" data-tab="hardfx" role="tab" aria-selected="false" title="Jump Cuts, Shakes & Multi-Clip Sequence">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor"/>
+          </svg>
+          <span>Hard Cuts &amp; FX</span>
+        </button>
+        <button type="button" class="inspector-tab" data-tab="visuals" role="tab" aria-selected="false" title="Image & Video Cut-Ins">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Visuals</span>
+        </button>
+        <button type="button" class="inspector-tab" data-tab="captions" role="tab" aria-selected="false" title="Subtitles & Hook">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M6 12h4m4 0h4M6 16h8"/>
+          </svg>
+          <span>Captions</span>
+        </button>
+        <button type="button" class="inspector-tab" data-tab="audio" role="tab" aria-selected="false" title="Mixer & Silences">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 10v3m4-7v11m4-14v17m4-13v9m4-5v3m4-7v11"/>
+          </svg>
+          <span>Audio</span>
+        </button>
+        <button type="button" class="inspector-tab" data-tab="whop" role="tab" aria-selected="false" title="Export & Payout">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span>Export</span>
+        </button>
+      </nav>
+
+      <!-- TAB 1: LAYOUT & FRAMING (DEFAULT: FULL 9:16 NO SPLIT) -->
+      <div id="tabPanel-layout" class="inspector-panel active" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">9:16 Video Layout (No Split Default)</span>
+            <span class="group-badge badge-emerald">HIGH RETENTION</span>
+          </div>
+          <div id="layoutModeGrid" class="layout-mode-grid">
+            <button type="button" class="layout-card active" data-layout="full-main">
+              <div class="layout-preview preview-full" style="background:#0f172a; border:1.5px solid #10b981; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <span style="font-size:9.5px; color:#10b981; font-weight:800;">📱 FULL 9:16</span>
+                <span style="font-size:7.5px; color:#94a3b8;">NO SPLIT • PURE VERTICAL</span>
+              </div>
+              <span class="layout-name">📱 Full Screen 9:16 (Recommended)</span>
+            </button>
+            <button type="button" class="layout-card" data-layout="ambient-blur">
+              <div class="layout-preview" style="background:#0b0c16; border:1px solid #6366f1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2px;">
+                <span style="font-size:8px; color:#818cf8;">AMBIENT BLUR</span>
+                <span style="font-size:9px; color:#fff; font-weight:700; background:#1e1e38; padding:2px 6px; border-radius:3px;">100% WHOLE FIT</span>
+                <span style="font-size:8px; color:#818cf8;">AMBIENT BLUR</span>
+              </div>
+              <span class="layout-name">🌟 Ambient Blur (100% Fit)</span>
+            </button>
+            <button type="button" class="layout-card" data-layout="split-60-40">
+              <div class="layout-preview preview-60-40"><span>TOP 58%</span><span>B-ROLL 42%</span></div>
+              <span class="layout-name">Split 60/40 (Optional)</span>
+            </button>
+            <button type="button" class="layout-card" data-layout="split-50-50">
+              <div class="layout-preview preview-50-50"><span>TOP 50%</span><span>B-ROLL 50%</span></div>
+              <span class="layout-name">Split 50/50 Twin</span>
+            </button>
+            <button type="button" class="layout-card" data-layout="pip-facecam">
+              <div class="layout-preview preview-pip"><span>MAIN 9:16</span><span class="pip-box">B-ROLL</span></div>
+              <span class="layout-name">PiP Corner Box</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Speaker Crop &amp; AI Face Reframe</span>
+          </div>
+          <div class="framing-preset-row">
+            <button type="button" class="btn-chip active" data-framing="center">Center Lock</button>
+            <button type="button" class="btn-chip" data-framing="left">Host Left</button>
+            <button type="button" class="btn-chip" data-framing="right">Guest Right</button>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Base Camera Zoom</span>
+              <span id="zoomValueLabel" class="mono-val">1.00×</span>
+            </div>
+            <input type="range" id="cameraZoomSlider" min="1" max="1.5" step="0.01" value="1.00" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Speaker Horizontal Pan (X)</span>
+              <span id="panXValueLabel" class="mono-val">0%</span>
+            </div>
+            <input type="range" id="cameraPanXSlider" min="-40" max="40" step="1" value="0" />
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Optional Satisfying B-Roll (Split Mode Only)</span>
+            <button type="button" id="uploadCustomBrollBtn" class="btn-link-action">+ Upload Custom</button>
+          </div>
+          <div id="brollPresetGrid" class="broll-preset-grid">
+            <!-- Populated dynamically from WhopBrollEngine.BROLL_PRESETS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: HARD FX & AI MULTI-CUTS -->
+      <div id="tabPanel-hardfx" class="inspector-panel" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">⚡ CapCut-Style Hard Editing Master</span>
+            <label class="inline-switch">
+              <input type="checkbox" id="hardFxMasterToggle" />
+              <span>Active</span>
+            </label>
+          </div>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>⚡ Dynamic Jump-Cut Zooms (1.0× ↔ 1.28×)</strong>
+              <small>Auto-cuts camera punch-in every 2.8s &amp; on emphasis beats</small>
+            </span>
+            <input type="checkbox" id="hardJumpCutsToggle" />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>💥 Camera Impact Shake</strong>
+              <small>Rapid camera shake on hook entrance &amp; vocal spikes</small>
+            </span>
+            <input type="checkbox" id="hardImpactShakeToggle" />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>⚡ Strobe Flash on Cuts</strong>
+              <small>2-frame subtle white/cyan lightning flash on transitions</small>
+            </span>
+            <input type="checkbox" id="hardStrobeFlashToggle" />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>🎞️ Cinematic 35mm Film Grain &amp; Vignette</strong>
+              <small>Netflix/cinema subtle film texture &amp; corner depth</small>
+            </span>
+            <input type="checkbox" id="hardFilmGrainToggle" />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>🌈 RGB Chromatic Glitch Hit</strong>
+              <small>Color-split glitch during hook banner and beat hits</small>
+            </span>
+            <input type="checkbox" id="hardRgbGlitchToggle" />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>💨 Radial Zoom Speed Burst Lines</strong>
+              <small>Manga/anime speed lines on camera punch-ins</small>
+            </span>
+            <input type="checkbox" id="hardSpeedLinesToggle" />
+          </label>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Jump-Cut Zoom Multiplier</span>
+              <span id="hardZoomIntensityLabel" class="mono-val">1.28×</span>
+            </div>
+            <input type="range" id="hardZoomIntensitySlider" min="1.1" max="1.45" step="0.02" value="1.28" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Cut Cycle Frequency</span>
+              <span id="hardCutFrequencyLabel" class="mono-val">2.8s</span>
+            </div>
+            <input type="range" id="hardCutFrequencySlider" min="1.5" max="5.0" step="0.2" value="2.8" />
+          </div>
+        </div>
+
+        <!-- CapCut Sequence Cuts & Shot List -->
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">🎬 Sequence Video Cuts &amp; Transitions</span>
+            <button type="button" id="addNewCutBtn" class="btn-chip btn-chip-save" title="Split/Add Cut at Playhead (Ctrl+B)">+ Add Cut</button>
+          </div>
+          <div id="sequenceCutsList" class="sequence-cuts-list">
+            <!-- Dynamically populated cut cards with zoom, speed, transition -->
+          </div>
+        </div>
+
+        <!-- Selected Cut Clip Inspector -->
+        <div id="selectedCutInspector" class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">✂️ Selected Cut Settings</span>
+            <span id="selectedCutBadge" class="group-badge" style="color:#00f2fe; border-color:#00f2fe;">Cut #1</span>
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Cut Punch Zoom</span>
+              <span id="selectedCutZoomLabel" class="mono-val">1.25×</span>
+            </div>
+            <input type="range" id="selectedCutZoomSlider" min="1.0" max="1.6" step="0.05" value="1.25" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Camera Pan X</span>
+              <span id="selectedCutPanXLabel" class="mono-val">0%</span>
+            </div>
+            <input type="range" id="selectedCutPanXSlider" min="-40" max="40" step="1" value="0" />
+          </div>
+          <div class="control-row" style="margin-top:6px;">
+            <label class="control-label" style="font-size:11px; font-weight:600; color:#cbd5e1;">Transition into Cut:</label>
+            <select id="selectedCutTransitionSelect" class="styled-select" style="margin-top:4px;">
+              <option value="flash">⚡ Strobe Flash Cut</option>
+              <option value="punch">👊 Dynamic Punch Zoom</option>
+              <option value="glitch">🌈 Chromatic Glitch</option>
+              <option value="shake">💥 Camera Shake Hit</option>
+              <option value="cut">✂️ Hard Jump Cut</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: VISUAL OVERLAYS, MEMES & CUT-IN MEDIA -->
+      <div id="tabPanel-visuals" class="inspector-panel" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">🖼️ Add Custom Visual Image / Video Cut-In</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <button type="button" id="btnUploadVisualImage" class="btn-mini btn-accent" style="padding:8px 6px; font-size:11px; font-weight:700;">
+              📂 Upload Image (.PNG/.JPG)
+            </button>
+            <button type="button" id="btnUploadVisualVideo" class="btn-mini" style="padding:8px 6px; font-size:11px; font-weight:700; background:#1e1e38; border:1px solid #3b82f6; color:#93c5fd;">
+              🎬 Upload Cut-In Video
+            </button>
+          </div>
+          <p style="font-size:10.5px; color:#94a3b8; margin-top:6px;">
+            Upload any custom image, reaction meme, diagram or video clip to pop up or cut into the video.
+          </p>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">🔥 Quick Viral Stickers &amp; Memes Library</span>
+            <span class="tiny-hint">Click to insert</span>
+          </div>
+          <div class="meme-preset-grid">
+            <button type="button" class="meme-preset-btn" data-meme="stonks">
+              <span class="meme-preset-icon">📈</span>
+              <span class="meme-preset-name">Stonks Graph</span>
+            </button>
+            <button type="button" class="meme-preset-btn" data-meme="money-rain">
+              <span class="meme-preset-icon">💸</span>
+              <span class="meme-preset-name">Money Rain</span>
+            </button>
+            <button type="button" class="meme-preset-btn" data-meme="mind-blown">
+              <span class="meme-preset-icon">🤯</span>
+              <span class="meme-preset-name">Mind Blown</span>
+            </button>
+            <button type="button" class="meme-preset-btn" data-meme="breaking-news">
+              <span class="meme-preset-icon">🚨</span>
+              <span class="meme-preset-name">Breaking News</span>
+            </button>
+            <button type="button" class="meme-preset-btn" data-meme="secret-hack">
+              <span class="meme-preset-icon">🤫</span>
+              <span class="meme-preset-name">Secret Hack</span>
+            </button>
+            <button type="button" class="meme-preset-btn" data-meme="whop-vip">
+              <span class="meme-preset-icon">👑</span>
+              <span class="meme-preset-name">Verified VIP</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Active Visual Overlays on Screen</span>
+            <span id="activeOverlaysCountBadge" class="count-pill">1 ITEM</span>
+          </div>
+          <div id="visualOverlaysList" class="visual-overlays-list">
+            <!-- Populated dynamically by clipper-app.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CAPTIONS, HOOK BANNER & LIVE TRANSCRIPT -->
+      <div id="tabPanel-captions" class="inspector-panel" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Word-by-Word Karaoke Style</span>
+            <label class="inline-switch">
+              <input type="checkbox" id="captionsEnabledToggle" checked />
+              <span>Active</span>
+            </label>
+          </div>
+
+          <div id="captionStyleGrid" class="caption-style-grid">
+            <button type="button" class="caption-preset-card active" data-caption-style="hormozi-pop">
+              <span class="cap-sample sample-hormozi">VIRAL POP 🔥</span>
+              <span class="cap-title">Hormozi Pop</span>
+            </button>
+            <button type="button" class="caption-preset-card" data-caption-style="mrbeast-bold">
+              <span class="cap-sample sample-mrbeast">VIRAL HOOK</span>
+              <span class="cap-title">MrBeast Impact</span>
+            </button>
+            <button type="button" class="caption-preset-card" data-caption-style="whop-fire">
+              <span class="cap-sample sample-whop">WHOP BOUNTY 🔥</span>
+              <span class="cap-title">Whop Crimson</span>
+            </button>
+            <button type="button" class="caption-preset-card" data-caption-style="neon-cyber">
+              <span class="cap-sample sample-neon">RETENTION ⚡</span>
+              <span class="cap-title">Cyber Glow</span>
+            </button>
+            <button type="button" class="caption-preset-card" data-caption-style="clean-pill">
+              <span class="cap-sample sample-pill">Clean Box</span>
+              <span class="cap-title">Minimal Pill</span>
+            </button>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Caption Font Scale</span>
+              <span id="captionSizeLabel" class="mono-val">100%</span>
+            </div>
+            <input type="range" id="captionSizeSlider" min="75" max="135" step="5" value="100" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Vertical Placement (Y)</span>
+              <span id="captionPosYLabel" class="mono-val">56%</span>
+            </div>
+            <input type="range" id="captionPosYSlider" min="25" max="82" step="1" value="56" />
+          </div>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>Auto-Inject Viral Keyword Emojis</strong>
+              <small>Renders contextual emojis (💰🔥🚀🤯) above active words</small>
+            </span>
+            <input type="checkbox" id="autoEmojiToggle" checked />
+          </label>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">3-Second Pattern-Interrupt Hook Banner</span>
+          </div>
+          <input
+            type="text"
+            id="hookBannerTextInput"
+            class="studio-input"
+            value="WAIT TILL HE REVEALS THE $12K/MO WHOP SECRET 🤯👇"
+            placeholder="Enter top hook headline..."
+          />
+          <div class="hook-mode-row">
+            <button type="button" class="btn-chip active" data-hook-mode="3s">First 3.5s Hook</button>
+            <button type="button" class="btn-chip" data-hook-mode="always">Always On</button>
+            <button type="button" class="btn-chip" data-hook-mode="off">Hidden</button>
+          </div>
+        </div>
+
+        <!-- AI Topic Image & Visual B-Roll Overlay Card -->
+        <div class="inspector-group" id="imageOverlayCard">
+          <div class="group-header">
+            <span class="group-title">🖼️ Topic Image &amp; Visual Layer</span>
+            <label class="inline-switch">
+              <input type="checkbox" id="imageOverlayToggle" checked />
+              <span>Active</span>
+            </label>
+          </div>
+          <div class="image-overlay-preview-row" style="display:flex; gap:10px; align-items:center; background:rgba(15,15,30,0.6); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+            <img id="overlayImagePreview" src="" alt="Topic Visual" class="overlay-thumb-img" style="display:none; width:52px; height:52px; border-radius:8px; object-fit:cover; border:1.5px solid #00f2fe;" />
+            <div class="overlay-meta-col" style="flex:1;">
+              <div id="overlayImageTitle" class="overlay-title-badge" style="font-size:11px; font-weight:700; color:#38bdf8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">AI Concept</div>
+              <div style="display:flex; gap:6px; margin-top:4px;">
+                <button type="button" id="uploadCustomImageBtn" class="btn-chip" style="font-size:10px; flex:1;">📂 Replace Image</button>
+                <button type="button" id="overlayResetPosBtn" class="btn-chip" style="font-size:10px;" title="Reset position to center">🎯 Center</button>
+                <button type="button" id="overlayRemoveBtn" class="btn-chip" style="font-size:10px; color:#ef4444;" title="Delete this overlay">🗑️</button>
+              </div>
+              <input type="file" id="customImageFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
+            </div>
+          </div>
+          <p style="font-size:10px; color:#38bdf8; margin:6px 0 2px 0;">
+            ✨ Drag image on Canvas or Timeline to move/resize freely!
+          </p>
+          <div class="slider-control" style="margin-top:8px;">
+            <div class="slider-label-row">
+              <span>Image Size / Scale</span>
+              <span id="overlayScaleLabel" class="mono-val">100%</span>
+            </div>
+            <input type="range" id="overlayScaleSlider" min="30" max="220" step="5" value="100" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Position Horizontal (X)</span>
+              <span id="overlayPosXLabel" class="mono-val">50%</span>
+            </div>
+            <input type="range" id="overlayPosXSlider" min="10" max="90" step="1" value="50" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Position Vertical (Y)</span>
+              <span id="overlayPosYLabel" class="mono-val">38%</span>
+            </div>
+            <input type="range" id="overlayPosYSlider" min="10" max="90" step="1" value="38" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Start Offset (Into Clip)</span>
+              <span id="overlayStartLabel" class="mono-val">2.5s</span>
+            </div>
+            <input type="range" id="overlayStartSlider" min="0" max="25" step="0.5" value="2.5" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Display Duration</span>
+              <span id="overlayDurationLabel" class="mono-val">4.5s</span>
+            </div>
+            <input type="range" id="overlayDurationSlider" min="1.0" max="15.0" step="0.5" value="4.5" />
+          </div>
+        </div>
+
+        <div class="inspector-group transcript-group">
+          <div class="group-header">
+            <span class="group-title">FilmCraft Text-Based Video Editor</span>
+            <span class="tiny-hint">Click word to jump • Edit video via text</span>
+          </div>
+          <div class="transcript-action-bar" style="display:flex; gap:6px; margin-bottom:8px;">
+            <button type="button" id="transcriptTrimInBtn" class="btn-mini" style="font-size:10.5px; padding:4px 8px; background:#1e1e38; border:1px solid #3b82f6; color:#93c5fd; border-radius:4px; cursor:pointer;" title="Set clip start to current word">✂️ Trim In (Q)</button>
+            <button type="button" id="transcriptTrimOutBtn" class="btn-mini" style="font-size:10.5px; padding:4px 8px; background:#1e1e38; border:1px solid #3b82f6; color:#93c5fd; border-radius:4px; cursor:pointer;" title="Set clip end to current word">⏩ Trim Out (W)</button>
+            <button type="button" id="transcriptSnap30sBtn" class="btn-mini btn-accent" style="font-size:10.5px; padding:4px 8px; border-radius:4px; cursor:pointer;" title="Snap exact 30s highlight window centered at current word">⚡ Snap 30s</button>
+          </div>
+          <div id="transcriptWordCloud" class="transcript-word-cloud">
+            <!-- Populated dynamically with clickable/editable word chips -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: AUDIO MIXER, SILENCE CUTTER & SFX -->
+      <div id="tabPanel-audio" class="inspector-panel" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">AI Pacing &amp; Silence Cutter</span>
+            <span class="group-badge badge-emerald">AUTO-POLISH</span>
+          </div>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>Auto-Skip Dead Air &amp; Breath Pauses</strong>
+              <small>Jumps over silent gaps (&gt;0.4s) automatically during playback</small>
+            </span>
+            <input type="checkbox" id="cutSilenceToggle" checked />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-label">
+              <strong>Broadcast Loudness Normalizer (-14 LUFS)</strong>
+              <small>Boosts vocal presence for TikTok / Reels / Shorts compression</small>
+            </span>
+            <input type="checkbox" id="loudnessNormToggle" checked />
+          </label>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">3-Bus Studio Audio Mixer</span>
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>🎙️ Main Speaker Voice</span>
+              <span id="mainVolLabel" class="mono-val">95%</span>
+            </div>
+            <input type="range" id="mainVolSlider" min="0" max="120" step="5" value="95" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>🎵 Viral Background Music Bed</span>
+              <span id="musicVolLabel" class="mono-val">35%</span>
+            </div>
+            <input type="range" id="musicVolSlider" min="0" max="100" step="5" value="35" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>🎮 Satisfying B-Roll Ambience</span>
+              <span id="brollVolLabel" class="mono-val">15%</span>
+            </div>
+            <input type="range" id="brollVolSlider" min="0" max="100" step="5" value="15" />
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Procedural Copyright-Free Music Bed</span>
+          </div>
+          <div id="musicPresetList" class="music-preset-list">
+            <!-- Populated from WhopAudioEngine.MUSIC_PRESETS -->
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Viral Hook Sound Effects (Instant Trigger)</span>
+          </div>
+          <div class="sfx-pad-grid">
+            <button type="button" class="sfx-pad-btn" data-sfx="whoosh">💨 Transition Whoosh</button>
+            <button type="button" class="sfx-pad-btn" data-sfx="cash">💰 Whop Cash Ding</button>
+            <button type="button" class="sfx-pad-btn" data-sfx="bass-drop">🔊 808 Sub Drop</button>
+            <button type="button" class="sfx-pad-btn" data-sfx="ding">🔔 Retention Bell</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: WHOP BOUNTY COMPLIANCE, CPM CALCULATOR & SAVE/EXPORT -->
+      <div id="tabPanel-whop" class="inspector-panel" role="tabpanel">
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Whop Bounty Compliance Checklist</span>
+            <span id="complianceStatusBadge" class="group-badge badge-emerald">5/5 READY</span>
+          </div>
+          <ul id="complianceChecklist" class="compliance-checklist">
+            <li data-check="aspect" class="passed"><span class="check-icon">✓</span> 9:16 Vertical (1080×1920)</li>
+            <li data-check="duration" class="passed"><span class="check-icon">✓</span> Optimal Bounty Length (8s–60s)</li>
+            <li data-check="hook" class="passed"><span class="check-icon">✓</span> 3s Pattern-Interrupt Hook Active</li>
+            <li data-check="captions" class="passed"><span class="check-icon">✓</span> Word-by-Word Dynamic Captions</li>
+            <li data-check="watermark" class="passed"><span class="check-icon">✓</span> Verified Campaign Watermark</li>
+          </ul>
+
+          <div class="watermark-input-wrap">
+            <label class="tiny-label" for="watermarkTextInput">CAMPAIGN WATERMARK TAG:</label>
+            <div class="url-ingest-row">
+              <input
+                type="text"
+                id="watermarkTextInput"
+                class="studio-input"
+                value="@WhopClipper • Verified Bounty"
+              />
+              <label class="inline-switch">
+                <input type="checkbox" id="watermarkEnabledToggle" checked />
+                <span>Show</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Bounty CPM Payout Estimator</span>
+            <span id="cpmRateBadge" class="mono-val">$2.50 / 1K</span>
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Projected Short Views</span>
+              <span id="projectedViewsLabel" class="mono-val">250,000 views</span>
+            </div>
+            <input type="range" id="projectedViewsSlider" min="10000" max="2000000" step="10000" value="250000" />
+          </div>
+          <div class="payout-card">
+            <div>
+              <span class="payout-sub">ESTIMATED WHOP BOUNTY PAYOUT</span>
+              <div id="calculatedPayoutAmount" class="payout-amount">$625.00</div>
+            </div>
+            <span class="payout-pill">INSTANT PAYOUT</span>
+          </div>
+        </div>
+
+        <div class="inspector-group">
+          <div class="group-header">
+            <span class="group-title">Viral Post Caption &amp; Hashtags</span>
+            <button type="button" id="copyHashtagsBtn" class="btn-link-action">Copy Text</button>
+          </div>
+          <textarea id="postCaptionTextarea" class="studio-textarea" rows="2" readonly>How 19-year-old clippers quietly clear $12k/mo slicing podcasts on Whop 🤯💰 #whop #clipping #sidehustle #podcastclips #viralshorts</textarea>
+        </div>
+
+        <div class="inspector-group save-export-card-group">
+          <div class="group-header">
+            <span class="group-title">Save &amp; Export Suite</span>
+          </div>
+          <div class="save-suite-buttons">
+            <button type="button" id="inspectorSaveClipBtn" class="btn-studio btn-save-clip full-width">
+              💾 Save Clip to Studio Vault
+            </button>
+            <div class="save-suite-row">
+              <button type="button" id="inspectorDownloadJsonBtn" class="btn-chip full-width">📄 Save .JSON Project</button>
+              <button type="button" id="inspectorDownloadSrtBtn" class="btn-chip full-width">📝 Export .SRT</button>
+            </div>
+            <button type="button" id="inspectorExportVideoBtn" class="btn-studio btn-export-primary full-width">
+              🎬 Render &amp; Download 9:16 Video
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- =====================================================================
+       BOTTOM MULTI-TRACK TIMELINE & WAVEFORM SCRUBBER
+       ===================================================================== -->
+  <footer class="studio-timeline" aria-label="Multi-Track Video Timeline">
+    <!-- Timeline Transport Bar -->
+    <div class="timeline-transport-bar">
+      <div class="transport-left">
+        <button type="button" id="skipStartBtn" class="btn-icon" title="Jump to Clip In-Point (Home)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="19 20 9 12 19 4 19 20"/>
+            <line x1="5" y1="19" x2="5" y2="5"/>
+          </svg>
+        </button>
+        <button type="button" id="playPauseBtn" class="btn-play-main" title="Play / Pause Preview (Space)">
+          <svg id="playIconSvg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4"/>
+          </svg>
+        </button>
+        <button type="button" id="loopToggleBtn" class="btn-icon active" title="Loop Active Clip Trim Region">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="17 1 21 5 17 9"/>
+            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/>
+            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+        </button>
+        <select id="playbackSpeedSelect" class="speed-select" aria-label="Playback Speed">
+          <option value="1">1.0× Speed</option>
+          <option value="1.15">1.15× Viral Pace</option>
+          <option value="1.25">1.25× Fast</option>
+          <option value="1.5">1.5× Hyper</option>
+        </select>
+
+        <div class="timecode-readout">
+          <span id="currentTimecode">00:00.0</span>
+          <span class="timecode-sep">/</span>
+          <span id="totalDurationTimecode">00:14.3</span>
+        </div>
+      </div>
+
+      <div class="transport-center">
+        <!-- CapCut Direct Timeline Tools -->
+        <div class="capcut-edit-toolbar">
+          <button type="button" id="capcutSplitBtn" class="btn-capcut-tool" title="Split Clip at Playhead (Ctrl+B)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+              <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+              <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+            </svg>
+            <span>Split (Ctrl+B)</span>
+          </button>
+          <button type="button" id="capcutTrimInBtn" class="btn-capcut-tool" title="Ripple Trim Left to Playhead (Q)">
+            <span>⏪ Cut In (Q)</span>
+          </button>
+          <button type="button" id="capcutTrimOutBtn" class="btn-capcut-tool" title="Ripple Trim Right to Playhead (W)">
+            <span>Cut Out (W) ⏩</span>
+          </button>
+          <button type="button" id="capcutDeleteBtn" class="btn-capcut-tool btn-capcut-danger" title="Delete Selected Block or Layer (Del)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Delete</span>
+          </button>
+          <button type="button" id="capcutMuteBgBtn" class="btn-capcut-tool active" title="Toggle Background Sound">
+            <span id="muteBgIcon">🔇</span>
+            <span id="muteBgText">BG Sound: OFF</span>
+          </button>
+          <div class="capcut-volume-slider-group" title="Master Audio Output Volume" style="display:inline-flex; align-items:center; gap:4px; margin-left:4px;">
+            <span id="volIconLabel" style="font-size:11px;">🔊</span>
+            <input type="range" id="timelineMasterVolSlider" min="0" max="150" value="100" style="width:65px; height:4px; accent-color:#00f2fe;" />
+            <span id="timelineMasterVolLabel" class="mono-val" style="font-size:10px; color:#a5b4fc; min-width:30px;">100%</span>
+          </div>
+        </div>
+
+        <span id="clipRangePill" class="timeline-stat-pill">IN 0.0s → OUT 14.3s (14.3s)</span>
+      </div>
+
+      <div class="transport-right">
+        <!-- CapCut Smooth Timeline Zoom Slider -->
+        <div class="timeline-zoom-wrapper" title="CapCut Timeline Zoom Slider (100% = Clip Focus, 0% = Full Video)">
+          <span class="zoom-icon">🔍</span>
+          <input type="range" id="timelineZoomSlider" min="0" max="100" value="100" />
+          <span id="zoomPercentLabel" class="zoom-pct">Clip Focus</span>
+        </div>
+        <button type="button" id="timelineSaveBtn" class="btn-chip btn-chip-save" title="Save Current Clip to Vault">
+          💾 Save Clip
+        </button>
+        <button type="button" id="resetTrimBtn" class="btn-chip" title="Reset In/Out Trim Handles to Active Viral Clip">
+          Reset Trim
+        </button>
+      </div>
+    </div>
+
+    <!-- Interactive Multi-Track Scrubber Area -->
+    <div class="timeline-tracks-wrapper">
+      <!-- Left Track Headers with CapCut Track Controls -->
+      <div class="track-headers">
+        <div class="track-header-item">
+          <span>🎬 Video Cuts</span>
+          <button type="button" class="track-action-btn" id="trackAddCutBtn" title="Split / Add Cut at Playhead (Ctrl+B)">✂️</button>
+        </div>
+        <div class="track-header-item">
+          <span>💬 Captions</span>
+          <button type="button" class="track-action-btn" id="trackToggleCaptions" title="Show/Hide Karaoke Captions">👁️</button>
+        </div>
+        <div class="track-header-item">
+          <span>🖼️ Overlays &amp; Media</span>
+          <button type="button" class="track-action-btn" id="trackToggleOverlays" title="Show/Hide Overlays &amp; Topic Image">👁️</button>
+        </div>
+        <div class="track-header-item">
+          <span>🎵 Audio &amp; Waveform</span>
+          <button type="button" class="track-action-btn" id="trackToggleMainAudio" title="Mute/Unmute Main Audio">🔊</button>
+        </div>
+      </div>
+
+      <!-- Right Interactive Timeline Stage -->
+      <div id="timelineStage" class="timeline-stage">
+        <!-- Time Ruler -->
+        <div id="timelineRuler" class="timeline-ruler"></div>
+
+        <!-- Track 1: Interactive Video Cuts Blocks -->
+        <div id="videoTrackLane" class="track-lane track-video-cuts"></div>
+
+        <!-- Track 2: Karaoke Caption Segments -->
+        <div id="captionTrackLane" class="track-lane track-captions"></div>
+
+        <!-- Track 3: Hook Banner + Watermark Overlay Track -->
+        <div id="overlayTrackLane" class="track-lane track-overlays"></div>
+
+        <!-- Track 4: Audio Track with Waveform & Audio Blocks -->
+        <div id="audioTrackLane" class="track-lane track-audio">
+          <canvas id="waveformCanvas" width="1200" height="36"></canvas>
+        </div>
+
+        <!-- Playhead Line -->
+        <div id="timelinePlayhead" class="timeline-playhead">
+          <div class="playhead-cap"></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =====================================================================
+       MODAL 1: SAVED CLIPS VAULT DRAWER / MODAL
+       ===================================================================== -->
+  <div id="savedVaultModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="vaultModalTitle">
+    <div class="modal-card modal-vault">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="vaultModalTitle" class="modal-title">📂 Saved Clips Vault</h3>
+          <span class="modal-subtitle">Persistent studio storage — load any saved clip back into the timeline or export its project files</span>
+        </div>
+        <div class="modal-header-actions">
+          <button type="button" id="importProjectBtn" class="btn-chip" title="Import a .whopclip.json project file">
+            📥 Import .JSON Project
+          </button>
+          <button type="button" id="saveCurrentInVaultModalBtn" class="btn-studio btn-save-clip">
+            💾 + Save Active Clip Now
+          </button>
+          <button type="button" id="closeVaultModalBtn" class="btn-close-modal" aria-label="Close Saved Clips Vault">✕</button>
+        </div>
+      </div>
+
+      <div id="savedClipsGrid" class="saved-clips-grid">
+        <!-- Populated dynamically by clipper-app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 2: EXPORT 9:16 VIDEO & PROJECT FILES MODAL
+       ===================================================================== -->
+  <div id="exportModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="modal-card modal-export">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="exportModalTitle" class="modal-title">🎬 Export 9:16 Viral Clip &amp; Project Assets</h3>
+          <span class="modal-subtitle">Render real vertical video with burned-in karaoke captions, split B-roll &amp; mixed WebAudio</span>
+        </div>
+        <button type="button" id="closeExportModalBtn" class="btn-close-modal" aria-label="Close Export Modal">✕</button>
+      </div>
+
+      <div class="export-modal-body">
+        <div class="export-summary-grid">
+          <div class="export-spec-box">
+            <span class="spec-label">RESOLUTION &amp; FPS</span>
+            <strong class="spec-val">1080×1920 (9:16) @ 30/60fps</strong>
+          </div>
+          <div class="export-spec-box">
+            <span class="spec-label">CLIP DURATION</span>
+            <strong id="exportSpecDuration" class="spec-val">14.3 Seconds</strong>
+          </div>
+          <div class="export-spec-box">
+            <span class="spec-label">SPLIT &amp; B-ROLL</span>
+            <strong id="exportSpecLayout" class="spec-val">Split 60/40 • Minecraft</strong>
+          </div>
+          <div class="export-spec-box">
+            <span class="spec-label">WHOP BOUNTY STATUS</span>
+            <strong class="spec-val score-emerald">✓ 100% Verified Ready</strong>
+          </div>
+        </div>
+
+        <!-- Progress Bar for Real-Time Canvas + WebAudio Recording -->
+        <div id="exportProgressSection" class="export-progress-section hidden">
+          <div class="progress-label-row">
+            <span id="exportProgressStatus">Rendering 9:16 Canvas + WebAudio Stream...</span>
+            <span id="exportProgressPercent" class="mono-val">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="exportProgressBar" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="export-actions-grid">
+          <button type="button" id="startFfmpegRenderBtn" class="export-option-card export-option-primary" style="background: linear-gradient(135deg, #e11d48, #6366f1); border-color: #fb7185;">
+            <div class="export-opt-icon">⚡</div>
+            <div class="export-opt-info">
+              <strong style="color:#ffffff;">Fast Native FFmpeg Render (1080×1920 MP4)</strong>
+              <span style="color:#f1f5f9;">Instant server-side render with burned-in karaoke captions &amp; B-roll in ~3 seconds</span>
+            </div>
+          </button>
+
+          <button type="button" id="startVideoRenderBtn" class="export-option-card">
+            <div class="export-opt-icon">🎬</div>
+            <div class="export-opt-info">
+              <strong>Browser Canvas Recorder (.WEBM / .MP4)</strong>
+              <span>Captures real-time 9:16 canvas + audio stream via MediaRecorder</span>
+            </div>
+          </button>
+
+          <button type="button" id="exportModalSaveVaultBtn" class="export-option-card">
+            <div class="export-opt-icon">💾</div>
+            <div class="export-opt-info">
+              <strong>Save Clip to Studio Vault</strong>
+              <span>Saves full clip state + thumbnail into browser storage</span>
+            </div>
+          </button>
+
+          <button type="button" id="exportSrtBtn" class="export-option-card">
+            <div class="export-opt-icon">📝</div>
+            <div class="export-opt-info">
+              <strong>Download .SRT Subtitles</strong>
+              <span>Time-synced word &amp; phrase captions for Premiere / CapCut</span>
+            </div>
+          </button>
+
+          <button type="button" id="exportJsonProjectBtn" class="export-option-card">
+            <div class="export-opt-icon">📦</div>
+            <div class="export-opt-info">
+              <strong>Save .whopclip.json Project File</strong>
+              <span>Portable project snapshot with trim, B-roll &amp; transcript edits</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 3: SSEMBLE AI AUTO-CLIPPING HUB FULLSCREEN REVIEW
+       ===================================================================== -->
+  <div id="ssembleHubModal" class="ssemble-hub-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ssembleHubTitle">
+    <div class="ssemble-hub-dialog">
+      <div class="ssemble-hub-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:22px;">🤖</span>
+          <div>
+            <h3 id="ssembleHubTitle" style="font-size:16px; font-weight:800; color:#fff; display:flex; align-items:center; gap:8px;">
+              Ssemble AI Auto-Clipping Hub
+              <span class="status-pill status-emerald" id="ssembleModalBadge">14 VIRAL CLIPS READY</span>
+            </h3>
+            <span style="font-size:11.5px; color:#94a3b8;">Review and auto-edit high-retention 9:16 Shorts detected by AI</span>
+          </div>
+        </div>
+        <button type="button" id="closeSsembleHubBtn" class="btn-close-modal" aria-label="Close Ssemble Hub">✕</button>
+      </div>
+
+      <div class="ssemble-hub-body">
+        <!-- Ssemble Hero Banner in Modal -->
+        <div class="ssemble-hero-banner" style="margin-bottom:0;">
+          <div class="ssemble-hero-top">
+            <span class="ssemble-hero-title">🤖 AI auto-applies everything</span>
+            <span class="ssemble-pro-tag">SSEMBLE PRO</span>
+          </div>
+          <div class="ssemble-features-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header"><span>💬</span><span class="ssemble-auto-tag">AUTO</span></div>
+              <strong class="ssemble-pill-name">Auto Captions</strong>
+              <span class="ssemble-pill-desc">Animated, styled subtitles</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header"><span>🎯</span><span class="ssemble-auto-tag">AUTO</span></div>
+              <strong class="ssemble-pill-name">Hook Detection</strong>
+              <span class="ssemble-pill-desc">Starts at most engaging moment</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header"><span>🎵</span><span class="ssemble-auto-tag">AUTO</span></div>
+              <strong class="ssemble-pill-name">Trending Audio</strong>
+              <span class="ssemble-pill-desc">Matched to your content style</span>
+            </div>
+            <div class="ssemble-pill-item">
+              <div class="ssemble-pill-header"><span>📱</span><span class="ssemble-auto-tag">AUTO</span></div>
+              <strong class="ssemble-pill-name">9:16 Reframing</strong>
+              <span class="ssemble-pill-desc">Auto-crops to vertical format</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="ssembleModalClipsGrid" class="ssemble-hub-grid">
+          <!-- Populated dynamically by clipper-app.js with full Ssemble cards -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Stack -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="broll-engine.js"></script>
+  <script src="audio-engine.js"></script>
+  <script src="clipper-app.js"></script>
+</body>
+</html>

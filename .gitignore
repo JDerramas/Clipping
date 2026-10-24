@@ -1,0 +1,42 @@
+# Python Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.bak
+
+# Hugging Face & Local AI Model Cache
+hf_cache/
+.hf_cache/
+*.gguf
+*.onnx
+*.bin
+
+# User Uploads, Output Renders & Temp Cache
+uploads/
+outputs/
+temp/
+
+# External cloned reference repos (they have their own upstream repos)
+references/
+
+# Large Video Media files & Partial Downloads
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.avi
+*.part
+*.zip
+*.tar.gz
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
