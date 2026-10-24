@@ -323,8 +323,21 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             {"start": round(clip_start + 4.2, 2), "end": round(clip_start + 5.1, 2), "duration": 0.9, "label": "Breath Pause (-0.9s)"}
         ]
 
-        # Generate 6 Rich Categorized Viral Moments for Multi-Clip Selection
+        # Generate 7 Rich Categorized Viral Moments for Multi-Clip Selection
         mrbeast_candidates = [
+            {
+                "id": "clip-viral-0",
+                "title": "FULL MRBEAST INTERVIEW (COMPLETE 58s) 🎬",
+                "tag": "⭐ FULL MASTER EDIT",
+                "start": 0.0,
+                "end": 58.05,
+                "duration": 58.05,
+                "score": 100,
+                "hookScore": 99,
+                "pacingScore": 98,
+                "retentionScore": 99,
+                "reason": "Complete continuous 58s master interview: Full $20M Netflix pitch, mental breakdowns, and creator wisdom.",
+            },
             {
                 "id": "clip-viral-1",
                 "title": "MRBEAST: $20M ASK TO NETFLIX 🤯",

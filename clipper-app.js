@@ -12,15 +12,15 @@
 
   // Studio Application State
   const state = {
-    streamPreset: 'podcast-millionaire',
-    useCustomMainVideo: false,
+    streamPreset: '',
+    useCustomMainVideo: true,
     useCustomBrollVideo: true,
-    customMainFileName: '',
+    customMainFileName: 'clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4',
     customBrollFileName: 'satisfying_neon_runner.mp4',
 
     analysis: null,
     activeClipIndex: 0,
-    clipTitle: 'Viral Highlight Clip',
+    clipTitle: 'Full MrBeast Interview',
 
     // Playback & Trim
     isPlaying: false,
@@ -28,8 +28,8 @@
     playbackSpeed: 1.0,
     currentTime: 0.0,
     trimStart: 0.0,
-    trimEnd: 30.0,
-    streamDuration: 60.0,
+    trimEnd: 58.05,
+    streamDuration: 58.05,
 
     // Target Duration & AI Model Options
     targetDuration: 30,
@@ -44,17 +44,18 @@
     videoTemplate: 'hormozi1',
     originalUrl: 'https://youtu.be/c8VcUnz3nVc',
 
-    // Layout & B-Roll
-    // Layout & Framing (Default: Full Screen 9:16 - NO SPLIT!)
+    // Layout & Framing (Default: Unzoomed Fit - ALL PEOPLE VISIBLE!)
+    videoFitMode: 'fit', // 'fit' (Unzoomed • All People Visible) | 'fill' (9:16 Cropped)
     layoutMode: 'full-main', // 'full-main' (Default, No Split!) | 'ambient-blur' | 'split-60-40' | 'split-50-50' | 'pip-facecam'
     brollPreset: 'minecraft-parkour',
     framingPreset: 'center', // 'center' | 'left' | 'right'
     autoZoom: false,
     cameraZoom: 1.0,
     cameraPanX: 0,
+    cameraPanY: 0,
     reframeKeyframes: [],
     reframeStrategy: 'general_center',
-    wholeScreenFit: false, // false = pure 9:16 vertical fill, true = fit whole width
+    wholeScreenFit: true, // true = unzoomed fit to screen (all people visible)
     showSafeZones: false,
 
     // Professional Video Effects Suite (VFX & Color Grading)
@@ -93,7 +94,7 @@
       videoClips: [
         {
           id: 'cut-1',
-          title: 'Hook Cut #1',
+          title: 'Hook Cut #1: $20M Pitch',
           start: 0.0,
           end: 4.8,
           sourceStart: 0.0,
@@ -107,11 +108,11 @@
         },
         {
           id: 'cut-2',
-          title: 'Story Beat #2',
+          title: 'Story Beat #2: Pitching Netflix',
           start: 4.8,
-          end: 13.5,
+          end: 14.2,
           sourceStart: 4.8,
-          sourceEnd: 13.5,
+          sourceEnd: 14.2,
           zoom: 1.0,
           panX: 0,
           panY: 0,
@@ -121,11 +122,11 @@
         },
         {
           id: 'cut-3',
-          title: 'Key Dialogue #3',
-          start: 13.5,
-          end: 22.0,
-          sourceStart: 13.5,
-          sourceEnd: 22.0,
+          title: 'Dialogue Beat #3: Mental Breakdowns',
+          start: 14.2,
+          end: 28.5,
+          sourceStart: 14.2,
+          sourceEnd: 28.5,
           zoom: 1.0,
           panX: 0,
           panY: 0,
@@ -135,11 +136,25 @@
         },
         {
           id: 'cut-4',
-          title: 'Climax Beat #4',
-          start: 22.0,
-          end: 29.8,
-          sourceStart: 22.0,
-          sourceEnd: 29.8,
+          title: 'Reflection Beat #4: Behind the Scenes',
+          start: 28.5,
+          end: 42.0,
+          sourceStart: 28.5,
+          sourceEnd: 42.0,
+          zoom: 1.0,
+          panX: 0,
+          panY: 0,
+          volume: 1.0,
+          effect: 'none',
+          transition: 'cut'
+        },
+        {
+          id: 'cut-5',
+          title: 'Climax Beat #5: Creator Philosophy',
+          start: 42.0,
+          end: 58.05,
+          sourceStart: 42.0,
+          sourceEnd: 58.05,
           zoom: 1.0,
           panX: 0,
           panY: 0,
@@ -266,6 +281,20 @@
     dom.previewCanvas = document.getElementById('previewCanvas');
     dom.recordingOverlayBadge = document.getElementById('recordingOverlayBadge');
     dom.recordingStatusText = document.getElementById('recordingStatusText');
+
+    // CapCut Pro Stage Zoom & Framing DOM Elements
+    dom.stageZoomToolbar = document.getElementById('stageZoomToolbar');
+    dom.btnZoomOut = document.getElementById('btnZoomOut');
+    dom.stageZoomSlider = document.getElementById('stageZoomSlider');
+    dom.btnZoomIn = document.getElementById('btnZoomIn');
+    dom.stageZoomVal = document.getElementById('stageZoomVal');
+    dom.btnFitAllPeople = document.getElementById('btnFitAllPeople');
+    dom.btnFillVertical = document.getElementById('btnFillVertical');
+    dom.btnResetZoom = document.getElementById('btnResetZoom');
+    dom.btnPanLeft = document.getElementById('btnPanLeft');
+    dom.btnPanCenter = document.getElementById('btnPanCenter');
+    dom.btnPanRight = document.getElementById('btnPanRight');
+
     dom.telemetryLayout = document.getElementById('telemetryLayout');
     dom.telemetryBroll = document.getElementById('telemetryBroll');
     dom.telemetryScore = document.getElementById('telemetryScore');
@@ -583,36 +612,21 @@
   }
 
   function loadDemoStream(streamId, autoSelectClipIdx = 0) {
-    state.streamPreset = streamId;
-    state.useCustomMainVideo = false;
-    dom.activeSourceBadge.textContent = '60FPS DEMO';
-
-    // Update demo stream tab buttons if present
-    if (dom.demoStreamTabs) {
-      (dom.demoStreamTabs ? dom.demoStreamTabs.querySelectorAll('.demo-stream-btn') : []).forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.stream === streamId);
-      });
+    state.streamPreset = '';
+    state.useCustomMainVideo = true;
+    if (dom.activeSourceBadge) {
+      dom.activeSourceBadge.textContent = 'REAL VIDEO';
+      dom.activeSourceBadge.className = 'status-pill status-emerald';
     }
 
-    // Run synchronous + deterministic audio/viral analysis
-    const analysis = window.WhopAudioEngine.analyzeVideoBufferOrDemo(streamId);
-    state.analysis = analysis;
-    state.streamDuration = analysis.duration || 60;
+    state.videoTitle = 'The Full Story of MrBeast';
+    state.originalUrl = 'https://youtu.be/c8VcUnz3nVc';
+    state.videoLanguage = 'English';
+    state.videoTemplate = 'hormozi1';
 
-    if (streamId === 'mrbeast-interview' || streamId.includes('beast')) {
-      state.videoTitle = 'The Full Story of MrBeast';
-      state.originalUrl = 'https://youtu.be/c8VcUnz3nVc';
-      state.videoLanguage = 'English';
-      state.videoTemplate = 'hormozi1';
-    } else if (streamId === 'podcast-millionaire') {
-      state.videoTitle = 'Ep. 142: How Whop Clippers Make $12k/Mo From 30-Sec Shorts';
-      state.originalUrl = 'https://whop.com/creators';
-    } else if (streamId === 'streamer-alpha') {
-      state.videoTitle = 'LIVE STREAM: The Secret Algorithm Hook Nobody Talks About';
-      state.originalUrl = 'https://twitch.tv';
-    } else if (streamId === 'founder-breakdown') {
-      state.videoTitle = 'SaaS Breakdown: Why 99% of Short-Form Editors Fail in 3 Seconds';
-      state.originalUrl = 'https://retentionlabs.io';
+    if (dom.mainVideoEl) {
+      dom.mainVideoEl.src = '/uploads/clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4';
+      dom.mainVideoEl.load();
     }
 
     selectViralMoment(autoSelectClipIdx, false);
@@ -663,7 +677,9 @@
     }
 
     if (state.useCustomMainVideo && dom.mainVideoEl) {
-      dom.mainVideoEl.currentTime = state.currentTime;
+      if (Math.abs(dom.mainVideoEl.currentTime - state.currentTime) > 0.05) {
+        dom.mainVideoEl.currentTime = state.currentTime;
+      }
     }
 
     // Generate CapCut multi-cut sequence across selected clip
@@ -1541,15 +1557,40 @@
 
       const vw = dom.mainVideoEl.videoWidth || 1920;
       const vh = dom.mainVideoEl.videoHeight || 1080;
-      const isFit = state.layoutMode === 'ambient-blur' ? (state.wholeScreenFit !== false) : false;
-      const baseScale = isFit ? Math.min(rect.w / vw, rect.h / vh) : Math.max(rect.w / vw, rect.h / vh);
 
-      const zoom = (state.cameraZoom || 1.0) * cutZoom; // Clean, stable 1.0x scale
+      // UNZOOMED FIT MODE (Default): Fit 100% of video width so all people & speakers are visible!
+      const isFit = (state.videoFitMode !== 'fill');
+
+      // In Fit mode, render ambient blurred video extension in background (TikTok / CapCut pro style)
+      if (isFit) {
+        ctx.save();
+        ctx.filter = 'blur(28px) brightness(0.38) saturate(1.25)';
+        const bgScale = Math.max(rect.w / vw, rect.h / vh) * 1.08;
+        const bgW = vw * bgScale;
+        const bgH = vh * bgScale;
+        const bgX = rect.x + (rect.w - bgW) * 0.5;
+        const bgY = rect.y + (rect.h - bgH) * 0.5;
+        ctx.drawImage(dom.mainVideoEl, bgX, bgY, bgW, bgH);
+        ctx.restore();
+
+        // Subtle top and bottom letterbox vignette
+        const grad = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.h);
+        grad.addColorStop(0, 'rgba(0,0,0,0.65)');
+        grad.addColorStop(0.2, 'rgba(0,0,0,0.1)');
+        grad.addColorStop(0.8, 'rgba(0,0,0,0.1)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.65)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      }
+
+      const baseScale = isFit ? Math.min(rect.w / vw, rect.h / vh) : Math.max(rect.w / vw, rect.h / vh);
+      const zoom = (state.cameraZoom || 1.0) * cutZoom; // Clean, stable 1.0x scale (adjustable via zoom bar)
       const drawW = vw * baseScale * zoom;
       const drawH = vh * baseScale * zoom;
       const panShiftX = (totalPanX / 100) * (drawW - rect.w) * 0.5;
+      const panShiftY = ((state.cameraPanY || 0) / 100) * (drawH - rect.h) * 0.5;
       const drawX = rect.x + (rect.w - drawW) * 0.5 - panShiftX;
-      const drawY = rect.y + (rect.h - drawH) * 0.5;
+      const drawY = rect.y + (rect.h - drawH) * 0.5 - panShiftY;
 
       // Rotate & Flip Transform
       if (state.cameraFlipH || (state.cameraRotation && state.cameraRotation !== 0)) {
@@ -2860,10 +2901,12 @@
 
   function getActiveVideoCutAtTime(time) {
     const clips = state.sequence?.videoClips || [];
+    if (!clips.length) return null;
     for (const c of clips) {
       if (time >= c.start && time <= c.end) return c;
     }
-    return clips[0] || null;
+    if (time > clips[clips.length - 1].end) return clips[clips.length - 1];
+    return clips[0];
   }
 
   function updateTrimUI() {
@@ -2911,21 +2954,23 @@
   }
 
   function seekToTime(targetSec) {
-    const dur = state.streamDuration || 60;
+    const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
     state.currentTime = clamp(targetSec, 0, dur);
     if (state.useCustomMainVideo && dom.mainVideoEl) {
       const activeClip = getActiveVideoCutAtTime(state.currentTime);
+      let targetSrc = state.currentTime;
       if (activeClip) {
         const offset = Math.max(0, state.currentTime - activeClip.start);
         const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
-        const targetSrc = clamp(srcStart + offset, 0, dom.mainVideoEl.duration || dur);
+        targetSrc = clamp(srcStart + offset, 0, dom.mainVideoEl.duration || dur);
+      }
+      if (Math.abs(dom.mainVideoEl.currentTime - targetSrc) > 0.04) {
         dom.mainVideoEl.currentTime = targetSrc;
-      } else {
-        dom.mainVideoEl.currentTime = state.currentTime;
       }
     }
     updatePlayheadUI();
     highlightActiveTranscriptChip();
+    renderCanvasFrame();
   }
 
   // =========================================================================
@@ -3573,10 +3618,10 @@
       state.hookBannerText = p.hook_banner || 'OPEN SOURCE = RECIPE FOR POWER';
       if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookBannerText;
       state.trimStart = typeof p.clip_start === 'number' ? p.clip_start : 0;
-      state.trimEnd = typeof p.clip_end === 'number' ? p.clip_end : Math.min(30, state.streamDuration);
+      state.trimEnd = typeof p.clip_end === 'number' ? p.clip_end : state.streamDuration;
     } else {
       state.trimStart = 0;
-      state.trimEnd = Math.min(30, state.streamDuration);
+      state.trimEnd = state.streamDuration;
     }
 
     // Ensure clean video canvas without unsolicited image overlays
@@ -4661,6 +4706,144 @@
       state.playbackSpeed = parseFloat(dom.playbackSpeedSelect.value) || 1.0;
       if (dom.mainVideoEl) dom.mainVideoEl.playbackRate = state.playbackSpeed;
     });
+
+    // CapCut Pro Stage Zoom & Framing Controls
+    if (dom.stageZoomSlider) {
+      safeOn(dom.stageZoomSlider, 'input', () => {
+        const val = parseInt(dom.stageZoomSlider.value, 10) || 100;
+        state.cameraZoom = val / 100;
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = `${val}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnZoomIn) {
+      safeOn(dom.btnZoomIn, 'click', () => {
+        const cur = Math.round((state.cameraZoom || 1.0) * 100);
+        const next = Math.min(250, cur + 10);
+        state.cameraZoom = next / 100;
+        if (dom.stageZoomSlider) dom.stageZoomSlider.value = String(next);
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = `${next}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnZoomOut) {
+      safeOn(dom.btnZoomOut, 'click', () => {
+        const cur = Math.round((state.cameraZoom || 1.0) * 100);
+        const next = Math.max(30, cur - 10);
+        state.cameraZoom = next / 100;
+        if (dom.stageZoomSlider) dom.stageZoomSlider.value = String(next);
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = `${next}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnFitAllPeople) {
+      safeOn(dom.btnFitAllPeople, 'click', () => {
+        state.videoFitMode = 'fit';
+        state.wholeScreenFit = true;
+        state.cameraZoom = 1.0;
+        if (dom.stageZoomSlider) dom.stageZoomSlider.value = '100';
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = '100%';
+        dom.btnFitAllPeople.classList.add('active');
+        if (dom.btnFillVertical) dom.btnFillVertical.classList.remove('active');
+        showToast('📐 Fit to Screen: Unzoomed (All People & Hosts Visible)', '#10b981');
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnFillVertical) {
+      safeOn(dom.btnFillVertical, 'click', () => {
+        state.videoFitMode = 'fill';
+        state.wholeScreenFit = false;
+        state.cameraZoom = 1.0;
+        if (dom.stageZoomSlider) dom.stageZoomSlider.value = '100';
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = '100%';
+        dom.btnFillVertical.classList.add('active');
+        if (dom.btnFitAllPeople) dom.btnFitAllPeople.classList.remove('active');
+        showToast('📱 Fill 9:16: Cropped Vertical', '#00f2fe');
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnResetZoom) {
+      safeOn(dom.btnResetZoom, 'click', () => {
+        state.cameraZoom = 1.0;
+        state.cameraPanX = 0;
+        state.cameraPanY = 0;
+        if (dom.stageZoomSlider) dom.stageZoomSlider.value = '100';
+        if (dom.stageZoomVal) dom.stageZoomVal.textContent = '100%';
+        showToast('🔄 Zoom & Pan Reset to 1:1', '#94a3b8');
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnPanLeft) {
+      safeOn(dom.btnPanLeft, 'click', () => {
+        state.cameraPanX = -25;
+        dom.btnPanLeft.classList.add('active');
+        if (dom.btnPanCenter) dom.btnPanCenter.classList.remove('active');
+        if (dom.btnPanRight) dom.btnPanRight.classList.remove('active');
+        showToast('◀ Focus Left Host (Colin)', '#6366f1');
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnPanCenter) {
+      safeOn(dom.btnPanCenter, 'click', () => {
+        state.cameraPanX = 0;
+        dom.btnPanCenter.classList.add('active');
+        if (dom.btnPanLeft) dom.btnPanLeft.classList.remove('active');
+        if (dom.btnPanRight) dom.btnPanRight.classList.remove('active');
+        showToast('◉ Focus Center (MrBeast)', '#10b981');
+        renderCanvasFrame();
+      });
+    }
+
+    if (dom.btnPanRight) {
+      safeOn(dom.btnPanRight, 'click', () => {
+        state.cameraPanX = 25;
+        dom.btnPanRight.classList.add('active');
+        if (dom.btnPanLeft) dom.btnPanLeft.classList.remove('active');
+        if (dom.btnPanCenter) dom.btnPanCenter.classList.remove('active');
+        showToast('▶ Focus Right Host (Samir)', '#6366f1');
+        renderCanvasFrame();
+      });
+    }
+
+    // Master Video Element Hardware Sync Listeners
+    if (dom.mainVideoEl) {
+      safeOn(dom.mainVideoEl, 'loadedmetadata', () => {
+        const dur = dom.mainVideoEl.duration;
+        if (dur && !isNaN(dur) && isFinite(dur)) {
+          state.streamDuration = dur;
+          state.trimEnd = dur;
+          if (dom.totalDurationTimecode) {
+            dom.totalDurationTimecode.textContent = formatTimecode(dur);
+          }
+          const clips = state.sequence?.videoClips || [];
+          if (clips.length > 0) {
+            const lastClip = clips[clips.length - 1];
+            if (lastClip.end < dur) {
+              lastClip.end = dur;
+              lastClip.sourceEnd = dur;
+            }
+          }
+          updateTrimUI();
+          renderTimelineTracks();
+        }
+      });
+      safeOn(dom.mainVideoEl, 'ended', () => {
+        if (state.loopClip && !state.isRecordingExport) {
+          dom.mainVideoEl.currentTime = state.trimStart;
+          dom.mainVideoEl.play().catch(() => {});
+        } else {
+          state.isPlaying = false;
+          updatePlayPauseButtonUI();
+        }
+      });
+    }
     // CapCut Direct Timeline Tools & Multi-Clip Slicing
     splitClipAtPlayhead = function splitClipAtPlayhead() {
       const cur = Number(state.currentTime.toFixed(2));
@@ -5546,11 +5729,19 @@
     updatePlayPauseButtonUI();
 
     if (state.isPlaying) {
-      if (state.currentTime >= state.trimEnd || state.currentTime < state.trimStart) {
-        seekToTime(state.trimStart);
+      const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
+      const endLimit = Math.min(state.trimEnd, dur);
+
+      if (state.currentTime >= endLimit - 0.05 || state.currentTime < state.trimStart) {
+        state.currentTime = state.trimStart;
+        if (dom.mainVideoEl) dom.mainVideoEl.currentTime = state.trimStart;
       } else {
-        seekToTime(state.currentTime);
+        // FIRST FRAME GUARD: only seek if video element is more than 60ms off
+        if (dom.mainVideoEl && Math.abs(dom.mainVideoEl.currentTime - state.currentTime) > 0.06) {
+          dom.mainVideoEl.currentTime = state.currentTime;
+        }
       }
+
       if (state.useCustomMainVideo && dom.mainVideoEl) {
         dom.mainVideoEl.playbackRate = state.playbackSpeed || 1.0;
         dom.mainVideoEl.play().catch(() => {});
@@ -5562,7 +5753,7 @@
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.syncPlayback(state.currentTime, true, {
           musicPreset: state.musicPreset,
-          demoMode: !state.useCustomMainVideo
+          demoMode: false
         });
       }
     } else {
@@ -5589,61 +5780,56 @@
 
     if (state.isPlaying) {
       if (state.useCustomMainVideo && dom.mainVideoEl && !dom.mainVideoEl.paused) {
-        // High-performance video clock: HTML5 video element is the hardware master clock!
-        const activeClip = getActiveVideoCutAtTime(state.currentTime);
-        if (activeClip) {
-          const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
-          const srcEnd = activeClip.sourceEnd !== undefined ? activeClip.sourceEnd : activeClip.end;
-          const vidTime = dom.mainVideoEl.currentTime;
+        // High-performance hardware clock directly from HTML5 video element!
+        const vidTime = dom.mainVideoEl.currentTime;
+        const dur = dom.mainVideoEl.duration || state.streamDuration || 58.05;
+        const endLimit = Math.min(state.trimEnd, dur);
 
-          // Seamless transition between cuts: only seek when crossing cut boundaries!
-          if (vidTime >= srcEnd - 0.04) {
-            const cuts = state.sequence?.videoClips || [];
-            const curIdx = cuts.findIndex((c) => c.id === activeClip.id);
-            if (curIdx >= 0 && curIdx < cuts.length - 1) {
-              const nextCut = cuts[curIdx + 1];
-              const nextSrc = nextCut.sourceStart !== undefined ? nextCut.sourceStart : nextCut.start;
-              dom.mainVideoEl.currentTime = nextSrc;
-              state.currentTime = nextCut.start;
-            } else {
-              // End of cuts sequence reached
-              if (state.loopClip && !state.isRecordingExport) {
-                seekToTime(state.trimStart);
-              } else if (!state.isRecordingExport) {
-                state.currentTime = state.trimEnd;
-                state.isPlaying = false;
-                updatePlayPauseButtonUI();
-                dom.mainVideoEl.pause();
-                if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
-              }
-            }
-          } else {
-            // Smoothly track video frame position without touching currentTime during cut!
-            state.currentTime = activeClip.start + Math.max(0, vidTime - srcStart);
-          }
-        } else {
-          state.currentTime = dom.mainVideoEl.currentTime;
-        }
-
-        if (state.currentTime >= state.trimEnd) {
+        // Check if reaching the end of the trim boundary or video duration
+        if (vidTime >= endLimit - 0.05) {
           if (state.loopClip && !state.isRecordingExport) {
-            seekToTime(state.trimStart);
+            dom.mainVideoEl.currentTime = state.trimStart;
+            state.currentTime = state.trimStart;
           } else if (!state.isRecordingExport) {
-            state.currentTime = state.trimEnd;
+            state.currentTime = endLimit;
             state.isPlaying = false;
             updatePlayPauseButtonUI();
             dom.mainVideoEl.pause();
             if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
           }
+        } else {
+          // Continuous seamless playback:
+          state.currentTime = vidTime;
+
+          // Check if crossing a NON-contiguous cut boundary (e.g. deleted silence or split gap)
+          const activeClip = getActiveVideoCutAtTime(vidTime);
+          if (activeClip) {
+            const srcEnd = activeClip.sourceEnd !== undefined ? activeClip.sourceEnd : activeClip.end;
+            if (vidTime >= srcEnd - 0.04) {
+              const cuts = state.sequence?.videoClips || [];
+              const curIdx = cuts.findIndex((c) => c.id === activeClip.id);
+              if (curIdx >= 0 && curIdx < cuts.length - 1) {
+                const nextCut = cuts[curIdx + 1];
+                const nextSrc = nextCut.sourceStart !== undefined ? nextCut.sourceStart : nextCut.start;
+                // ONLY seek if there is an actual non-contiguous gap (> 0.12s)!
+                if (Math.abs(nextSrc - srcEnd) > 0.12) {
+                  dom.mainVideoEl.currentTime = nextSrc;
+                  state.currentTime = nextCut.start;
+                }
+              }
+            }
+          }
         }
       } else {
-        // Delta-time fallback when video is paused or in generator mode
+        // Delta-time fallback clock
         state.currentTime += dt * (state.playbackSpeed || 1.0);
-        if (state.currentTime >= state.trimEnd) {
+        const dur = state.streamDuration || 58.05;
+        const endLimit = Math.min(state.trimEnd, dur);
+        if (state.currentTime >= endLimit) {
           if (state.loopClip && !state.isRecordingExport) {
             seekToTime(state.trimStart);
           } else if (!state.isRecordingExport) {
-            state.currentTime = state.trimEnd;
+            state.currentTime = endLimit;
             state.isPlaying = false;
             updatePlayPauseButtonUI();
             if (dom.mainVideoEl) dom.mainVideoEl.pause();
