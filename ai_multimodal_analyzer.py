@@ -314,8 +314,18 @@ def find_best_multimodal_clips(
     # Sort by score descending
     candidates.sort(key=lambda c: c["score"], reverse=True)
 
-    # Non-maximum suppression (remove overlapping candidate clips)
+    # Non-maximum suppression (remove heavily overlapping candidate clips)
     selected = []
+    tags = [
+        "🔥 #1 VIRAL HOOK",
+        "💡 VALUE BOMB",
+        "⚡ CONTROVERSY / DEBATE",
+        "📖 CORE STORY",
+        "🎯 HIGH RETENTION",
+        "🚀 CLIMAX MOMENT",
+        "💎 HIDDEN GEM",
+        "🌟 VIRAL QUOTE"
+    ]
     for cand in candidates:
         overlap = False
         for s in selected:
@@ -323,19 +333,20 @@ def find_best_multimodal_clips(
             inter_en = min(cand["clip_end"], s["clip_end"])
             if inter_en > inter_st:
                 inter_dur = inter_en - inter_st
-                if inter_dur / min(cand["duration"], s["duration"]) > 0.40:
+                if inter_dur / min(cand["duration"], s["duration"]) > 0.45:
                     overlap = True
                     break
         if not overlap:
+            cand["id"] = f"clip-viral-{len(selected) + 1}"
+            cand["tag"] = tags[len(selected) % len(tags)]
+            cand["hookScore"] = cand.get("hook_score", 90)
+            cand["pacingScore"] = cand.get("audio_score", 88)
+            cand["retentionScore"] = cand.get("score", 90)
+            cand["title"] = build_viral_hook_title(cand.get("text", ""))
+            cand["reason"] = f"Multimodal AI detected high hook power ({cand['hookScore']}/100) and vocal clarity ({cand['pacingScore']}/100)."
             selected.append(cand)
-            if len(selected) >= 3:
+            if len(selected) >= 8:
                 break
-
-    # USER REQUIREMENT:
-    # "if isa lng talaga nahanap nya edi yun nlng"
-    if len(selected) > 1:
-        if selected[0]["score"] >= 88 and (selected[0]["score"] - selected[1]["score"] >= 10 or selected[1]["score"] < 75):
-            selected = [selected[0]]
 
     return selected
 

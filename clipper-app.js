@@ -415,6 +415,33 @@
     dom.exportJsonProjectBtn = document.getElementById('exportJsonProjectBtn');
 
     dom.toastContainer = document.getElementById('toastContainer');
+
+    // OpenCut Layout & Transport DOM References
+    dom.inspectorEmptyState = document.getElementById('inspectorEmptyState');
+    dom.inspectorPropertiesPanel = document.getElementById('inspectorPropertiesPanel');
+    dom.rotateCutBtn = document.getElementById('rotateCutBtn');
+    dom.flipCutBtn = document.getElementById('flipCutBtn');
+    dom.selectedCutVolSlider = document.getElementById('selectedCutVolSlider');
+    dom.selectedCutVolLabel = document.getElementById('selectedCutVolLabel');
+    dom.cutNormToggle = document.getElementById('cutNormToggle');
+    dom.splitSelectedCutBtn = document.getElementById('splitSelectedCutBtn');
+    dom.deleteSelectedCutBtn = document.getElementById('deleteSelectedCutBtn');
+    dom.stepBackBtn = document.getElementById('stepBackBtn');
+    dom.stepForwardBtn = document.getElementById('stepForwardBtn');
+    dom.skipEndBtn = document.getElementById('skipEndBtn');
+    dom.previewZoomSelect = document.getElementById('previewZoomSelect');
+    dom.aspectRatioSelect = document.getElementById('aspectRatioSelect');
+    dom.fullscreenBtn = document.getElementById('fullscreenBtn');
+    dom.safeZoneOverlay = document.getElementById('safeZoneOverlay');
+    dom.projectNameInput = document.getElementById('projectNameInput');
+    dom.themeToggleBtn = document.getElementById('themeToggleBtn');
+    dom.duplicateClipBtn = document.getElementById('duplicateClipBtn');
+    dom.linkAudioBtn = document.getElementById('linkAudioBtn');
+    dom.addBookmarkBtn = document.getElementById('addBookmarkBtn');
+    dom.snappingToggleBtn = document.getElementById('snappingToggleBtn');
+    dom.rippleToggleBtn = document.getElementById('rippleToggleBtn');
+    dom.zoomOutBtn = document.getElementById('zoomOutBtn');
+    dom.zoomInBtn = document.getElementById('zoomInBtn');
   }
 
   // =========================================================================
@@ -425,6 +452,17 @@
   }
 
   function formatTimecode(sec) {
+    const s = Math.max(0, Number(sec) || 0);
+    const totalFrames = Math.floor(s * 30);
+    const f = totalFrames % 30;
+    const totalSecs = Math.floor(s);
+    const ss = totalSecs % 60;
+    const mm = Math.floor(totalSecs / 60) % 60;
+    const hh = Math.floor(totalSecs / 3600);
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+  }
+
+  function formatShortTimecode(sec) {
     const s = Math.max(0, Number(sec) || 0);
     const mins = Math.floor(s / 60);
     const rem = s % 60;
@@ -533,7 +571,7 @@
 
     // Update demo stream tab buttons if present
     if (dom.demoStreamTabs) {
-      dom.demoStreamTabs.querySelectorAll('.demo-stream-btn').forEach((btn) => {
+      (dom.demoStreamTabs ? dom.demoStreamTabs.querySelectorAll('.demo-stream-btn') : []).forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.stream === streamId);
       });
     }
@@ -842,7 +880,7 @@
       chip.addEventListener('click', () => {
         state.selectedTranscriptWord = item;
         seekToTime(item.start);
-        dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip').forEach(c => c.style.outline = 'none');
+        (dom.transcriptWordCloud ? dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip') : []).forEach(c => c.style.outline = 'none');
         chip.style.outline = '2px solid #00f2fe';
         showToast(`📍 Selected word: "${item.word}" at ${item.start.toFixed(2)}s. Click Trim In / Out / Snap 30s above!`, '#38bdf8', 2500);
       });
@@ -868,7 +906,7 @@
     const now = performance.now();
     if (now - lastChipUpdateTime < 150) return; // Throttle to ~6x/sec to avoid DOM thrashing
     lastChipUpdateTime = now;
-    const chips = dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip');
+    const chips = (dom.transcriptWordCloud ? dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip') : []);
     chips.forEach((chip) => {
       const st = parseFloat(chip.dataset.start);
       const en = parseFloat(chip.dataset.end);
@@ -2688,12 +2726,28 @@
 
   function syncSelectedCutInspector() {
     const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+
+    if (dom.inspectorEmptyState && dom.inspectorPropertiesPanel) {
+      if (!clip) {
+        dom.inspectorEmptyState.classList.remove('hidden');
+        dom.inspectorPropertiesPanel.classList.add('hidden');
+        return;
+      }
+      dom.inspectorEmptyState.classList.add('hidden');
+      dom.inspectorPropertiesPanel.classList.remove('hidden');
+    }
+
     if (!clip) return;
-    if (dom.selectedCutBadge) dom.selectedCutBadge.textContent = clip.title;
+    if (dom.selectedCutBadge) dom.selectedCutBadge.textContent = clip.title || 'Cut';
     if (dom.selectedCutZoomSlider) dom.selectedCutZoomSlider.value = String(clip.zoom || 1.0);
     if (dom.selectedCutZoomLabel) dom.selectedCutZoomLabel.textContent = `${Number(clip.zoom || 1.0).toFixed(2)}×`;
     if (dom.selectedCutPanXSlider) dom.selectedCutPanXSlider.value = String(clip.panX || 0);
     if (dom.selectedCutPanXLabel) dom.selectedCutPanXLabel.textContent = `${clip.panX || 0}%`;
+    if (dom.selectedCutVolSlider) {
+      const vol = Math.round((clip.volume !== undefined ? clip.volume : 1.0) * 100);
+      dom.selectedCutVolSlider.value = String(vol);
+      if (dom.selectedCutVolLabel) dom.selectedCutVolLabel.textContent = `${vol}%`;
+    }
     if (dom.selectedCutTransitionSelect) dom.selectedCutTransitionSelect.value = clip.transition || 'cut';
   }
 
@@ -3264,9 +3318,11 @@
 
   function syncAllInspectorControlsFromState() {
     // Layout cards
-    dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
-      card.classList.toggle('active', card.dataset.layout === state.layoutMode);
-    });
+    if (dom.layoutModeGrid) {
+      (dom.layoutModeGrid ? dom.layoutModeGrid.querySelectorAll('.layout-card') : []).forEach((card) => {
+        card.classList.toggle('active', card.dataset.layout === state.layoutMode);
+      });
+    }
 
     // Framing chips
     document.querySelectorAll('[data-framing]').forEach((btn) => {
@@ -3282,9 +3338,11 @@
 
     // Captions & Hook
     if (dom.captionsEnabledToggle) dom.captionsEnabledToggle.checked = state.captionsEnabled;
-    dom.captionStyleGrid.querySelectorAll('.caption-preset-card').forEach((card) => {
-      card.classList.toggle('active', card.dataset.captionStyle === state.captionStyle);
-    });
+    if (dom.captionStyleGrid) {
+      (dom.captionStyleGrid ? dom.captionStyleGrid.querySelectorAll('.caption-preset-card') : []).forEach((card) => {
+        card.classList.toggle('active', card.dataset.captionStyle === state.captionStyle);
+      });
+    }
     if (dom.captionSizeSlider) dom.captionSizeSlider.value = String(state.captionSize);
     if (dom.captionSizeLabel) dom.captionSizeLabel.textContent = `${state.captionSize}%`;
     if (dom.captionPosYSlider) dom.captionPosYSlider.value = String(state.captionPosY);
@@ -3395,15 +3453,18 @@
       dom.serverVideoSelect.value = data.filename;
     }
 
-    dom.activeSourceBadge.textContent = 'REAL VIDEO';
-    dom.activeSourceBadge.className = 'status-pill status-emerald';
+    if (dom.activeSourceBadge) {
+      dom.activeSourceBadge.textContent = 'REAL VIDEO';
+      dom.activeSourceBadge.className = 'status-pill status-emerald';
+    }
 
     if (data.project && data.project.plan) {
       const p = data.project.plan;
       state.clipTitle = p.hook_banner || 'Open Source Power';
-      dom.activeClipTitleInput.value = state.clipTitle;
+      if (dom.activeClipTitleInput) dom.activeClipTitleInput.value = state.clipTitle;
+      if (dom.ocProjectTitle) dom.ocProjectTitle.value = state.clipTitle;
       state.hookBannerText = p.hook_banner || 'OPEN SOURCE = RECIPE FOR POWER';
-      dom.hookBannerTextInput.value = state.hookBannerText;
+      if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookBannerText;
       state.trimStart = typeof p.clip_start === 'number' ? p.clip_start : 0;
       state.trimEnd = typeof p.clip_end === 'number' ? p.clip_end : Math.min(30, state.streamDuration);
     } else {
@@ -3669,9 +3730,15 @@
   // =========================================================================
   // EVENT LISTENERS & INTERACTION WIRING
   // =========================================================================
+  let splitClipAtPlayhead;
+  let rippleTrimIn;
+  let rippleTrimOut;
+  let deleteSelectedCapCutItem;
+
   function bindEvents() {
+    const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
     // 1. Top Header Controls
-    dom.campaignSelect.addEventListener('change', () => {
+    safeOn(dom.campaignSelect, 'change', () => {
       const opt = dom.campaignSelect.options[dom.campaignSelect.selectedIndex];
       state.campaignId = dom.campaignSelect.value;
       state.campaignCpm = parseFloat(opt.dataset.cpm || '2.50');
@@ -3682,24 +3749,24 @@
       showToast(`💰 Active Bounty Campaign: ${opt.text}`);
     });
 
-    dom.oneClickAutoEditBtn.addEventListener('click', () => {
+    safeOn(dom.oneClickAutoEditBtn, 'click', () => {
       runOneClickAutoEdit();
     });
 
     // Ssemble AI Viral Clips Hub Modal open/close & controls
     if (dom.openSsembleHubBtn) {
-      dom.openSsembleHubBtn.addEventListener('click', () => {
+      safeOn(dom.openSsembleHubBtn, 'click', () => {
         renderViralMomentsList();
         if (dom.ssembleHubModal) dom.ssembleHubModal.classList.remove('hidden');
       });
     }
     if (dom.closeSsembleHubBtn) {
-      dom.closeSsembleHubBtn.addEventListener('click', () => {
+      safeOn(dom.closeSsembleHubBtn, 'click', () => {
         if (dom.ssembleHubModal) dom.ssembleHubModal.classList.add('hidden');
       });
     }
     if (dom.ssembleSortScoreBtn) {
-      dom.ssembleSortScoreBtn.addEventListener('click', () => {
+      safeOn(dom.ssembleSortScoreBtn, 'click', () => {
         state.ssembleSort = 'score';
         dom.ssembleSortScoreBtn.classList.add('active');
         if (dom.ssembleSortTimeBtn) dom.ssembleSortTimeBtn.classList.remove('active');
@@ -3707,7 +3774,7 @@
       });
     }
     if (dom.ssembleSortTimeBtn) {
-      dom.ssembleSortTimeBtn.addEventListener('click', () => {
+      safeOn(dom.ssembleSortTimeBtn, 'click', () => {
         state.ssembleSort = 'time';
         dom.ssembleSortTimeBtn.classList.add('active');
         if (dom.ssembleSortScoreBtn) dom.ssembleSortScoreBtn.classList.remove('active');
@@ -3715,10 +3782,10 @@
       });
     }
     if (dom.ssembleLenGroup) {
-      dom.ssembleLenGroup.querySelectorAll('.ssemble-len-btn').forEach((btn) => {
+      (dom.ssembleLenGroup ? dom.ssembleLenGroup.querySelectorAll('.ssemble-len-btn') : []).forEach((btn) => {
         btn.addEventListener('click', () => {
           state.ssembleFilterLen = btn.dataset.len;
-          dom.ssembleLenGroup.querySelectorAll('.ssemble-len-btn').forEach((b) => b.classList.remove('active'));
+          (dom.ssembleLenGroup ? dom.ssembleLenGroup.querySelectorAll('.ssemble-len-btn') : []).forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           renderViralMomentsList();
         });
@@ -3750,25 +3817,25 @@
     });
 
     // Save Clip buttons (Header, Canvas Toolbar, Inspector, Timeline, Vault Modal, Export Modal)
-    dom.saveClipBtn.addEventListener('click', () => saveCurrentClipToVault(true));
-    dom.canvasQuickSaveBtn.addEventListener('click', () => saveCurrentClipToVault(false));
-    dom.inspectorSaveClipBtn.addEventListener('click', () => saveCurrentClipToVault(true));
-    dom.timelineSaveBtn.addEventListener('click', () => saveCurrentClipToVault(false));
-    dom.saveCurrentInVaultModalBtn.addEventListener('click', () => saveCurrentClipToVault(false));
-    dom.exportModalSaveVaultBtn.addEventListener('click', () => saveCurrentClipToVault(false));
+    safeOn(dom.saveClipBtn, 'click', () => saveCurrentClipToVault(true));
+    safeOn(dom.canvasQuickSaveBtn, 'click', () => saveCurrentClipToVault(false));
+    safeOn(dom.inspectorSaveClipBtn, 'click', () => saveCurrentClipToVault(true));
+    safeOn(dom.timelineSaveBtn, 'click', () => saveCurrentClipToVault(false));
+    safeOn(dom.saveCurrentInVaultModalBtn, 'click', () => saveCurrentClipToVault(false));
+    safeOn(dom.exportModalSaveVaultBtn, 'click', () => saveCurrentClipToVault(false));
 
     // Saved Clips Vault Modal open/close/import
-    dom.openSavedVaultBtn.addEventListener('click', () => {
+    safeOn(dom.openSavedVaultBtn, 'click', () => {
       renderSavedVaultModalGrid();
       dom.savedVaultModal.classList.remove('hidden');
     });
-    dom.closeVaultModalBtn.addEventListener('click', () => {
+    safeOn(dom.closeVaultModalBtn, 'click', () => {
       dom.savedVaultModal.classList.add('hidden');
     });
-    dom.importProjectBtn.addEventListener('click', () => {
+    safeOn(dom.importProjectBtn, 'click', () => {
       dom.importProjectFileInput.click();
     });
-    dom.importProjectFileInput.addEventListener('change', (e) => {
+    safeOn(dom.importProjectFileInput, 'change', (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -3795,59 +3862,59 @@
       dom.exportProgressSection.classList.add('hidden');
       dom.exportModal.classList.remove('hidden');
     };
-    dom.openExportModalBtn.addEventListener('click', openExportModal);
-    dom.inspectorExportVideoBtn.addEventListener('click', openExportModal);
-    dom.closeExportModalBtn.addEventListener('click', () => {
+    safeOn(dom.openExportModalBtn, 'click', openExportModal);
+    safeOn(dom.inspectorExportVideoBtn, 'click', openExportModal);
+    safeOn(dom.closeExportModalBtn, 'click', () => {
       dom.exportModal.classList.add('hidden');
     });
 
     if (dom.startFfmpegRenderBtn) {
-      dom.startFfmpegRenderBtn.addEventListener('click', startFastFfmpegRender);
+      safeOn(dom.startFfmpegRenderBtn, 'click', startFastFfmpegRender);
     }
-    dom.startVideoRenderBtn.addEventListener('click', startRealTimeVideoExport);
-    dom.exportSrtBtn.addEventListener('click', () => downloadSrtSubtitles());
-    dom.inspectorDownloadSrtBtn.addEventListener('click', () => downloadSrtSubtitles());
-    dom.exportJsonProjectBtn.addEventListener('click', () => downloadProjectJson());
-    dom.inspectorDownloadJsonBtn.addEventListener('click', () => downloadProjectJson());
-    dom.snapshotPngBtn.addEventListener('click', downloadCurrentCanvasPng);
+    safeOn(dom.startVideoRenderBtn, 'click', startRealTimeVideoExport);
+    safeOn(dom.exportSrtBtn, 'click', () => downloadSrtSubtitles());
+    safeOn(dom.inspectorDownloadSrtBtn, 'click', () => downloadSrtSubtitles());
+    safeOn(dom.exportJsonProjectBtn, 'click', () => downloadProjectJson());
+    safeOn(dom.inspectorDownloadJsonBtn, 'click', () => downloadProjectJson());
+    safeOn(dom.snapshotPngBtn, 'click', downloadCurrentCanvasPng);
 
     // 2. Left Sidebar: Project Videos Library, Local Upload & URL Extract
     if (dom.refreshVideosBtn) {
-      dom.refreshVideosBtn.addEventListener('click', () => {
+      safeOn(dom.refreshVideosBtn, 'click', () => {
         fetchServerVideos();
         showToast('🔄 Refreshed project video list');
       });
     }
 
     if (dom.serverVideoSelect) {
-      dom.serverVideoSelect.addEventListener('change', () => {
+      safeOn(dom.serverVideoSelect, 'change', () => {
         const val = dom.serverVideoSelect.value;
         if (val) loadSelectedServerVideo(val);
       });
     }
 
-    dom.videoDropzone.addEventListener('click', () => dom.mainVideoFileInput.click());
-    dom.videoDropzone.addEventListener('dragover', (e) => {
+    safeOn(dom.videoDropzone, 'click', () => dom.mainVideoFileInput.click());
+    safeOn(dom.videoDropzone, 'dragover', (e) => {
       e.preventDefault();
       dom.videoDropzone.classList.add('drag-over');
     });
-    dom.videoDropzone.addEventListener('dragleave', () => {
+    safeOn(dom.videoDropzone, 'dragleave', () => {
       dom.videoDropzone.classList.remove('drag-over');
     });
-    dom.videoDropzone.addEventListener('drop', (e) => {
+    safeOn(dom.videoDropzone, 'drop', (e) => {
       e.preventDefault();
       dom.videoDropzone.classList.remove('drag-over');
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
         handleLocalMainVideoFile(e.dataTransfer.files[0]);
       }
     });
-    dom.mainVideoFileInput.addEventListener('change', (e) => {
+    safeOn(dom.mainVideoFileInput, 'change', (e) => {
       if (e.target.files && e.target.files[0]) {
         handleLocalMainVideoFile(e.target.files[0]);
       }
     });
 
-    dom.extractUrlBtn.addEventListener('click', () => {
+    safeOn(dom.extractUrlBtn, 'click', () => {
       const url = dom.streamUrlInput.value.trim();
       if (!url) {
         showToast('Paste a YouTube, Twitch, Kick or Whop link first!', '#f59e0b');
@@ -3857,7 +3924,7 @@
     });
 
     if (dom.demoStreamTabs) {
-      dom.demoStreamTabs.querySelectorAll('.demo-stream-btn').forEach((btn) => {
+      (dom.demoStreamTabs ? dom.demoStreamTabs.querySelectorAll('.demo-stream-btn') : []).forEach((btn) => {
         btn.addEventListener('click', () => {
           loadDemoStream(btn.dataset.stream, 0);
           showToast(`📡 Switched studio stream to ${btn.textContent.trim()}`);
@@ -3888,7 +3955,7 @@
     });
 
     if (dom.targetDurationSlider) {
-      dom.targetDurationSlider.addEventListener('input', () => {
+      safeOn(dom.targetDurationSlider, 'input', () => {
         state.targetDuration = parseInt(dom.targetDurationSlider.value, 10);
         if (dom.targetDurationDisplay) {
           dom.targetDurationDisplay.textContent = `${state.targetDuration}s (Custom)`;
@@ -3898,7 +3965,7 @@
 
     // AI Engine model selection & Gemini key
     if (dom.aiModelSelect) {
-      dom.aiModelSelect.addEventListener('change', () => {
+      safeOn(dom.aiModelSelect, 'change', () => {
         state.aiModel = dom.aiModelSelect.value;
         if (state.aiModel === 'gemini-2.5-flash' || state.aiModel === 'gemini-3.8-flash') {
           if (dom.geminiKeyRow) dom.geminiKeyRow.classList.remove('hidden');
@@ -3930,25 +3997,25 @@
 
     if (dom.geminiApiKeyInput) {
       dom.geminiApiKeyInput.value = state.geminiApiKey;
-      dom.geminiApiKeyInput.addEventListener('input', () => {
+      safeOn(dom.geminiApiKeyInput, 'input', () => {
         state.geminiApiKey = dom.geminiApiKeyInput.value.trim();
         localStorage.setItem('whop_gemini_key', state.geminiApiKey);
       });
     }
 
     // 3. Center Canvas Toolbar
-    dom.activeClipTitleInput.addEventListener('input', () => {
+    safeOn(dom.activeClipTitleInput, 'input', () => {
       state.clipTitle = dom.activeClipTitleInput.value;
     });
 
-    dom.toggleSafeZoneBtn.addEventListener('click', () => {
+    safeOn(dom.toggleSafeZoneBtn, 'click', () => {
       state.showSafeZones = !state.showSafeZones;
       dom.toggleSafeZoneBtn.classList.toggle('active', state.showSafeZones);
     });
 
     // Toolbar: Hard FX Toggle
     if (dom.toggleHardEditBtn) {
-      dom.toggleHardEditBtn.addEventListener('click', () => {
+      safeOn(dom.toggleHardEditBtn, 'click', () => {
         state.hardEdit.enabled = !state.hardEdit.enabled;
         dom.toggleHardEditBtn.classList.toggle('active', state.hardEdit.enabled);
         if (dom.hardFxStatusText) {
@@ -3961,16 +4028,16 @@
 
     // Real Video Element Frame & Audio Sync Listeners
     if (dom.mainVideoEl) {
-      dom.mainVideoEl.addEventListener('loadeddata', () => {
+      safeOn(dom.mainVideoEl, 'loadeddata', () => {
         renderCanvasFrame();
       });
-      dom.mainVideoEl.addEventListener('canplay', () => {
+      safeOn(dom.mainVideoEl, 'canplay', () => {
         renderCanvasFrame();
       });
-      dom.mainVideoEl.addEventListener('seeked', () => {
+      safeOn(dom.mainVideoEl, 'seeked', () => {
         renderCanvasFrame();
       });
-      dom.mainVideoEl.addEventListener('timeupdate', () => {
+      safeOn(dom.mainVideoEl, 'timeupdate', () => {
         if (state.isPlaying && state.useCustomMainVideo) {
           state.currentTime = dom.mainVideoEl.currentTime;
           renderCanvasFrame();
@@ -3981,7 +4048,7 @@
 
     // Toolbar: Quick Add Visual button
     if (dom.quickAddVisualBtn) {
-      dom.quickAddVisualBtn.addEventListener('click', () => {
+      safeOn(dom.quickAddVisualBtn, 'click', () => {
         document.querySelectorAll('.inspector-tab').forEach((b) => {
           b.classList.toggle('active', b.dataset.tab === 'visuals');
         });
@@ -4008,50 +4075,50 @@
 
     // Hard FX Inspector Panel Controls
     if (dom.hardFxMasterToggle) {
-      dom.hardFxMasterToggle.addEventListener('change', () => {
+      safeOn(dom.hardFxMasterToggle, 'change', () => {
         state.hardEdit.enabled = dom.hardFxMasterToggle.checked;
         if (dom.toggleHardEditBtn) dom.toggleHardEditBtn.classList.toggle('active', state.hardEdit.enabled);
         if (dom.hardFxStatusText) dom.hardFxStatusText.textContent = state.hardEdit.enabled ? 'Hard FX: ON' : 'Hard FX: OFF';
       });
     }
     if (dom.hardJumpCutsToggle) {
-      dom.hardJumpCutsToggle.addEventListener('change', () => {
+      safeOn(dom.hardJumpCutsToggle, 'change', () => {
         state.hardEdit.jumpCuts = dom.hardJumpCutsToggle.checked;
       });
     }
     if (dom.hardImpactShakeToggle) {
-      dom.hardImpactShakeToggle.addEventListener('change', () => {
+      safeOn(dom.hardImpactShakeToggle, 'change', () => {
         state.hardEdit.impactShake = dom.hardImpactShakeToggle.checked;
       });
     }
     if (dom.hardStrobeFlashToggle) {
-      dom.hardStrobeFlashToggle.addEventListener('change', () => {
+      safeOn(dom.hardStrobeFlashToggle, 'change', () => {
         state.hardEdit.strobeFlash = dom.hardStrobeFlashToggle.checked;
       });
     }
     if (dom.hardFilmGrainToggle) {
-      dom.hardFilmGrainToggle.addEventListener('change', () => {
+      safeOn(dom.hardFilmGrainToggle, 'change', () => {
         state.hardEdit.cinematicGrain = dom.hardFilmGrainToggle.checked;
       });
     }
     if (dom.hardRgbGlitchToggle) {
-      dom.hardRgbGlitchToggle.addEventListener('change', () => {
+      safeOn(dom.hardRgbGlitchToggle, 'change', () => {
         state.hardEdit.rgbGlitch = dom.hardRgbGlitchToggle.checked;
       });
     }
     if (dom.hardSpeedLinesToggle) {
-      dom.hardSpeedLinesToggle.addEventListener('change', () => {
+      safeOn(dom.hardSpeedLinesToggle, 'change', () => {
         state.hardEdit.speedLines = dom.hardSpeedLinesToggle.checked;
       });
     }
     if (dom.hardZoomIntensitySlider) {
-      dom.hardZoomIntensitySlider.addEventListener('input', () => {
+      safeOn(dom.hardZoomIntensitySlider, 'input', () => {
         state.hardEdit.zoomIntensity = parseFloat(dom.hardZoomIntensitySlider.value);
         if (dom.hardZoomIntensityLabel) dom.hardZoomIntensityLabel.textContent = `${state.hardEdit.zoomIntensity.toFixed(2)}×`;
       });
     }
     if (dom.hardCutFrequencySlider) {
-      dom.hardCutFrequencySlider.addEventListener('input', () => {
+      safeOn(dom.hardCutFrequencySlider, 'input', () => {
         state.hardEdit.cutFrequency = parseFloat(dom.hardCutFrequencySlider.value);
         if (dom.hardCutFrequencyLabel) dom.hardCutFrequencyLabel.textContent = `${state.hardEdit.cutFrequency.toFixed(1)}s`;
       });
@@ -4059,13 +4126,13 @@
 
     // Sequence Cuts & Selected Cut Inspector Listeners
     if (dom.addNewCutBtn) {
-      dom.addNewCutBtn.addEventListener('click', splitClipAtPlayhead);
+      safeOn(dom.addNewCutBtn, 'click', splitClipAtPlayhead);
     }
     if (dom.trackAddCutBtn) {
-      dom.trackAddCutBtn.addEventListener('click', splitClipAtPlayhead);
+      safeOn(dom.trackAddCutBtn, 'click', splitClipAtPlayhead);
     }
     if (dom.selectedCutZoomSlider) {
-      dom.selectedCutZoomSlider.addEventListener('input', () => {
+      safeOn(dom.selectedCutZoomSlider, 'input', () => {
         const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
         if (clip) {
           clip.zoom = parseFloat(dom.selectedCutZoomSlider.value);
@@ -4075,7 +4142,7 @@
       });
     }
     if (dom.selectedCutPanXSlider) {
-      dom.selectedCutPanXSlider.addEventListener('input', () => {
+      safeOn(dom.selectedCutPanXSlider, 'input', () => {
         const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
         if (clip) {
           clip.panX = parseInt(dom.selectedCutPanXSlider.value, 10);
@@ -4085,7 +4152,7 @@
       });
     }
     if (dom.selectedCutTransitionSelect) {
-      dom.selectedCutTransitionSelect.addEventListener('change', () => {
+      safeOn(dom.selectedCutTransitionSelect, 'change', () => {
         const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
         if (clip) {
           clip.transition = dom.selectedCutTransitionSelect.value;
@@ -4097,7 +4164,7 @@
 
     // Visual Media Overlays & Memes Tab Listeners
     if (dom.btnUploadVisualImage) {
-      dom.btnUploadVisualImage.addEventListener('click', () => {
+      safeOn(dom.btnUploadVisualImage, 'click', () => {
         if (dom.visualOverlayFileInput) {
           dom.visualOverlayFileInput.accept = 'image/*';
           dom.visualOverlayFileInput.click();
@@ -4105,7 +4172,7 @@
       });
     }
     if (dom.btnUploadVisualVideo) {
-      dom.btnUploadVisualVideo.addEventListener('click', () => {
+      safeOn(dom.btnUploadVisualVideo, 'click', () => {
         if (dom.visualOverlayFileInput) {
           dom.visualOverlayFileInput.accept = 'video/*';
           dom.visualOverlayFileInput.click();
@@ -4113,7 +4180,7 @@
       });
     }
     if (dom.visualOverlayFileInput) {
-      dom.visualOverlayFileInput.addEventListener('change', (e) => {
+      safeOn(dom.visualOverlayFileInput, 'change', (e) => {
         if (e.target.files && e.target.files[0]) {
           addCustomVisualOverlay(e.target.files[0]);
         }
@@ -4127,10 +4194,10 @@
     });
 
     // Tab 1: Layout & B-Roll
-    dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
+    (dom.layoutModeGrid ? dom.layoutModeGrid.querySelectorAll('.layout-card') : []).forEach((card) => {
       card.addEventListener('click', () => {
         state.layoutMode = card.dataset.layout;
-        dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((c) => c.classList.remove('active'));
+        (dom.layoutModeGrid ? dom.layoutModeGrid.querySelectorAll('.layout-card') : []).forEach((c) => c.classList.remove('active'));
         card.classList.add('active');
 
         if (state.layoutMode === 'ambient-blur') {
@@ -4152,8 +4219,8 @@
       });
     });
 
-    dom.uploadCustomBrollBtn.addEventListener('click', () => dom.brollVideoFileInput.click());
-    dom.brollVideoFileInput.addEventListener('change', (e) => {
+    safeOn(dom.uploadCustomBrollBtn, 'click', () => dom.brollVideoFileInput.click());
+    safeOn(dom.brollVideoFileInput, 'change', (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       state.useCustomBrollVideo = true;
@@ -4177,24 +4244,24 @@
     });
 
     if (dom.wholeScreenFitToggle) {
-      dom.wholeScreenFitToggle.addEventListener('change', () => {
+      safeOn(dom.wholeScreenFitToggle, 'change', () => {
         state.wholeScreenFit = dom.wholeScreenFitToggle.checked;
       });
     }
 
     if (dom.autoZoomToggle) {
-      dom.autoZoomToggle.addEventListener('change', () => {
+      safeOn(dom.autoZoomToggle, 'change', () => {
         state.autoZoom = dom.autoZoomToggle.checked;
       });
     }
     if (dom.cameraZoomSlider) {
-      dom.cameraZoomSlider.addEventListener('input', () => {
+      safeOn(dom.cameraZoomSlider, 'input', () => {
         state.cameraZoom = parseFloat(dom.cameraZoomSlider.value);
         if (dom.zoomValueLabel) dom.zoomValueLabel.textContent = `${state.cameraZoom.toFixed(2)}×`;
       });
     }
     if (dom.cameraPanXSlider) {
-      dom.cameraPanXSlider.addEventListener('input', () => {
+      safeOn(dom.cameraPanXSlider, 'input', () => {
         state.cameraPanX = parseInt(dom.cameraPanXSlider.value, 10);
         if (dom.panXValueLabel) dom.panXValueLabel.textContent = `${state.cameraPanX}%`;
       });
@@ -4202,13 +4269,13 @@
 
     // Tab 2: Captions & Hook
     if (dom.captionsEnabledToggle) {
-      dom.captionsEnabledToggle.addEventListener('change', () => {
+      safeOn(dom.captionsEnabledToggle, 'change', () => {
         state.captionsEnabled = dom.captionsEnabledToggle.checked;
         updateComplianceAndPayout();
       });
     }
     if (dom.captionStyleGrid) {
-      dom.captionStyleGrid.querySelectorAll('.caption-preset-card').forEach((card) => {
+      (dom.captionStyleGrid ? dom.captionStyleGrid.querySelectorAll('.caption-preset-card') : []).forEach((card) => {
         card.addEventListener('click', () => {
           state.captionStyle = card.dataset.captionStyle;
           syncAllInspectorControlsFromState();
@@ -4216,25 +4283,25 @@
       });
     }
     if (dom.captionSizeSlider) {
-      dom.captionSizeSlider.addEventListener('input', () => {
+      safeOn(dom.captionSizeSlider, 'input', () => {
         state.captionSize = parseInt(dom.captionSizeSlider.value, 10);
         if (dom.captionSizeLabel) dom.captionSizeLabel.textContent = `${state.captionSize}%`;
       });
     }
     if (dom.captionPosYSlider) {
-      dom.captionPosYSlider.addEventListener('input', () => {
+      safeOn(dom.captionPosYSlider, 'input', () => {
         state.captionPosY = parseInt(dom.captionPosYSlider.value, 10);
         if (dom.captionPosYLabel) dom.captionPosYLabel.textContent = `${state.captionPosY}%`;
       });
     }
     if (dom.autoEmojiToggle) {
-      dom.autoEmojiToggle.addEventListener('change', () => {
+      safeOn(dom.autoEmojiToggle, 'change', () => {
         state.autoEmoji = dom.autoEmojiToggle.checked;
         renderTranscriptCloud();
       });
     }
     if (dom.hookBannerTextInput) {
-      dom.hookBannerTextInput.addEventListener('input', () => {
+      safeOn(dom.hookBannerTextInput, 'input', () => {
         state.hookText = dom.hookBannerTextInput.value;
         updateComplianceAndPayout();
       });
@@ -4242,7 +4309,7 @@
 
     // FilmCraft Text-to-Edit Word Cut Toolbar
     if (dom.transcriptTrimInBtn) {
-      dom.transcriptTrimInBtn.addEventListener('click', () => {
+      safeOn(dom.transcriptTrimInBtn, 'click', () => {
         const t = state.selectedTranscriptWord ? state.selectedTranscriptWord.start : state.currentTime;
         state.trimStart = clamp(t, 0, state.trimEnd - 1.5);
         seekToTime(state.trimStart);
@@ -4255,7 +4322,7 @@
     }
 
     if (dom.transcriptTrimOutBtn) {
-      dom.transcriptTrimOutBtn.addEventListener('click', () => {
+      safeOn(dom.transcriptTrimOutBtn, 'click', () => {
         const t = state.selectedTranscriptWord ? state.selectedTranscriptWord.end : state.currentTime;
         state.trimEnd = clamp(t, state.trimStart + 1.5, state.streamDuration || 60);
         updateTrimUI();
@@ -4267,7 +4334,7 @@
     }
 
     if (dom.transcriptSnap30sBtn) {
-      dom.transcriptSnap30sBtn.addEventListener('click', () => {
+      safeOn(dom.transcriptSnap30sBtn, 'click', () => {
         const center = state.selectedTranscriptWord ? state.selectedTranscriptWord.start : state.currentTime;
         const newSt = Math.max(0, center - 15.0);
         const maxD = state.streamDuration || 60.0;
@@ -4293,7 +4360,7 @@
 
     // Topic Image Overlay Controls
     if (dom.imageOverlayToggle) {
-      dom.imageOverlayToggle.addEventListener('change', () => {
+      safeOn(dom.imageOverlayToggle, 'change', () => {
         state.overlayImageEnabled = dom.imageOverlayToggle.checked;
         if (state.overlayImage) {
           state.overlayImage.enabled = state.overlayImageEnabled;
@@ -4303,7 +4370,7 @@
     }
 
     if (dom.overlayStartSlider) {
-      dom.overlayStartSlider.addEventListener('input', () => {
+      safeOn(dom.overlayStartSlider, 'input', () => {
         const val = parseFloat(dom.overlayStartSlider.value) || 2.5;
         state.overlayImageStartOffset = val;
         if (dom.overlayStartLabel) dom.overlayStartLabel.textContent = `${val.toFixed(1)}s`;
@@ -4315,7 +4382,7 @@
     }
 
     if (dom.overlayDurationSlider) {
-      dom.overlayDurationSlider.addEventListener('input', () => {
+      safeOn(dom.overlayDurationSlider, 'input', () => {
         const val = parseFloat(dom.overlayDurationSlider.value) || 4.5;
         state.overlayImageDuration = val;
         if (dom.overlayDurationLabel) dom.overlayDurationLabel.textContent = `${val.toFixed(1)}s`;
@@ -4327,7 +4394,7 @@
     }
 
     if (dom.overlayScaleSlider) {
-      dom.overlayScaleSlider.addEventListener('input', () => {
+      safeOn(dom.overlayScaleSlider, 'input', () => {
         const pct = parseInt(dom.overlayScaleSlider.value, 10) || 100;
         state.overlayImageScale = pct / 100;
         if (dom.overlayScaleLabel) dom.overlayScaleLabel.textContent = `${pct}%`;
@@ -4335,7 +4402,7 @@
     }
 
     if (dom.overlayPosXSlider) {
-      dom.overlayPosXSlider.addEventListener('input', () => {
+      safeOn(dom.overlayPosXSlider, 'input', () => {
         const pct = parseInt(dom.overlayPosXSlider.value, 10) || 50;
         state.overlayImagePos = state.overlayImagePos || { x: 0.5, y: 0.38 };
         state.overlayImagePos.x = pct / 100;
@@ -4344,7 +4411,7 @@
     }
 
     if (dom.overlayPosYSlider) {
-      dom.overlayPosYSlider.addEventListener('input', () => {
+      safeOn(dom.overlayPosYSlider, 'input', () => {
         const pct = parseInt(dom.overlayPosYSlider.value, 10) || 38;
         state.overlayImagePos = state.overlayImagePos || { x: 0.5, y: 0.38 };
         state.overlayImagePos.y = pct / 100;
@@ -4353,7 +4420,7 @@
     }
 
     if (dom.overlayResetPosBtn) {
-      dom.overlayResetPosBtn.addEventListener('click', () => {
+      safeOn(dom.overlayResetPosBtn, 'click', () => {
         state.overlayImagePos = { x: 0.5, y: 0.38 };
         state.overlayImageScale = 1.0;
         syncImageInspectorControls();
@@ -4362,7 +4429,7 @@
     }
 
     if (dom.overlayRemoveBtn) {
-      dom.overlayRemoveBtn.addEventListener('click', () => {
+      safeOn(dom.overlayRemoveBtn, 'click', () => {
         state.overlayImageEnabled = false;
         if (state.overlayImage) state.overlayImage.enabled = false;
         if (dom.imageOverlayToggle) dom.imageOverlayToggle.checked = false;
@@ -4374,10 +4441,10 @@
     }
 
     if (dom.uploadCustomImageBtn && dom.customImageFileInput) {
-      dom.uploadCustomImageBtn.addEventListener('click', () => {
+      safeOn(dom.uploadCustomImageBtn, 'click', () => {
         dom.customImageFileInput.click();
       });
-      dom.customImageFileInput.addEventListener('change', (e) => {
+      safeOn(dom.customImageFileInput, 'change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -4415,29 +4482,29 @@
     }
 
     // Tab 3: Audio & AI Polish
-    dom.cutSilenceToggle.addEventListener('change', () => {
+    safeOn(dom.cutSilenceToggle, 'change', () => {
       state.cutSilence = dom.cutSilenceToggle.checked;
       renderTimelineTracks();
     });
-    dom.loudnessNormToggle.addEventListener('change', () => {
+    safeOn(dom.loudnessNormToggle, 'change', () => {
       state.loudnessNorm = dom.loudnessNormToggle.checked;
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.setMasterVolume(state.loudnessNorm ? 1.05 : 0.85);
       }
     });
-    dom.mainVolSlider.addEventListener('input', () => {
+    safeOn(dom.mainVolSlider, 'input', () => {
       const pct = parseInt(dom.mainVolSlider.value, 10);
       state.mainVolume = pct / 100;
       dom.mainVolLabel.textContent = `${pct}%`;
       if (window.WhopAudioEngine) window.WhopAudioEngine.setMainVolume(state.mainVolume);
     });
-    dom.musicVolSlider.addEventListener('input', () => {
+    safeOn(dom.musicVolSlider, 'input', () => {
       const pct = parseInt(dom.musicVolSlider.value, 10);
       state.musicVolume = pct / 100;
       dom.musicVolLabel.textContent = `${pct}%`;
       if (window.WhopAudioEngine) window.WhopAudioEngine.setMusicVolume(state.musicVolume);
     });
-    dom.brollVolSlider.addEventListener('input', () => {
+    safeOn(dom.brollVolSlider, 'input', () => {
       const pct = parseInt(dom.brollVolSlider.value, 10);
       state.brollVolume = pct / 100;
       dom.brollVolLabel.textContent = `${pct}%`;
@@ -4452,22 +4519,22 @@
     });
 
     // Tab 4: Whop Bounty & Payout
-    dom.watermarkTextInput.addEventListener('input', () => {
+    safeOn(dom.watermarkTextInput, 'input', () => {
       state.watermarkText = dom.watermarkTextInput.value;
       renderTimelineTracks();
       updateComplianceAndPayout();
     });
-    dom.watermarkEnabledToggle.addEventListener('change', () => {
+    safeOn(dom.watermarkEnabledToggle, 'change', () => {
       state.watermarkEnabled = dom.watermarkEnabledToggle.checked;
       renderTimelineTracks();
       updateComplianceAndPayout();
     });
-    dom.projectedViewsSlider.addEventListener('input', () => {
+    safeOn(dom.projectedViewsSlider, 'input', () => {
       state.projectedViews = parseInt(dom.projectedViewsSlider.value, 10);
       dom.projectedViewsLabel.textContent = `${state.projectedViews.toLocaleString('en-US')} views`;
       updateComplianceAndPayout();
     });
-    dom.copyHashtagsBtn.addEventListener('click', () => {
+    safeOn(dom.copyHashtagsBtn, 'click', () => {
       if (navigator.clipboard && dom.postCaptionTextarea) {
         navigator.clipboard.writeText(dom.postCaptionTextarea.value).catch(() => {});
       }
@@ -4475,18 +4542,18 @@
     });
 
     // 5. Timeline Transport & Scrubber Dragging
-    dom.playPauseBtn.addEventListener('click', togglePlayPause);
-    dom.skipStartBtn.addEventListener('click', () => seekToTime(state.trimStart));
-    dom.loopToggleBtn.addEventListener('click', () => {
+    safeOn(dom.playPauseBtn, 'click', togglePlayPause);
+    safeOn(dom.skipStartBtn, 'click', () => seekToTime(state.trimStart));
+    safeOn(dom.loopToggleBtn, 'click', () => {
       state.loopClip = !state.loopClip;
       dom.loopToggleBtn.classList.toggle('active', state.loopClip);
     });
-    dom.playbackSpeedSelect.addEventListener('change', () => {
+    safeOn(dom.playbackSpeedSelect, 'change', () => {
       state.playbackSpeed = parseFloat(dom.playbackSpeedSelect.value) || 1.0;
       if (dom.mainVideoEl) dom.mainVideoEl.playbackRate = state.playbackSpeed;
     });
     // CapCut Direct Timeline Tools & Multi-Clip Slicing
-    function splitClipAtPlayhead() {
+    splitClipAtPlayhead = function splitClipAtPlayhead() {
       const cur = Number(state.currentTime.toFixed(2));
       const clips = state.sequence?.videoClips || [];
       const targetIdx = clips.findIndex((c) => cur >= c.start + 0.08 && cur <= c.end - 0.08);
@@ -4528,9 +4595,9 @@
       syncSelectedCutInspector();
       switchInspectorTab('hard-cuts');
       showToast(`✂️ Split cut at ${formatTimecode(cur)}! Created "${newClip.title}"`, '#00f2fe');
-    }
+    };
 
-    function rippleTrimIn() {
+    rippleTrimIn = function rippleTrimIn() {
       const cur = Number(state.currentTime.toFixed(2));
       const clips = state.sequence?.videoClips || [];
       const selectedClip = clips.find(c => c.id === state.sequence?.selectedClipId);
@@ -4557,9 +4624,9 @@
       renderTimelineTracks();
       updateTrimUI();
       showToast(`⏪ Trimmed In-point to ${formatTimecode(state.trimStart)} (Q)`);
-    }
+    };
 
-    function rippleTrimOut() {
+    rippleTrimOut = function rippleTrimOut() {
       const cur = Number(state.currentTime.toFixed(2));
       const clips = state.sequence?.videoClips || [];
       const selectedClip = clips.find(c => c.id === state.sequence?.selectedClipId);
@@ -4583,9 +4650,9 @@
       renderTimelineTracks();
       updateTrimUI();
       showToast(`⏩ Trimmed Out-point to ${formatTimecode(state.trimEnd)} (W)`);
-    }
+    };
 
-    function deleteSelectedCapCutItem() {
+    deleteSelectedCapCutItem = function deleteSelectedCapCutItem() {
       const clips = state.sequence?.videoClips || [];
       if (state.sequence?.selectedClipId) {
         if (clips.length <= 1) {
@@ -4660,15 +4727,15 @@
       syncAllInspectorControlsFromState();
     }
 
-    if (dom.capcutSplitBtn) dom.capcutSplitBtn.addEventListener('click', splitClipAtPlayhead);
-    if (dom.capcutTrimInBtn) dom.capcutTrimInBtn.addEventListener('click', rippleTrimIn);
-    if (dom.capcutTrimOutBtn) dom.capcutTrimOutBtn.addEventListener('click', rippleTrimOut);
-    if (dom.capcutDeleteBtn) dom.capcutDeleteBtn.addEventListener('click', deleteSelectedCapCutItem);
-    if (dom.capcutMuteBgBtn) dom.capcutMuteBgBtn.addEventListener('click', toggleBackgroundSound);
+    if (dom.capcutSplitBtn) safeOn(dom.capcutSplitBtn, 'click', splitClipAtPlayhead);
+    if (dom.capcutTrimInBtn) safeOn(dom.capcutTrimInBtn, 'click', rippleTrimIn);
+    if (dom.capcutTrimOutBtn) safeOn(dom.capcutTrimOutBtn, 'click', rippleTrimOut);
+    if (dom.capcutDeleteBtn) safeOn(dom.capcutDeleteBtn, 'click', deleteSelectedCapCutItem);
+    if (dom.capcutMuteBgBtn) safeOn(dom.capcutMuteBgBtn, 'click', toggleBackgroundSound);
 
     // Master Timeline Audio Volume Slider
     if (dom.timelineMasterVolSlider) {
-      dom.timelineMasterVolSlider.addEventListener('input', () => {
+      safeOn(dom.timelineMasterVolSlider, 'input', () => {
         const vol = parseInt(dom.timelineMasterVolSlider.value, 10);
         state.sequence.mainAudioVolume = vol / 100;
         if (dom.mainVideoEl) dom.mainVideoEl.volume = Math.min(1.0, state.sequence.mainAudioVolume);
@@ -4680,7 +4747,7 @@
 
     // Smooth Timeline Zoom Slider
     if (dom.timelineZoomSlider) {
-      dom.timelineZoomSlider.addEventListener('input', () => {
+      safeOn(dom.timelineZoomSlider, 'input', () => {
         const val = parseInt(dom.timelineZoomSlider.value, 10) / 100;
         state.timelineZoom = val;
         if (dom.zoomPercentLabel) {
@@ -4694,7 +4761,7 @@
 
     // Left Track Action Toggles (Mute / Show / Hide)
     if (dom.trackToggleMainAudio) {
-      dom.trackToggleMainAudio.addEventListener('click', () => {
+      safeOn(dom.trackToggleMainAudio, 'click', () => {
         state.sequence.mainAudioMuted = !state.sequence.mainAudioMuted;
         state.mainAudioMuted = state.sequence.mainAudioMuted;
         if (dom.mainVideoEl) dom.mainVideoEl.muted = state.sequence.mainAudioMuted;
@@ -4705,7 +4772,7 @@
       });
     }
     if (dom.trackToggleCaptions) {
-      dom.trackToggleCaptions.addEventListener('click', () => {
+      safeOn(dom.trackToggleCaptions, 'click', () => {
         state.trackVisibility.captions = !state.trackVisibility.captions;
         state.captionsEnabled = state.trackVisibility.captions;
         dom.trackToggleCaptions.classList.toggle('muted', !state.trackVisibility.captions);
@@ -4714,7 +4781,7 @@
       });
     }
     if (dom.trackToggleOverlays) {
-      dom.trackToggleOverlays.addEventListener('click', () => {
+      safeOn(dom.trackToggleOverlays, 'click', () => {
         state.trackVisibility.overlays = !state.trackVisibility.overlays;
         dom.trackToggleOverlays.classList.toggle('muted', !state.trackVisibility.overlays);
         renderTimelineTracks();
@@ -4722,7 +4789,7 @@
       });
     }
     if (dom.trackToggleBroll) {
-      dom.trackToggleBroll.addEventListener('click', () => {
+      safeOn(dom.trackToggleBroll, 'click', () => {
         state.trackVisibility.broll = !state.trackVisibility.broll;
         dom.trackToggleBroll.classList.toggle('muted', !state.trackVisibility.broll);
         renderTimelineTracks();
@@ -4743,7 +4810,7 @@
     }
 
     if (dom.previewCanvas) {
-      dom.previewCanvas.addEventListener('mousedown', (e) => {
+      safeOn(dom.previewCanvas, 'mousedown', (e) => {
         const pt = getCanvasCoords(e);
         const b = state.lastImageBounds;
         const W = dom.previewCanvas.width;
@@ -4807,7 +4874,7 @@
         renderTimelineTracks();
       });
 
-      dom.previewCanvas.addEventListener('mousemove', (e) => {
+      safeOn(dom.previewCanvas, 'mousemove', (e) => {
         if (state.canvasDragMode) return;
         const pt = getCanvasCoords(e);
         const b = state.lastImageBounds;
@@ -4834,7 +4901,7 @@
     }
 
     if (dom.timelineViewToggleBtn) {
-      dom.timelineViewToggleBtn.addEventListener('click', () => {
+      safeOn(dom.timelineViewToggleBtn, 'click', () => {
         state.timelineViewMode = state.timelineViewMode === 'clip' ? 'full' : 'clip';
         state.timelineZoom = state.timelineViewMode === 'clip' ? 1.0 : 0.0;
         if (dom.timelineZoomSlider) dom.timelineZoomSlider.value = String(state.timelineZoom * 100);
@@ -4846,7 +4913,7 @@
       });
     }
 
-    dom.resetTrimBtn.addEventListener('click', () => {
+    safeOn(dom.resetTrimBtn, 'click', () => {
       const clip = getActiveClip();
       if (clip) {
         state.trimStart = clip.start;
@@ -4893,18 +4960,18 @@
     };
 
     if (dom.trimHandleIn) {
-      dom.trimHandleIn.addEventListener('mousedown', (e) => {
+      safeOn(dom.trimHandleIn, 'mousedown', (e) => {
         e.stopPropagation();
         state.activeDragMode = 'trim-in';
       });
     }
     if (dom.trimHandleOut) {
-      dom.trimHandleOut.addEventListener('mousedown', (e) => {
+      safeOn(dom.trimHandleOut, 'mousedown', (e) => {
         e.stopPropagation();
         state.activeDragMode = 'trim-out';
       });
     }
-    dom.timelineStage.addEventListener('mousedown', (e) => {
+    safeOn(dom.timelineStage, 'mousedown', (e) => {
       if (e.target.closest('.trim-handle') ||
           e.target.closest('.timeline-block') ||
           e.target.closest('.timeline-clip-block') ||
@@ -5090,6 +5157,179 @@
         toggleBackgroundSound();
       }
     });
+
+    // OpenCut Left Rail Tab Switcher
+    document.querySelectorAll('.rail-btn[data-rail-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.railTab;
+        document.querySelectorAll('.rail-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.drawer-content').forEach((c) => c.classList.remove('active'));
+        const target = document.getElementById(`drawerTab-${tab}`);
+        if (target) target.classList.add('active');
+      });
+    });
+
+    // Step 1s back/forward & skip end
+    if (dom.stepBackBtn) {
+      safeOn(dom.stepBackBtn, 'click', () => {
+        seekToTime(Math.max(0, state.currentTime - 1.0));
+      });
+    }
+    if (dom.stepForwardBtn) {
+      safeOn(dom.stepForwardBtn, 'click', () => {
+        seekToTime(Math.min(state.streamDuration || 60, state.currentTime + 1.0));
+      });
+    }
+    if (dom.skipEndBtn) {
+      safeOn(dom.skipEndBtn, 'click', () => {
+        seekToTime(state.trimEnd || state.streamDuration || 60);
+      });
+    }
+
+    // Inspector Transform & Actions
+    if (dom.rotateCutBtn) {
+      safeOn(dom.rotateCutBtn, 'click', () => {
+        state.cameraRotation = ((state.cameraRotation || 0) + 90) % 360;
+        showToast(`↻ Rotated video ${state.cameraRotation}°`);
+      });
+    }
+    if (dom.flipCutBtn) {
+      safeOn(dom.flipCutBtn, 'click', () => {
+        state.cameraFlipH = !state.cameraFlipH;
+        showToast(state.cameraFlipH ? '⇄ Flipped Horizontal' : '⇄ Reset Horizontal Flip');
+      });
+    }
+    if (dom.splitSelectedCutBtn) {
+      safeOn(dom.splitSelectedCutBtn, 'click', splitClipAtPlayhead);
+    }
+    if (dom.deleteSelectedCutBtn) {
+      safeOn(dom.deleteSelectedCutBtn, 'click', deleteSelectedCapCutItem);
+    }
+    if (dom.selectedCutVolSlider) {
+      safeOn(dom.selectedCutVolSlider, 'input', () => {
+        const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+        if (clip) {
+          const vol = parseInt(dom.selectedCutVolSlider.value, 10);
+          clip.volume = vol / 100;
+          if (dom.selectedCutVolLabel) dom.selectedCutVolLabel.textContent = `${vol}%`;
+        }
+      });
+    }
+
+    // Speed Chips
+    document.querySelectorAll('.speed-chip[data-speed]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.speed-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        state.playbackSpeed = parseFloat(chip.dataset.speed) || 1.0;
+        if (dom.mainVideoEl) dom.mainVideoEl.playbackRate = state.playbackSpeed;
+        showToast(`⚡ Playback speed: ${state.playbackSpeed}×`);
+      });
+    });
+
+    // Transitions & Filters
+    document.querySelectorAll('.transition-btn[data-transition]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.transition-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const trans = btn.dataset.transition;
+        const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+        if (clip) {
+          clip.transition = trans;
+          if (dom.selectedCutTransitionSelect) dom.selectedCutTransitionSelect.value = trans;
+        }
+        showToast(`🪄 Transition into cut set to: ${trans}`);
+      });
+    });
+
+    document.querySelectorAll('.filter-btn[data-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.activeFilter = btn.dataset.filter;
+        showToast(`🎨 Color filter applied: ${state.activeFilter}`);
+      });
+    });
+
+    // Timeline Zoom & Utilities
+    if (dom.zoomOutBtn && dom.timelineZoomSlider) {
+      safeOn(dom.zoomOutBtn, 'click', () => {
+        dom.timelineZoomSlider.value = String(Math.max(0, parseInt(dom.timelineZoomSlider.value, 10) - 20));
+        dom.timelineZoomSlider.dispatchEvent(new Event('input'));
+      });
+    }
+    if (dom.zoomInBtn && dom.timelineZoomSlider) {
+      safeOn(dom.zoomInBtn, 'click', () => {
+        dom.timelineZoomSlider.value = String(Math.min(100, parseInt(dom.timelineZoomSlider.value, 10) + 20));
+        dom.timelineZoomSlider.dispatchEvent(new Event('input'));
+      });
+    }
+    if (dom.duplicateClipBtn) {
+      safeOn(dom.duplicateClipBtn, 'click', () => {
+        const clips = state.sequence?.videoClips || [];
+        const sel = clips.find((c) => c.id === state.sequence?.selectedClipId) || clips[0];
+        if (!sel) return;
+        const dur = sel.end - sel.start;
+        const copy = Object.assign({}, sel, {
+          id: 'cut-' + Date.now(),
+          title: `${sel.title} (Copy)`,
+          start: sel.end,
+          end: sel.end + dur
+        });
+        clips.push(copy);
+        state.sequence.selectedClipId = copy.id;
+        renderTimelineTracks();
+        syncSelectedCutInspector();
+        showToast(`📄 Duplicated ${sel.title}`);
+      });
+    }
+    if (dom.linkAudioBtn) {
+      safeOn(dom.linkAudioBtn, 'click', () => {
+        state.audioLinked = state.audioLinked === undefined ? false : !state.audioLinked;
+        dom.linkAudioBtn.classList.toggle('active', state.audioLinked);
+        showToast(state.audioLinked ? '🔗 Audio linked to video cut' : '✂ Audio extracted to separate track');
+      });
+    }
+    if (dom.fullscreenBtn) {
+      safeOn(dom.fullscreenBtn, 'click', () => {
+        const box = document.getElementById('previewCanvasBox');
+        if (!box) return;
+        if (!document.fullscreenElement) {
+          box.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    }
+    if (dom.toggleSafeZoneBtn) {
+      safeOn(dom.toggleSafeZoneBtn, 'click', () => {
+        state.showSafeZones = !state.showSafeZones;
+        const safeBox = document.getElementById('safeZoneOverlay');
+        if (safeBox) safeBox.classList.toggle('hidden', !state.showSafeZones);
+        dom.toggleSafeZoneBtn.classList.toggle('active', state.showSafeZones);
+        showToast(state.showSafeZones ? '📱 Safe Zones visible (TikTok/Shorts UI)' : '📱 Safe Zones hidden');
+      });
+    }
+    if (dom.themeToggleBtn) {
+      safeOn(dom.themeToggleBtn, 'click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        showToast(isDark ? '🌙 Dark mode active' : '☀️ Light mode active');
+      });
+    }
+
+    // Timeline deselect background click
+    if (dom.timelineStage) {
+      safeOn(dom.timelineStage, 'click', (e) => {
+        if (!e.target.closest('.timeline-clip-block')) {
+          state.sequence.selectedClipId = null;
+          syncSelectedCutInspector();
+          document.querySelectorAll('.timeline-clip-block').forEach((b) => {
+            b.classList.remove('selected');
+          });
+        }
+      });
+    }
   }
 
   function handleLocalMainVideoFile(file) {
@@ -5286,11 +5526,11 @@
     renderBrollPresetCards();
     renderMusicPresetCards();
 
-    // Default to REAL VIDEO playback (not a cartoon demo)
+    // Default to REAL VIDEO playback (MrBeast Interview)
     state.useCustomMainVideo = true;
-    state.customMainFileName = 'clip_20261023_191616_Lose_150_Lbs_Together__Win__25_2418s_2448s.mp4';
+    state.customMainFileName = 'clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4';
     if (dom.mainVideoEl) {
-      dom.mainVideoEl.src = '/uploads/clip_20261023_191616_Lose_150_Lbs_Together__Win__25_2418s_2448s.mp4';
+      dom.mainVideoEl.src = '/uploads/clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4';
       dom.mainVideoEl.load();
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.connectMainVideo(dom.mainVideoEl);
