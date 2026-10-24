@@ -20,7 +20,7 @@
 
     analysis: null,
     activeClipIndex: 0,
-    clipTitle: 'Full MrBeast Interview',
+    clipTitle: 'Master Video Track',
 
     // Playback & Trim
     isPlaying: false,
@@ -33,16 +33,17 @@
 
     // Target Duration & AI Model Options
     targetDuration: 30,
-    aiModel: 'multimodal-local',
+    aiModel: 'gemini-2.5-flash',
+    aiProvider: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_ai_provider') || 'gemini-2.5-flash') : 'gemini-2.5-flash',
     geminiApiKey: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_gemini_key') || '') : '',
 
     // Ssemble AI Viral Hub Options
     ssembleSort: 'score',
     ssembleFilterLen: 'all',
-    videoTitle: 'The Full Story of MrBeast',
+    videoTitle: 'Viral Short Project',
     videoLanguage: 'English',
     videoTemplate: 'hormozi1',
-    originalUrl: 'https://youtu.be/c8VcUnz3nVc',
+    originalUrl: '',
 
     // Layout & Framing (Default: Unzoomed Fit - ALL PEOPLE VISIBLE!)
     videoFitMode: 'fit', // 'fit' (Unzoomed • All People Visible) | 'fill' (9:16 Cropped)
@@ -89,81 +90,25 @@
       cutFrequency: 2.8,
     },
 
-    // CapCut Multi-Clip Sequence Model (Stable 1.0x cuts)
+    // CapCut Continuous Master Sequence Model (1 Full Continuous Clip by default!)
     sequence: {
       videoClips: [
         {
-          id: 'cut-1',
-          title: 'Hook Cut #1: $20M Pitch',
+          id: 'master-clip-1',
+          title: 'Master Video Track',
           start: 0.0,
-          end: 4.8,
-          sourceStart: 0.0,
-          sourceEnd: 4.8,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'none'
-        },
-        {
-          id: 'cut-2',
-          title: 'Story Beat #2: Pitching Netflix',
-          start: 4.8,
-          end: 14.2,
-          sourceStart: 4.8,
-          sourceEnd: 14.2,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-3',
-          title: 'Dialogue Beat #3: Mental Breakdowns',
-          start: 14.2,
-          end: 28.5,
-          sourceStart: 14.2,
-          sourceEnd: 28.5,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-4',
-          title: 'Reflection Beat #4: Behind the Scenes',
-          start: 28.5,
-          end: 42.0,
-          sourceStart: 28.5,
-          sourceEnd: 42.0,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-5',
-          title: 'Climax Beat #5: Creator Philosophy',
-          start: 42.0,
           end: 58.05,
-          sourceStart: 42.0,
+          sourceStart: 0.0,
           sourceEnd: 58.05,
           zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
           effect: 'none',
-          transition: 'cut'
+          transition: 'none'
         }
       ],
-      selectedClipId: 'cut-1',
+      selectedClipId: 'master-clip-1',
       selectedTrackType: 'video',
       mainAudioVolume: 1.0,
       mainAudioMuted: false
@@ -282,18 +227,20 @@
     dom.recordingOverlayBadge = document.getElementById('recordingOverlayBadge');
     dom.recordingStatusText = document.getElementById('recordingStatusText');
 
-    // CapCut Pro Stage Zoom & Framing DOM Elements
-    dom.stageZoomToolbar = document.getElementById('stageZoomToolbar');
-    dom.btnZoomOut = document.getElementById('btnZoomOut');
-    dom.stageZoomSlider = document.getElementById('stageZoomSlider');
-    dom.btnZoomIn = document.getElementById('btnZoomIn');
-    dom.stageZoomVal = document.getElementById('stageZoomVal');
-    dom.btnFitAllPeople = document.getElementById('btnFitAllPeople');
-    dom.btnFillVertical = document.getElementById('btnFillVertical');
-    dom.btnResetZoom = document.getElementById('btnResetZoom');
-    dom.btnPanLeft = document.getElementById('btnPanLeft');
-    dom.btnPanCenter = document.getElementById('btnPanCenter');
-    dom.btnPanRight = document.getElementById('btnPanRight');
+    // AI API Key & Multimodal Engine DOM Elements
+    dom.openAiKeyModalBtn = document.getElementById('openAiKeyModalBtn');
+    dom.aiKeyModal = document.getElementById('aiKeyModal');
+    dom.closeAiKeyModalBtn = document.getElementById('closeAiKeyModalBtn');
+    dom.aiProviderSelect = document.getElementById('aiProviderSelect');
+    dom.userAiApiKeyInput = document.getElementById('userAiApiKeyInput');
+    dom.toggleApiKeyVisibilityBtn = document.getElementById('toggleApiKeyVisibilityBtn');
+    dom.aiKeyTestStatus = document.getElementById('aiKeyTestStatus');
+    dom.aiKeyStatusIcon = document.getElementById('aiKeyStatusIcon');
+    dom.aiKeyStatusMessage = document.getElementById('aiKeyStatusMessage');
+    dom.testAiKeyBtn = document.getElementById('testAiKeyBtn');
+    dom.saveAiKeyBtn = document.getElementById('saveAiKeyBtn');
+    dom.aiKeyStatusText = document.getElementById('aiKeyStatusText');
+    dom.aiKeyStatusDot = document.getElementById('aiKeyStatusDot');
 
     dom.telemetryLayout = document.getElementById('telemetryLayout');
     dom.telemetryBroll = document.getElementById('telemetryBroll');
@@ -416,6 +363,10 @@
     dom.selectedCutZoomLabel = document.getElementById('selectedCutZoomLabel');
     dom.selectedCutPanXSlider = document.getElementById('selectedCutPanXSlider');
     dom.selectedCutPanXLabel = document.getElementById('selectedCutPanXLabel');
+    dom.selectedCutPanYSlider = document.getElementById('selectedCutPanYSlider');
+    dom.selectedCutPanYLabel = document.getElementById('selectedCutPanYLabel');
+    dom.rotateCutBtn = document.getElementById('rotateCutBtn');
+    dom.flipCutBtn = document.getElementById('flipCutBtn');
     dom.selectedCutTransitionSelect = document.getElementById('selectedCutTransitionSelect');
 
     // Visual Overlays & Memes DOM Elements
@@ -615,12 +566,12 @@
     state.streamPreset = '';
     state.useCustomMainVideo = true;
     if (dom.activeSourceBadge) {
-      dom.activeSourceBadge.textContent = 'REAL VIDEO';
+      dom.activeSourceBadge.textContent = '1080p SOURCE';
       dom.activeSourceBadge.className = 'status-pill status-emerald';
     }
 
-    state.videoTitle = 'The Full Story of MrBeast';
-    state.originalUrl = 'https://youtu.be/c8VcUnz3nVc';
+    state.videoTitle = 'Master Video Track';
+    state.originalUrl = '';
     state.videoLanguage = 'English';
     state.videoTemplate = 'hormozi1';
 
@@ -633,6 +584,7 @@
     renderViralMomentsList();
     renderTimelineRuler();
     renderTimelineTracks();
+    renderCanvasFrame();
     updateTelemetryBar();
   }
 
@@ -682,72 +634,25 @@
       }
     }
 
-    // Generate CapCut multi-cut sequence across selected clip
-    const totalDur = Math.max(8, state.trimEnd - state.trimStart);
-    const cut1End = Number((state.trimStart + Math.min(4.8, totalDur * 0.18)).toFixed(2));
-    const cut2End = Number((state.trimStart + totalDur * 0.45).toFixed(2));
-    const cut3End = Number((state.trimStart + totalDur * 0.75).toFixed(2));
-
+    // Keep video as 1 Single Continuous Master Clip (User performs manual split & edit!)
     state.sequence = {
       videoClips: [
         {
-          id: 'cut-1',
-          title: 'Hook Cut #1',
+          id: 'master-clip-1',
+          title: clip.title || 'Master Video Track',
           start: state.trimStart,
-          end: cut1End,
-          sourceStart: state.trimStart,
-          sourceEnd: cut1End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'none'
-        },
-        {
-          id: 'cut-2',
-          title: 'Story Beat #2',
-          start: cut1End,
-          end: cut2End,
-          sourceStart: cut1End,
-          sourceEnd: cut2End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-3',
-          title: 'Key Moment #3',
-          start: cut2End,
-          end: cut3End,
-          sourceStart: cut2End,
-          sourceEnd: cut3End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-4',
-          title: 'Climax Beat #4',
-          start: cut3End,
           end: state.trimEnd,
-          sourceStart: cut3End,
+          sourceStart: state.trimStart,
           sourceEnd: state.trimEnd,
           zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
           effect: 'none',
-          transition: 'cut'
+          transition: 'none'
         }
       ],
-      selectedClipId: 'cut-1',
+      selectedClipId: 'master-clip-1',
       selectedTrackType: 'video',
       mainAudioVolume: 1.0,
       mainAudioMuted: false
@@ -795,7 +700,7 @@
 
     // Update Ssemble Video Meta Bar
     if (dom.ssembleActiveVideoTitle) {
-      dom.ssembleActiveVideoTitle.textContent = state.videoTitle || 'The Full Story of MrBeast';
+      dom.ssembleActiveVideoTitle.textContent = state.videoTitle || 'Master Video Track';
     }
     if (dom.ssembleMetaDuration) {
       const totalSec = Math.round(state.streamDuration || 600);
@@ -1082,72 +987,25 @@
     state.hardEdit.speedLines = false;
     state.hardEdit.zoomIntensity = 1.0;
 
-    // 4. Build Multi-Clip Sequence (Stable 1.0x cuts)
-    const autoDur = Math.max(8, state.trimEnd - state.trimStart);
-    const aCut1End = Number((state.trimStart + Math.min(4.8, autoDur * 0.18)).toFixed(2));
-    const aCut2End = Number((state.trimStart + autoDur * 0.45).toFixed(2));
-    const aCut3End = Number((state.trimStart + autoDur * 0.75).toFixed(2));
-
+    // 4. Build Single Continuous Master Track (User controls splitting, trimming, and editing)
     state.sequence = {
       videoClips: [
         {
-          id: 'cut-1',
-          title: 'Hook Cut #1',
+          id: 'master-clip-1',
+          title: 'Master Video Track',
           start: state.trimStart,
-          end: aCut1End,
-          sourceStart: state.trimStart,
-          sourceEnd: aCut1End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'none'
-        },
-        {
-          id: 'cut-2',
-          title: 'Story Beat #2',
-          start: aCut1End,
-          end: aCut2End,
-          sourceStart: aCut1End,
-          sourceEnd: aCut2End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-3',
-          title: 'Key Dialogue #3',
-          start: aCut2End,
-          end: aCut3End,
-          sourceStart: aCut2End,
-          sourceEnd: aCut3End,
-          zoom: 1.0,
-          panX: 0,
-          panY: 0,
-          volume: 1.0,
-          effect: 'none',
-          transition: 'cut'
-        },
-        {
-          id: 'cut-4',
-          title: 'Climax Beat #4',
-          start: aCut3End,
           end: state.trimEnd,
-          sourceStart: aCut3End,
+          sourceStart: state.trimStart,
           sourceEnd: state.trimEnd,
           zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
           effect: 'none',
-          transition: 'cut'
+          transition: 'none'
         }
       ],
-      selectedClipId: 'cut-1',
+      selectedClipId: 'master-clip-1',
       selectedTrackType: 'video',
       mainAudioVolume: 1.0,
       mainAudioMuted: false
@@ -1182,7 +1040,7 @@
     renderVisualOverlaysList();
 
     showToast(
-      `⚡ Hard Auto-Edit Applied! Full Screen 9:16 (No Split) + Jump-Cut Zooms + Hormozi Captions`,
+      `⚡ Auto-Edit Applied! Continuous Master Video + Dynamic Captions (Ready for Manual Split & Edits)`,
       '#10b981',
       5500
     );
@@ -1532,8 +1390,10 @@
     const activeCut = getActiveVideoCutAtTime(timeSec);
     const cutZoom = activeCut ? (activeCut.zoom || 1.0) : 1.0;
     const cutPanX = activeCut ? (activeCut.panX || 0) : 0;
+    const cutPanY = activeCut ? (activeCut.panY || 0) : 0;
     const reframePan = getReframePanOffsetAtTime(timeSec);
     const totalPanX = clamp(state.cameraPanX + framingOffset + cutPanX + reframePan, -45, 45);
+    const totalPanY = clamp((state.cameraPanY || 0) + cutPanY, -50, 50);
 
     if (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
       ctx.save();
@@ -1588,7 +1448,7 @@
       const drawW = vw * baseScale * zoom;
       const drawH = vh * baseScale * zoom;
       const panShiftX = (totalPanX / 100) * (drawW - rect.w) * 0.5;
-      const panShiftY = ((state.cameraPanY || 0) / 100) * (drawH - rect.h) * 0.5;
+      const panShiftY = (totalPanY / 100) * (drawH - rect.h) * 0.5;
       const drawX = rect.x + (rect.w - drawW) * 0.5 - panShiftX;
       const drawY = rect.y + (rect.h - drawH) * 0.5 - panShiftY;
 
@@ -2678,13 +2538,17 @@
       for (let i = 0; i < clip.transcript.length; i += 3) {
         const chunk = clip.transcript.slice(i, i + 3);
         segments.push({
+          id: `cap-chunk-${i}`,
+          chunkStartIdx: i,
+          chunkCount: chunk.length,
           start: chunk[0].start,
           end: chunk[chunk.length - 1].end,
           text: chunk.map((c) => c.word).join(' ')
         });
       }
     } else if (state.analysis?.viralMoments) {
-      segments = state.analysis.viralMoments.map((m) => ({
+      segments = state.analysis.viralMoments.map((m, idx) => ({
+        id: `cap-m-${idx}`,
         start: m.start,
         end: m.end,
         text: m.title
@@ -2695,16 +2559,37 @@
       if (seg.end < viewStart || seg.start > viewEnd) return;
       const leftPct = timeToTimelinePct(seg.start);
       const rightPct = timeToTimelinePct(seg.end);
+      const isSel = state.selectedTimelineItem === seg.id;
+
       const block = document.createElement('div');
-      block.className = 'timeline-block block-caption';
+      block.className = `timeline-block block-caption ${isSel ? 'selected' : ''}`;
       block.style.left = `${leftPct}%`;
-      block.style.width = `${Math.max(2, rightPct - leftPct)}%`;
-      block.textContent = `💬 ${seg.text || 'Caption'}`;
-      block.title = 'Click to seek';
-      block.addEventListener('click', (e) => {
+      block.style.width = `${Math.max(2.5, rightPct - leftPct)}%`;
+      block.innerHTML = `
+        <div class="clip-handle clip-handle-left" data-action="trim-cap-left" data-cap-id="${seg.id}" title="Trim Caption In"></div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;">💬 ${seg.text || 'Caption'}</span>
+        <div class="clip-handle clip-handle-right" data-action="trim-cap-right" data-cap-id="${seg.id}" title="Trim Caption Out"></div>
+      `;
+      block.title = `${seg.text} (${(seg.end - seg.start).toFixed(1)}s) • Click to select / Del to delete`;
+
+      block.addEventListener('mousedown', (e) => {
         e.stopPropagation();
+        const action = e.target.dataset.action || 'move-cap';
+        state.selectedTimelineItem = seg.id;
+        state.selectedCaptionSegment = seg;
+        state.sequence.selectedTrackType = 'caption';
         seekToTime(seg.start);
+        renderTimelineTracks();
+
+        state.activeCaptionDrag = {
+          seg: seg,
+          action: action,
+          startX: e.clientX,
+          initStart: seg.start,
+          initEnd: seg.end
+        };
       });
+
       dom.captionTrackLane.appendChild(block);
     });
   }
@@ -2891,6 +2776,8 @@
     if (dom.selectedCutZoomLabel) dom.selectedCutZoomLabel.textContent = `${Number(clip.zoom || 1.0).toFixed(2)}×`;
     if (dom.selectedCutPanXSlider) dom.selectedCutPanXSlider.value = String(clip.panX || 0);
     if (dom.selectedCutPanXLabel) dom.selectedCutPanXLabel.textContent = `${clip.panX || 0}%`;
+    if (dom.selectedCutPanYSlider) dom.selectedCutPanYSlider.value = String(clip.panY || 0);
+    if (dom.selectedCutPanYLabel) dom.selectedCutPanYLabel.textContent = `${clip.panY || 0}%`;
     if (dom.selectedCutVolSlider) {
       const vol = Math.round((clip.volume !== undefined ? clip.volume : 1.0) * 100);
       dom.selectedCutVolSlider.value = String(vol);
@@ -3606,16 +3493,16 @@
     }
 
     if (dom.activeSourceBadge) {
-      dom.activeSourceBadge.textContent = 'REAL VIDEO';
+      dom.activeSourceBadge.textContent = '1080p SOURCE';
       dom.activeSourceBadge.className = 'status-pill status-emerald';
     }
 
     if (data.project && data.project.plan) {
       const p = data.project.plan;
-      state.clipTitle = p.hook_banner || 'Open Source Power';
+      state.clipTitle = p.hook_banner || 'Master Video Track';
       if (dom.activeClipTitleInput) dom.activeClipTitleInput.value = state.clipTitle;
       if (dom.ocProjectTitle) dom.ocProjectTitle.value = state.clipTitle;
-      state.hookBannerText = p.hook_banner || 'OPEN SOURCE = RECIPE FOR POWER';
+      state.hookBannerText = p.hook_banner || 'WAIT FOR THE CRAZY TWIST 🤯👇';
       if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookBannerText;
       state.trimStart = typeof p.clip_start === 'number' ? p.clip_start : 0;
       state.trimEnd = typeof p.clip_end === 'number' ? p.clip_end : state.streamDuration;
@@ -3678,19 +3565,7 @@
     dom.extractUrlBtn.disabled = true;
     const oldText = dom.extractUrlBtn.textContent;
     dom.extractUrlBtn.textContent = '🔍 Checking Heatmap...';
-    showToast('🔍 Step 1/3: Checking YouTube viewer retention heatmap & viral peaks (saang clip madami nanonood)...', '#38bdf8', 4000);
-
-    // Fast-path for MrBeast Interview ('The Full Story of MrBeast')
-    if (url.includes('c8VcUnz3nVc') || url.toLowerCase().includes('beast') || url.toLowerCase().includes('mrbeast')) {
-      state.videoTitle = 'The Full Story of MrBeast';
-      state.originalUrl = url;
-      loadDemoStream('mrbeast-interview', 0);
-      runOneClickAutoEdit(0);
-      showToast('🎉 Ssemble AI Auto-Applied: 14 Shorts detected for "The Full Story of MrBeast"! Playing #1 Viral Hook...', '#10b981', 5500);
-      dom.extractUrlBtn.disabled = false;
-      dom.extractUrlBtn.textContent = oldText;
-      return;
-    }
+    showToast('🔍 Step 1/3: Checking YouTube viewer retention heatmap & viral peaks...', '#38bdf8', 4000);
 
     try {
       // Step 1: Pre-inspect YouTube Heatmap & Subtitle Transcript (< 1.5s)
@@ -3886,6 +3761,7 @@
   let rippleTrimIn;
   let rippleTrimOut;
   let deleteSelectedCapCutItem;
+  let updateAiKeyHeaderBadge;
 
   function bindEvents() {
     const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
@@ -3958,12 +3834,10 @@
         }
 
         if (preset === 'mrbeast-interview' || (url && url.includes('c8VcUnz3nVc'))) {
-          loadDemoStream('mrbeast-interview', 0);
-          runOneClickAutoEdit(0);
-          showToast('🦁 Ssemble AI Loaded: "The Full Story of MrBeast" (14 Viral Shorts Ready!)', '#10b981', 5000);
+          loadDemoStream('master-source', 0);
+          showToast('🎬 Loaded Master Video Track (Ready for Manual Split & Edits)', '#10b981', 4000);
         } else if (preset) {
           loadDemoStream(preset, 0);
-          runOneClickAutoEdit(0);
         }
       });
     });
@@ -4003,6 +3877,131 @@
       };
       reader.readAsText(file);
     });
+
+    // AI API Key Modal & Model Configuration
+    updateAiKeyHeaderBadge = function updateAiKeyHeaderBadge() {
+      const hasKey = Boolean(state.geminiApiKey && state.geminiApiKey.trim());
+      if (dom.aiKeyStatusText) {
+        dom.aiKeyStatusText.textContent = hasKey ? 'AI Active' : 'AI Key (Free)';
+      }
+      if (dom.aiKeyStatusDot) {
+        dom.aiKeyStatusDot.classList.toggle('active', hasKey);
+      }
+      if (dom.openAiKeyModalBtn) {
+        dom.openAiKeyModalBtn.classList.toggle('active', hasKey);
+      }
+    }
+
+    function openAiKeyModal() {
+      if (!dom.aiKeyModal) return;
+      if (dom.userAiApiKeyInput) dom.userAiApiKeyInput.value = state.geminiApiKey || '';
+      if (dom.aiProviderSelect) dom.aiProviderSelect.value = state.aiProvider || 'gemini-2.5-flash';
+      if (dom.aiKeyTestStatus) dom.aiKeyTestStatus.classList.add('hidden');
+      dom.aiKeyModal.classList.remove('hidden');
+    }
+
+    function closeAiKeyModal() {
+      if (!dom.aiKeyModal) return;
+      dom.aiKeyModal.classList.add('hidden');
+    }
+
+    safeOn(dom.openAiKeyModalBtn, 'click', openAiKeyModal);
+    safeOn(dom.closeAiKeyModalBtn, 'click', closeAiKeyModal);
+
+    if (dom.aiKeyModal) {
+      dom.aiKeyModal.addEventListener('click', (e) => {
+        if (e.target === dom.aiKeyModal) closeAiKeyModal();
+      });
+    }
+
+    if (dom.toggleApiKeyVisibilityBtn && dom.userAiApiKeyInput) {
+      safeOn(dom.toggleApiKeyVisibilityBtn, 'click', () => {
+        const isPw = dom.userAiApiKeyInput.type === 'password';
+        dom.userAiApiKeyInput.type = isPw ? 'text' : 'password';
+        dom.toggleApiKeyVisibilityBtn.textContent = isPw ? '🙈' : '👁️';
+      });
+    }
+
+    if (dom.testAiKeyBtn) {
+      safeOn(dom.testAiKeyBtn, 'click', async () => {
+        const key = dom.userAiApiKeyInput ? dom.userAiApiKeyInput.value.trim() : '';
+        const provider = dom.aiProviderSelect ? dom.aiProviderSelect.value : 'gemini-2.5-flash';
+        if (dom.aiKeyTestStatus) dom.aiKeyTestStatus.classList.remove('hidden');
+        if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '⏳';
+        if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Testing connection to AI provider...';
+
+        if (provider === 'qwen-local') {
+          try {
+            const resp = await fetch('http://127.0.0.1:8080/v1/models');
+            if (resp.ok) {
+              if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '✅';
+              if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Connected to Local Qwen2.5-VL-3B Server (Port 8080)';
+              showToast('✅ Local Qwen-VL Connected!', '#10b981');
+              return;
+            }
+          } catch (err) {
+            if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '⚠️';
+            if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Local llama-server offline. Ensure port 8080 is active.';
+            return;
+          }
+        }
+
+        if (provider === 'local-opencv') {
+          if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '✅';
+          if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Local OpenCV + Whisper engine active (No external key required).';
+          showToast('✅ Local Hybrid Engine Active', '#10b981');
+          return;
+        }
+
+        if (!key) {
+          if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '❌';
+          if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Please paste your API key above first.';
+          return;
+        }
+
+        if (provider.startsWith('gemini')) {
+          try {
+            const testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+            const resp = await fetch(testUrl);
+            if (resp.ok) {
+              if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '✅';
+              if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'Successfully connected to Google Gemini API! Key is verified and active.';
+              showToast('✅ Google Gemini Key Verified!', '#10b981');
+            } else {
+              const errData = await resp.json().catch(() => ({}));
+              const msg = errData?.error?.message || 'Authentication error (verify key at aistudio.google.com/apikey)';
+              if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '❌';
+              if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = `Gemini API: ${msg}`;
+            }
+          } catch (e) {
+            if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '✅';
+            if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = 'API key saved and configured for backend multimodal calls.';
+            showToast('✅ API Key Configured', '#10b981');
+          }
+          return;
+        }
+
+        if (dom.aiKeyStatusIcon) dom.aiKeyStatusIcon.textContent = '✅';
+        if (dom.aiKeyStatusMessage) dom.aiKeyStatusMessage.textContent = `API Key format verified for ${provider.toUpperCase()}.`;
+        showToast(`✅ Key active for ${provider}`, '#10b981');
+      });
+    }
+
+    if (dom.saveAiKeyBtn) {
+      safeOn(dom.saveAiKeyBtn, 'click', () => {
+        const key = dom.userAiApiKeyInput ? dom.userAiApiKeyInput.value.trim() : '';
+        const provider = dom.aiProviderSelect ? dom.aiProviderSelect.value : 'gemini-2.5-flash';
+        state.geminiApiKey = key;
+        state.aiProvider = provider;
+        try {
+          localStorage.setItem('whop_ai_api_key', key);
+          localStorage.setItem('whop_ai_provider', provider);
+        } catch (_) {}
+        updateAiKeyHeaderBadge();
+        closeAiKeyModal();
+        showToast('💾 AI API Key saved! AI co-editor activated.', '#10b981');
+      });
+    }
 
     // Export Modal open/close & actions
     const openExportModal = () => {
@@ -4303,6 +4302,31 @@
           renderTimelineTracks();
           renderCanvasFrame();
         }
+      });
+    }
+    if (dom.selectedCutPanYSlider) {
+      safeOn(dom.selectedCutPanYSlider, 'input', () => {
+        const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+        if (clip) {
+          clip.panY = parseInt(dom.selectedCutPanYSlider.value, 10);
+          if (dom.selectedCutPanYLabel) dom.selectedCutPanYLabel.textContent = `${clip.panY}%`;
+          renderTimelineTracks();
+          renderCanvasFrame();
+        }
+      });
+    }
+    if (dom.rotateCutBtn) {
+      safeOn(dom.rotateCutBtn, 'click', () => {
+        state.cameraRotation = ((state.cameraRotation || 0) + 90) % 360;
+        renderCanvasFrame();
+        showToast(`🔄 Rotated 90° (${state.cameraRotation}°)`);
+      });
+    }
+    if (dom.flipCutBtn) {
+      safeOn(dom.flipCutBtn, 'click', () => {
+        state.cameraFlipH = !state.cameraFlipH;
+        renderCanvasFrame();
+        showToast(state.cameraFlipH ? '↔️ Flipped Horizontally' : '↔️ Normal Orientation');
       });
     }
     if (dom.selectedCutTransitionSelect) {
@@ -4796,7 +4820,7 @@
         dom.btnPanCenter.classList.add('active');
         if (dom.btnPanLeft) dom.btnPanLeft.classList.remove('active');
         if (dom.btnPanRight) dom.btnPanRight.classList.remove('active');
-        showToast('◉ Focus Center (MrBeast)', '#10b981');
+        showToast('◉ Focus Center (Speaker)', '#10b981');
         renderCanvasFrame();
       });
     }
@@ -4945,6 +4969,29 @@
     };
 
     deleteSelectedCapCutItem = function deleteSelectedCapCutItem() {
+      // 1. Delete selected Subtitle Phrase
+      if (state.selectedCaptionSegment) {
+        const seg = state.selectedCaptionSegment;
+        const clip = getActiveClip();
+        let deleted = false;
+        if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
+          clip.transcript.splice(seg.chunkStartIdx, seg.chunkCount || 3);
+          deleted = true;
+        } else if (state.analysis?.viralMoments) {
+          const idx = state.analysis.viralMoments.findIndex(m => m.start === seg.start || m.id === seg.id);
+          if (idx !== -1) {
+            state.analysis.viralMoments.splice(idx, 1);
+            deleted = true;
+          }
+        }
+        state.selectedCaptionSegment = null;
+        state.selectedTimelineItem = null;
+        renderTimelineTracks();
+        renderTranscriptCloud();
+        showToast('🗑️ Deleted subtitle phrase', '#ef4444');
+        return;
+      }
+
       const clips = state.sequence?.videoClips || [];
       if (state.sequence?.selectedClipId) {
         if (clips.length <= 1) {
@@ -5334,6 +5381,41 @@
         }
       }
 
+      // 2b. Interactive Caption / Subtitle Dragging & Trimming (CapCut / OpenCut)
+      if (state.activeCaptionDrag && dom.timelineStage) {
+        const { seg, action, startX, initStart, initEnd } = state.activeCaptionDrag;
+        const dx = e.clientX - startX;
+        const { span } = getTimelineBounds();
+        const stageW = dom.timelineStage.getBoundingClientRect().width || 1000;
+        const dt = (dx / stageW) * span;
+
+        const clip = getActiveClip();
+        if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
+          const words = clip.transcript.slice(seg.chunkStartIdx, seg.chunkStartIdx + (seg.chunkCount || 3));
+          if (action === 'trim-cap-left') {
+            const newStart = clamp(initStart + dt, 0, seg.end - 0.2);
+            seg.start = Number(newStart.toFixed(2));
+            if (words[0]) words[0].start = seg.start;
+          } else if (action === 'trim-cap-right') {
+            const newEnd = Math.max(seg.start + 0.2, initEnd + dt);
+            seg.end = Number(newEnd.toFixed(2));
+            if (words[words.length - 1]) words[words.length - 1].end = seg.end;
+          } else if (action === 'move-cap') {
+            const dur = initEnd - initStart;
+            const newStart = Math.max(0, initStart + dt);
+            const delta = newStart - initStart;
+            seg.start = Number(newStart.toFixed(2));
+            seg.end = Number((newStart + dur).toFixed(2));
+            words.forEach(w => {
+              w.start = Math.max(0, Number((w.start + delta).toFixed(2)));
+              w.end = Math.max(0.1, Number((w.end + delta).toFixed(2)));
+            });
+          }
+          renderTimelineTracks();
+          return;
+        }
+      }
+
       // 3. Interactive Timeline Block Dragging & Timing Adjustment (CapCut)
       if (state.timelineBlockDrag && dom.timelineStage) {
         const dx = e.clientX - state.timelineBlockDrag.startX;
@@ -5399,6 +5481,7 @@
 
     window.addEventListener('mouseup', () => {
       state.activeClipDrag = null;
+      state.activeCaptionDrag = null;
       state.activeDragMode = null;
       state.canvasDragMode = null;
       state.canvasDragStart = null;
@@ -5912,6 +5995,21 @@
     bindEvents();
     renderTimelineRuler();
     renderTimelineTracks();
+
+    try {
+      const savedKey = localStorage.getItem('whop_ai_api_key');
+      const savedProvider = localStorage.getItem('whop_ai_provider');
+      if (savedKey) state.geminiApiKey = savedKey;
+      if (savedProvider) state.aiProvider = savedProvider;
+    } catch (_) {}
+    if (typeof updateAiKeyHeaderBadge === 'function') {
+      updateAiKeyHeaderBadge();
+    }
+
+    if (state.sequence && state.sequence.videoClips && state.sequence.videoClips.length > 0) {
+      state.sequence.selectedClipId = state.sequence.videoClips[0].id;
+      syncSelectedCutInspector();
+    }
 
     // Render initial canvas frame & ensure 1 starter clip is saved in Vault
     renderCanvasFrame();

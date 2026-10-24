@@ -40,7 +40,7 @@
           type="text"
           id="projectNameInput"
           class="project-name-input"
-          value="The Full Story of MrBeast — Viral Cut"
+          value="Viral Shorts Studio — Master"
           title="Click to rename this project"
         />
         <span class="project-badge">9:16 VERTICAL</span>
@@ -84,8 +84,14 @@
       </button>
     </div>
 
-    <!-- Right: Export Button + Theme Toggle -->
+    <!-- Right: AI API Key + Export Button + Theme Toggle -->
     <div class="nav-right">
+      <button type="button" id="openAiKeyModalBtn" class="nav-btn nav-btn-ai-key" title="Configure AI API Key (Free Google Gemini / Multimodal)">
+        <span class="ai-key-icon">🔑</span>
+        <span id="aiKeyStatusText">AI Key</span>
+        <span id="aiKeyStatusDot" class="ai-key-dot"></span>
+      </button>
+
       <button id="openExportModalBtn" class="btn-opencut-export" title="Render & Export 9:16 Video (.MP4 / .WEBM)">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -270,15 +276,15 @@
           <div class="drawer-section">
             <div class="drawer-section-title">
               <span>PASTE VIDEO LINK:</span>
-              <span id="activeSourceBadge" class="status-pill status-emerald">MRBEAST INTERVIEW</span>
+              <span id="activeSourceBadge" class="status-pill status-emerald">1080p SOURCE</span>
             </div>
             <div class="url-ingest-row">
               <input
                 type="text"
                 id="streamUrlInput"
                 class="studio-input url-input"
-                placeholder="Paste YouTube, Twitch or podcast URL..."
-                value="https://youtu.be/c8VcUnz3nVc"
+                placeholder="Paste YouTube, Twitch, MP4 or stream link..."
+                value=""
                 aria-label="Stream URL"
               />
               <button id="extractUrlBtn" class="btn-mini btn-accent" title="Analyze link &amp; extract viral cuts">
@@ -362,8 +368,8 @@
                 <span class="asset-badge-type">1080p MP4</span>
               </div>
               <div class="asset-card-info">
-                <div class="asset-card-title">MrBeast Interview (Full Story)</div>
-                <div class="asset-card-meta">58.05s • 1920×1080 • Faster-Whisper</div>
+                <div class="asset-card-title" id="activeAssetCardTitle">Master Video Source</div>
+                <div class="asset-card-meta" id="activeAssetCardMeta">1080p MP4 • Continuous Master Track</div>
                 <div class="asset-card-status">🟢 Active on Master Timeline</div>
               </div>
             </div>
@@ -409,7 +415,7 @@
               type="text"
               id="hookBannerTextInput"
               class="studio-input"
-              value="MRBEAST: $20M ASK TO NETFLIX 🤯"
+              value="WAIT FOR THE CRAZY TWIST 🤯👇"
               placeholder="Enter top hook headline..."
             />
             <div class="hook-mode-row" style="margin-top:6px; display:flex; gap:6px;">
@@ -694,45 +700,7 @@
          CENTER PANEL: PREVIEW STAGE & OPENCUT TRANSPORT BAR
          =================================================================== -->
     <div class="opencut-center-panel">
-      <!-- CapCut Pro Stage Zoom & Framing Control Bar -->
-      <div class="stage-zoom-toolbar" id="stageZoomToolbar">
-        <div class="zoom-toolbar-section">
-          <span class="zoom-tool-label">ZOOM:</span>
-          <button type="button" id="btnZoomOut" class="zoom-step-btn" title="Zoom Out (Unzoom)">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          </button>
-          <input type="range" id="stageZoomSlider" min="30" max="250" value="100" step="5" class="stage-zoom-slider" title="Video Zoom (Unzoom to 30%, Zoom to 250%)">
-          <button type="button" id="btnZoomIn" class="zoom-step-btn" title="Zoom In">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          </button>
-          <span id="stageZoomVal" class="zoom-val-badge">100%</span>
-        </div>
-
-        <div class="zoom-toolbar-sep"></div>
-
-        <div class="zoom-toolbar-section">
-          <button type="button" id="btnFitAllPeople" class="zoom-mode-btn active" title="Fit to Screen (Unzoomed • All People & Hosts Visible)">
-            📐 Fit (Unzoomed • All People)
-          </button>
-          <button type="button" id="btnFillVertical" class="zoom-mode-btn" title="Fill 9:16 Height (Cropped)">
-            📱 Fill 9:16
-          </button>
-          <button type="button" id="btnResetZoom" class="zoom-mode-btn" title="Reset to 100%">
-            1:1 Native
-          </button>
-        </div>
-
-        <div class="zoom-toolbar-sep"></div>
-
-        <div class="zoom-toolbar-section">
-          <span class="zoom-tool-label">PAN:</span>
-          <button type="button" id="btnPanLeft" class="pan-step-btn" title="Pan Left (Focus Host Colin)">◀ Left</button>
-          <button type="button" id="btnPanCenter" class="pan-step-btn active" title="Center Focus (MrBeast)">◉ Center</button>
-          <button type="button" id="btnPanRight" class="pan-step-btn" title="Pan Right (Focus Host Samir)">Right ▶</button>
-        </div>
-      </div>
-
-      <!-- Stage Canvas Container -->
+      <!-- Stage Canvas Container (Clean Stage • Controlled via Clip Properties Inspector) -->
       <div class="opencut-stage-wrapper">
         <div class="preview-canvas-box" id="previewCanvasBox">
           <canvas id="previewCanvas" width="1080" height="1920" aria-label="Short-Form Video Canvas"></canvas>
@@ -1157,6 +1125,84 @@
             <button type="button" id="exportJsonProjectBtn" class="btn-chip full-width">Export .JSON Project</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 3: AI ENGINE & API KEY CONFIGURATION (FREE GEMINI / MULTIMODAL)
+       ===================================================================== -->
+  <div id="aiKeyModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="aiKeyModalTitle">
+    <div class="modal-card modal-ai-key">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="aiKeyModalTitle" class="modal-title">🤖 AI Engine &amp; API Key Settings</h3>
+          <span class="modal-subtitle">Configure your AI provider for smart human-in-the-loop editing</span>
+        </div>
+        <button type="button" id="closeAiKeyModalBtn" class="btn-close-modal">✕</button>
+      </div>
+
+      <div class="ai-key-modal-body">
+        <!-- Free Gemini Callout Banner -->
+        <div class="ai-key-info-box">
+          <div class="info-box-header">
+            <span class="info-box-badge">✨ RECOMMENDED • 100% FREE</span>
+            <strong>Google Gemini 2.5 Flash / 1.5 Pro</strong>
+          </div>
+          <p class="info-box-desc">
+            Gemini provides a generous free tier with multimodal video + audio analysis. Get your free key instantly from Google AI Studio:
+          </p>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="btn-get-key-link">
+            <span>Get Free Gemini API Key (Google AI Studio)</span>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+          </a>
+        </div>
+
+        <!-- Provider Selection -->
+        <div class="form-group">
+          <label for="aiProviderSelect" class="form-label">AI Model Provider:</label>
+          <select id="aiProviderSelect" class="studio-input modal-select" style="width:100%; padding:9px 12px; background:#0f111e; border:1px solid #232742; color:#f1f5f9; border-radius:6px; font-size:12px;">
+            <option value="gemini-2.5-flash" selected>✨ Google Gemini 2.5 Flash (Free Tier • Video Frame + Audio Multimodal)</option>
+            <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep Reasoning &amp; Viral Hook Analysis)</option>
+            <option value="openai">OpenAI GPT-4o / GPT-4o-mini</option>
+            <option value="groq">Groq (Llama 3.3 70B • Ultra Fast)</option>
+            <option value="qwen-local">Local Qwen2.5-VL-3B Multimodal (llama-server:8080)</option>
+            <option value="local-opencv">Local Hybrid (OpenCV Vision + Faster-Whisper • No Key Required)</option>
+          </select>
+        </div>
+
+        <!-- API Key Input -->
+        <div class="form-group" id="apiKeyInputGroup" style="margin-top:12px;">
+          <label for="userAiApiKeyInput" class="form-label">API Key:</label>
+          <div class="api-key-input-wrap">
+            <input
+              type="password"
+              id="userAiApiKeyInput"
+              class="studio-input api-key-field"
+              placeholder="Paste your API key here (e.g. AIzaSy... or sk-...)"
+              autocomplete="off"
+            />
+            <button type="button" id="toggleApiKeyVisibilityBtn" class="btn-key-eye" title="Toggle Visibility">👁️</button>
+          </div>
+          <span class="form-hint" style="display:block; margin-top:6px; font-size:11px; color:#94a3b8;">
+            Stored safely in your browser localStorage. Never sent to any external server other than the official API endpoint.
+          </span>
+        </div>
+
+        <!-- Connection Test Status -->
+        <div id="aiKeyTestStatus" class="ai-key-status-row hidden">
+          <span id="aiKeyStatusIcon">⚡</span>
+          <span id="aiKeyStatusMessage">Ready to test connection</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding:16px 20px; border-top:1px solid #1e2238; display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" id="testAiKeyBtn" class="btn-chip" style="padding:8px 14px; font-weight:600;">
+          <span>⚡ Test Connection</span>
+        </button>
+        <button type="button" id="saveAiKeyBtn" class="btn-opencut-auto" style="padding:8px 18px; font-size:12.5px;">
+          <span>💾 Save &amp; Activate AI</span>
+        </button>
       </div>
     </div>
   </div>

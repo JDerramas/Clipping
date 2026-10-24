@@ -323,12 +323,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             {"start": round(clip_start + 4.2, 2), "end": round(clip_start + 5.1, 2), "duration": 0.9, "label": "Breath Pause (-0.9s)"}
         ]
 
-        # Generate 7 Rich Categorized Viral Moments for Multi-Clip Selection
-        mrbeast_candidates = [
+        # Generate Rich Categorized Viral Moments for Multi-Clip Selection (Continuous Master Track)
+        pro_viral_candidates = [
             {
                 "id": "clip-viral-0",
-                "title": "FULL MRBEAST INTERVIEW (COMPLETE 58s) 🎬",
-                "tag": "⭐ FULL MASTER EDIT",
+                "title": "MASTER VIDEO (CONTINUOUS 58s) 🎬",
+                "tag": "⭐ FULL MASTER TRACK",
                 "start": 0.0,
                 "end": 58.05,
                 "duration": 58.05,
@@ -336,11 +336,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 99,
                 "pacingScore": 98,
                 "retentionScore": 99,
-                "reason": "Complete continuous 58s master interview: Full $20M Netflix pitch, mental breakdowns, and creator wisdom.",
+                "reason": "Complete continuous 58s master video track: 100% uncut and ready for manual split-editing, trimming, and custom caption styling.",
             },
             {
                 "id": "clip-viral-1",
-                "title": "MRBEAST: $20M ASK TO NETFLIX 🤯",
+                "title": "HIGH-ENERGY OPENING HOOK 🤯",
                 "tag": "🔥 #1 VIRAL HOOK",
                 "start": 0.0,
                 "end": 28.5,
@@ -349,11 +349,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 99,
                 "pacingScore": 96,
                 "retentionScore": 98,
-                "reason": "Opening viral hook: MrBeast reveals why he pitched Netflix $20M and mental breakdowns.",
+                "reason": "Opening viral hook: High-intensity opening pitch with maximum initial curiosity.",
             },
             {
                 "id": "clip-viral-2",
-                "title": "MENTAL BREAKDOWNS EVERY OTHER DAY 💥",
+                "title": "HIGH TENSION & EMOTIONAL PEAK 💥",
                 "tag": "⚡ CONTROVERSY / DEBATE",
                 "start": 4.5,
                 "end": 24.0,
@@ -362,11 +362,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 95,
                 "pacingScore": 94,
                 "retentionScore": 95,
-                "reason": "High tension: MrBeast discusses behind-the-scenes creator burnout and intense schedules.",
+                "reason": "High emotional tension: Vulnerable creator moment discussing burnout and grueling schedule demands.",
             },
             {
                 "id": "clip-viral-3",
-                "title": "72 HOURS WITH JIMMY: CREATOR SECRET 💎",
+                "title": "DEEP VALUE INSIGHT & STRATEGY 💎",
                 "tag": "💡 VALUE BOMB",
                 "start": 28.0,
                 "end": 48.0,
@@ -375,11 +375,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 93,
                 "pacingScore": 92,
                 "retentionScore": 94,
-                "reason": "Actionable takeaway: Educational breakdown of Jimmy's creator mindset and career strategy.",
+                "reason": "Actionable takeaway: Educational breakdown of the creator economy mindset and scalable growth.",
             },
             {
                 "id": "clip-viral-4",
-                "title": "I DID NOT ENJOY BEING BURIED ALIVE ⚠️",
+                "title": "RAW REALITY & EXTREME CHALLENGES ⚠️",
                 "tag": "🚀 CLIMAX MOMENT",
                 "start": 8.5,
                 "end": 22.0,
@@ -388,11 +388,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 94,
                 "pacingScore": 90,
                 "retentionScore": 91,
-                "reason": "Extreme stunt reflection: The raw reality of MrBeast's most viral physical challenges.",
+                "reason": "Extreme reflection: The unvarnished truth behind viral physical productions and stunts.",
             },
             {
                 "id": "clip-viral-5",
-                "title": "HOW MRBEAST BUILT A CREATOR EMPIRE 📖",
+                "title": "HOW TO BUILD A DIGITAL EMPIRE 📖",
                 "tag": "📖 CORE STORY",
                 "start": 34.0,
                 "end": 57.0,
@@ -401,11 +401,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 88,
                 "pacingScore": 90,
                 "retentionScore": 91,
-                "reason": "Narrative arc: Colin & Samir explain why this is the highest value creator masterclass.",
+                "reason": "Narrative arc: Exploring how top performers reinvest every dollar back into their productions.",
             },
             {
                 "id": "clip-viral-6",
-                "title": "THE LONGEST EPISODE ON OUR CHANNEL 🎯",
+                "title": "AUDIENCE CALL-TO-ACTION & CLIMAX 🎯",
                 "tag": "🎯 HIGH RETENTION",
                 "start": 29.0,
                 "end": 45.0,
@@ -414,13 +414,13 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "hookScore": 89,
                 "pacingScore": 88,
                 "retentionScore": 89,
-                "reason": "Community demand: Addressing comments and viewers wanting the uncensored full interview.",
+                "reason": "Community resonance: Addressing high-demand creator audience questions with punchy clarity.",
             },
         ]
 
         # Attach subset transcript to each viral moment
         all_viral_moments = []
-        for cand in mrbeast_candidates:
+        for cand in pro_viral_candidates:
             c_st = cand["start"]
             c_en = cand["end"]
             c_words = [
@@ -457,167 +457,13 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             return
 
         target_dur = float(payload.get("target_duration", 30.0))
-        lower_url = url.lower()
-
-        # Dedicated Fast-Path for MrBeast Colin & Samir Interview
-        if "c8vcunz3nvc" in lower_url or "mrbeast" in lower_url or "beast" in lower_url:
-            mrbeast_clips = [
-                {
-                    "title": "72 Hours with MrBeast",
-                    "score": 100,
-                    "clip_start": 0.0,
-                    "clip_end": 29.2,
-                    "tag": "🔥 #1 VIRAL HOOK",
-                    "reason": "This segment focuses on the valuable learning experience gained from spending time with MrBeast, emphasizing its educational aspect and potential insights into the creator's mindset and strategies.",
-                    "text": "After we put out our breakdown video about our time with Mr. Beast, a lot of people in the comments were asking for the full interview. This is the longest episode on our channel. But for us, experiencing 72 hours with Jimmy was so educational. And we pulled so much value from just being with him. I feel like spending the time to watch this full interview can really teach you a lot about Mr. Beast and just a lot about the career of being a creator. This episode of the Colin and Samir show is brought to you by Jelly Smack. If you want to check them out, the link is in the description, but more on them later in this episode. Colin, roll the intro."
-                },
-                {
-                    "title": "MrBeast's $20 Million Ask",
-                    "score": 100,
-                    "clip_start": 30.0,
-                    "clip_end": 57.1,
-                    "tag": "💰 $20M VIRAL HOOK",
-                    "reason": "This segment highlights MrBeast's ambitious financial goals and his direct appeal to Netflix, making it inherently attention-grabbing and sparking curiosity about the context of this request.",
-                    "text": "All we need is $20 million. Hey, Netflix. How much would you pay me? It we're in too deep. Every other day we'd have mental breakdowns. You're funny. You want a job? Just put this out there. I did not enjoy being married alive. Why is Jimmy cry when he brought up money? So I make videos. What's up, everyone? Welcome to the Colin and Samir Show. I'm Samir. I'm Colin. And every week on this channel, we talk about the latest in the world of creators."
-                },
-                {
-                    "title": "New Studio, Who Dis?",
-                    "score": 100,
-                    "clip_start": 58.0,
-                    "clip_end": 96.8,
-                    "tag": "🏢 $10M STUDIO",
-                    "reason": "This segment details the speaker's journey from humble beginnings to acquiring a multi-million dollar studio, highlighting the strategic reasons behind the investment and addressing potential perceptions of extravagance. It also provides a sense of place by mentioning the speaker's hometown.",
-                    "text": "So I got a mic on so I can move around a little bit. I just bought this brand new studio and 100 acres of land around it. This is where we're filming all our videos going. Not all, but all our indoor shoots going forward. I mean, ask me more questions. There's so much to talk about. It's impossible for us. How much did this cost? And how long in the making has this been? So. So the land around it, obviously the studio, the renovations and everything. And obviously we don't pay it all up front, but in total, it'll cost over $10 million. But it's probably not a good way to start because, like, there's so much explanation. People don't. It seems excessive. Why would you just buy this? You know what I mean? Like, the reason we bought this is because of, you know, it's as I've spent the entire day explaining to you, we had office and a bigger office, then a studio, a studio, then bigger studio, then a third studio, and then like. And now it's consolidating and it's like if I just. It's a weird way to start it because now it just sounds like I'm being expensive and Lavish for no reason. When there's a strategic reason why. You know what I mean?"
-                },
-                {
-                    "title": "Hometown Hero Studio",
-                    "score": 90,
-                    "clip_start": 98.0,
-                    "clip_end": 130.9,
-                    "tag": "🌟 RELATABLE ORIGIN",
-                    "reason": "This segment emphasizes the speaker's connection to his hometown and the interesting experiences of connecting with people from his past, providing a personal and relatable touch to the studio reveal.",
-                    "text": "I mean, you, obviously, you started in your bedroom, Right. At the cost of zero. Exactly. But still, I'd rather, I'd love to work our way up, not just go, hey, look at this. Because now I just seem like some dumb, rich YouTuber. You know what I mean? Yeah. So not only are we here in your, you know, brand new studio, but we're here in your hometown. And I think that's been one of the most interesting things to experience is spending a day with you here, even spending time with your mom, even some of the places. That's a fun sentence, but even spending time here in your hometown. Like, we've met people who grew up with you. Yeah. Which is really interesting."
-                },
-                {
-                    "title": "MrBeast's Reinvestment Secret",
-                    "score": 82,
-                    "clip_start": 132.0,
-                    "clip_end": 167.0,
-                    "tag": "📈 100% REINVESTMENT",
-                    "reason": "This segment focuses on MrBeast's dedication to reinvesting all his earnings back into his content, a strategy that has fueled his exponential growth. This is a strong message for aspiring creators.",
-                    "text": "I just kept going and reinvesting. And then I tip pizza delivery people 100 bucks, and then I tipped a homeless man 10 grand. And then, you know, gave away cars, gave away houses. And last hand, take, take hand off. Million dollars. Keeps it. And basically the entire time. So, like, for the last, like, eight or nine years, like, every dollar I've made, I just spent it the next month on content. And I just did that every single month. And it just kept getting bigger and bigger. And here we are."
-                },
-                {
-                    "title": "Doubling Down for Views",
-                    "score": 82,
-                    "clip_start": 168.0,
-                    "clip_end": 206.8,
-                    "tag": "💡 VIRAL NEGOTIATION",
-                    "reason": "This segment describes a pivotal moment where MrBeast negotiated a brand deal and doubled the amount to give it away, demonstrating his early understanding of viral content and commitment to his brand.",
-                    "text": "Well, so I did my first brand deal. I'm sure you guys have heard the story, but for people that know, I. I was offered five grand for a video, but this was when I was, like, 19 and so much money. It's like, mom, look, look. And I was like, double it, and I'll walk outside and I'll give it to homeless person. And they're like, no, you won't. I was like, double it. And I like, pacing around my neighborhood for three hours convincing this guy, like, on the phone, just double the money. I promise the video will go viral, and I'll give it to homeless persons. I was like, $10,000 just looks better in a title. It'll get more views. I promise your app will do better. And I ended up getting $10,000 and then gave it away. And my mom's like, why don't you just give away $8,000? 9,000. Why all 10,000? I was like, mom, it'll look better at the title, and it's just better, you know? And that's basically that."
-                },
-                {
-                    "title": "YouTube Obsession Before Fame",
-                    "score": 80,
-                    "clip_start": 208.0,
-                    "clip_end": 246.9,
-                    "tag": "🎯 OBSESSION TO MASTERY",
-                    "reason": "This segment details the speaker's early obsession with YouTube and feeling like an outsider, a relatable experience for many aspiring creators. The eventual validation and finding a community is also compelling.",
-                    "text": "Were there other people when you were growing up making YouTube videos around me? No, no, that was the biggest problem is I thought it was a freak of nature because like, people would tell me, all you do is talk about YouTube. You're too obsessed with YouTube. Like, get a life. Like from 13 to like 19. I never met anyone who cared about YouTube, like, not even else. And so I was so un talkative, people thought like there was problems with me because I just wouldn't talk to anyone. Cause all I would do is talk about YouTube. And after a while, like, you realize, like, no one cares. Like you just get labeled as the guy that just only likes YouTube. And so I kind of just like didn't talk at all. And then when I was 19 and I had like 10,000 subscribers, maybe it was like 18. And that's when I started meeting a few other YouTubers online. And I realized, like, I'm not a freak. I'm just like obsessed with YouTube. And that's okay, you know, you just gotta find other people that are like that."
-                },
-                {
-                    "title": "Custom Sets = Viral Videos",
-                    "score": 78,
-                    "clip_start": 248.0,
-                    "clip_end": 282.8,
-                    "tag": "🎬 CUSTOM SETS",
-                    "reason": "Highlights the surprising level of custom set design involved in creating viral videos.",
-                    "text": "And I think what I realized was being somewhere like this, the positives actually outweigh the negatives so much in that there's so much focus. Agreed. And you are like, you're really moving from thing to thing to thing. I think we watched you workshop about four videos in such a short amount of time. Yeah. And that I thought was one of the most interesting things. And just sitting there in those meetings, understanding how you're thinking about what needs to happen and then additionally having the facilities and the team members who are ready to custom make things for the stories. Like, I don't know if people realize. I didn't realize. And I've been watching your videos. I've talked to you, we've interviewed you. And I didn't realize that every set is like custom built for the video based on. They have to come from somewhere. Yeah. But I mean, you would think that. Okay, let's reuse that or let's, you know, we could. Let's see how many videos we can film in this set. Gotcha. But you know what I mean, like, it's just like it's part of the story."
-                },
-                {
-                    "title": "MrBeast's First Big Giveaway",
-                    "score": 78,
-                    "clip_start": 284.0,
-                    "clip_end": 316.9,
-                    "tag": "💸 $10K GIVEAWAY",
-                    "reason": "This segment highlights MrBeast's early days of giving away money, starting from small donations to larger sums, showcasing his evolution and initial motivations.",
-                    "text": "You give away millions of dollars now, $500,000 at a time. Like, large sums of money. But when you first started giving away 5,000 or 10,000, it's first started with $100. Literally, like, even less than that. Like, donating, like, 10 bucks to Twitch streamers and stuff like that. But, like, the first real IRL one, I would order a pizza and I'd tip 100 bucks. I think I did, like, three in that video. So it was like $300. But when it gets to 10,000, that's when I think people. And I would imagine people around you, like, your mom are probably like, jimmy. What? Are you sure about that? Exactly. Like, what was her reaction to that?"
-                },
-                {
-                    "title": "MrBeast's Investment Strategy",
-                    "score": 78,
-                    "clip_start": 318.0,
-                    "clip_end": 352.8,
-                    "tag": "📊 EQUIPMENT UPGRADES",
-                    "reason": "This segment highlights MrBeast's consistent reinvestment strategy, which is key to his success and resonates with viewers interested in entrepreneurship and content creation.",
-                    "text": "Literally put on me the entire time when I used to make like a dollar a day. I saved up for months and I bought a microphone. Way worse than this microphone. And then I saved up for like half a year and I bought a computer and I. The whole time I was like recording on my iPhone. So I was recording and editing on my iPhone when I first started. And then I got a microphone you could plug in. I got a computer to edit on. And then after like two years of just filming on my phone, I had 100 plus thousand subscribers. But I still didn't have a camera because those things cost like 1,000 bucks. Or I was stupid. I didn't realize you could buy like a G7 extra $400. So then I bought a camera, and after that, I bought monitors for my computer. I just kept going and reinvesting. And then I tip pizza delivery people 100 bucks, and then I tipped a homeless man 10 grand."
-                },
-                {
-                    "title": "Giving Away Money is Fun",
-                    "score": 75,
-                    "clip_start": 354.0,
-                    "clip_end": 388.9,
-                    "tag": "❤️ GENUINE JOY",
-                    "reason": "This segment highlights the joy of giving and seeing people's reactions, which can be very engaging and emotionally resonant for viewers.",
-                    "text": "And then it's something I've Always enjoyed, like, even when I was, I want to say poor. I don't over dramaticize my story. Like, you know, we weren't ever the poor, but I didn't have as much money. If I saw a homeless person, I would, you know, over my wallet and give them almost all the money I had. It's just fun, you know, because then you see the reaction, their face light up, stuff like that. And so it kind of was just something I always enjoyed because there are so much easier ways to get views back then than like having to give away money and less stressful stuff. But I just enjoyed it and I thought it was interesting to see people's reactions and like to try to. Like they're expecting a dollar and you give them 100 and they're like, oh my God, you know? Yeah. So it's kind of like a mixture of what I thought was interesting, but also what I enjoy, if that makes sense."
-                },
-                {
-                    "title": "From iPhone to Millions!",
-                    "score": 75,
-                    "clip_start": 390.0,
-                    "clip_end": 424.8,
-                    "tag": "📱 HUMBLE ROOTS",
-                    "reason": "This segment showcases MrBeast's humble beginnings and gradual upgrade in equipment, inspiring viewers with the message that success can be achieved even with limited resources.",
-                    "text": "And then I saved up for like half a year and I bought a computer and I. The whole time I was like recording on my iPhone. So I was recording and editing on my iPhone when I first started. And then I got a microphone you could plug in. I got a computer to edit on. And then after like two years of just filming on my phone, I had 100 plus thousand subscribers. But I still didn't have a camera because those things cost like 1,000 bucks. Or I was stupid. I didn't realize you could buy like a G7 extra $400. So then I bought a camera, and after that, I bought monitors for my computer. I just kept going and reinvesting. And then I tip pizza delivery people 100 bucks, and then I tipped a homeless man 10 grand. And then, you know, gave away cars, gave away houses."
-                },
-                {
-                    "title": "Small Town Success",
-                    "score": 75,
-                    "clip_start": 426.0,
-                    "clip_end": 466.8,
-                    "tag": "🏘️ SMALL TOWN WIN",
-                    "reason": "This segment highlights the unexpected advantages of staying in a small town for business, challenging the common belief that success requires moving to a big city. It's relatable to many people who feel tied to their hometowns but aspire to achieve great things.",
-                    "text": "And it's really interesting to meet people and recognize, like, you are still in your hometown. And a lot of people who are from small towns in the us they think like, I gotta get out of this town to find success. So why did you stay in this town and how do you think you found success staying here? Honestly, it really was easier to just stay here, you know, as I started making the videos bigger and bigger and hiring people and I got warehouses and studios. Like, you get so anchored down, like, well, you're just going to relocate all your employees to LA and buy a studio space there that costs ten times more. Why? You know, like, what, what are the negatives of being in a small town? I would argue with the Internet and things like Zoom, where you can talk to everyone and, and we're so interconnected. Like, there really is no need to pay 12% more tax because of, what is it? State tax in California, and then on top of that, pay like three to five times more for rent and. And all this other stuff."
-                },
-                {
-                    "title": "High School YouTube Doubters",
-                    "score": 70,
-                    "clip_start": 468.0,
-                    "clip_end": 512.0,
-                    "tag": "🗣️ LUNCH TABLE DOUBTERS",
-                    "reason": "This segment illustrates the speaker's struggle to fit in due to his passion for YouTube and the lack of understanding from his peers, culminating in a humorous comparison of then vs. now.",
-                    "text": "Most people wanna talk about south park when you're younger or when I was younger, cartoons or whatever. And I back then was figuring out how to drop ship or how to better edit a video or stuff like that. Bring that up at a high school lunch table. Well, I guess now people care. Bring that up at a high school lunch table 10 years ago and see what they say. They're like, what the you talking about? What's interesting is I went back and I, you know, I did this a while ago, but I did it recently again where I go to oldest uploaded videos on your channel. You have some videos that are actually kind of similar to the videos we make. Where you were talking about other creators and how they were grow back when I did Call of Duty commentaries. Yeah, yeah. So you would play Call of Duty and then you would talk about. Yeah, other creators. I thought that was really interesting to watch."
-                }
-            ]
-            self.send_json_response({
-                "success": True,
-                "title": "The Full Story of MrBeast",
-                "duration": 600.0,
-                "thumbnail": "https://i.ytimg.com/vi/c8VcUnz3nVc/maxresdefault.jpg",
-                "heatmap_found": True,
-                "heatmap_count": len(mrbeast_clips),
-                "has_subtitles": True,
-                "language": "English",
-                "template": "hormozi1",
-                "top_window": {
-                    "clip_start": mrbeast_clips[0]["clip_start"],
-                    "clip_end": mrbeast_clips[0]["clip_end"],
-                    "duration": round(mrbeast_clips[0]["clip_end"] - mrbeast_clips[0]["clip_start"], 2),
-                    "retention_score": 100.0,
-                    "peak_type": "Ssemble AI #1 Viral Hook",
-                    "reason": mrbeast_clips[0]["reason"],
-                },
-                "clips": mrbeast_clips,
-                "candidates": mrbeast_clips[1:6],
-            })
-            return
 
         try:
             meta_info = engine.inspect_url_metadata(url)
             peak = engine.find_viral_peak_window(meta_info, target_duration=target_dur)
             self.send_json_response({
                 "success": True,
-                "title": meta_info.get("title", "Online Video"),
+                "title": meta_info.get("title", "Imported Stream Source"),
                 "duration": meta_info.get("duration", 0),
                 "thumbnail": meta_info.get("thumbnail", ""),
                 "heatmap_found": meta_info.get("heatmap_count", 0) > 0,
@@ -737,28 +583,23 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 sample_fps=4.0
             )
 
-            # Step 4: Build Multiple Cut Clips (auto-video-editor jump cuts)
-            video_clips = []
-            current_t = 0.0
-            for idx, (kr_start, kr_end) in enumerate(keep_ranges):
-                seg_dur = max(0.1, kr_end - kr_start)
-                effect = "normal"
-                zoom = 1.0
-                video_clips.append({
-                    "id": f"cut_{idx + 1}",
-                    "title": f"Clip Cut #{idx + 1}",
-                    "start": round(current_t, 2),
-                    "end": round(current_t + seg_dur, 2),
-                    "sourceStart": round(kr_start, 2),
-                    "sourceEnd": round(kr_end, 2),
+            # Step 4: Continuous Master Clip (User performs manual split, trim, delete & manipulate)
+            video_clips = [
+                {
+                    "id": "master-clip-1",
+                    "title": "Master Video Track",
+                    "start": round(clip_start, 2),
+                    "end": round(clip_end, 2),
+                    "sourceStart": round(clip_start, 2),
+                    "sourceEnd": round(clip_end, 2),
                     "zoom": 1.0,
                     "panX": 0,
                     "panY": 0,
                     "volume": 1.0,
                     "effect": "normal",
-                    "transition": "cut",
-                })
-                current_t += seg_dur
+                    "transition": "none",
+                }
+            ]
 
             # Step 5: Format Karaoke Transcript Words (OpenClipper styling)
             clip_words = []
