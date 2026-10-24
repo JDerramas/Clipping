@@ -729,8 +729,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             current_t = 0.0
             for idx, (kr_start, kr_end) in enumerate(keep_ranges):
                 seg_dur = max(0.1, kr_end - kr_start)
-                effect = "punch-in" if idx == 0 else ("flash" if idx % 2 == 1 else "normal")
-                zoom = 1.25 if idx % 2 == 1 else 1.05
+                effect = "normal"
+                zoom = 1.0
                 video_clips.append({
                     "id": f"cut_{idx + 1}",
                     "title": f"Clip Cut #{idx + 1}",
@@ -738,12 +738,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     "end": round(current_t + seg_dur, 2),
                     "sourceStart": round(kr_start, 2),
                     "sourceEnd": round(kr_end, 2),
-                    "zoom": zoom,
+                    "zoom": 1.0,
                     "panX": 0,
                     "panY": 0,
                     "volume": 1.0,
-                    "effect": effect,
-                    "transition": "flash" if idx == 0 else "cut",
+                    "effect": "normal",
+                    "transition": "cut",
                 })
                 current_t += seg_dur
 

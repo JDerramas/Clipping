@@ -425,45 +425,98 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 4: EFFECTS
+             DRAWER TAB 4: EFFECTS (PRO CINEMA & VFX)
              ========================================== -->
         <div id="drawerTab-effects" class="drawer-content">
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>CAMERA &amp; CUT EFFECTS</span></div>
+            <div class="drawer-section-title">
+              <span>PRO VIDEO EFFECTS (VFX)</span>
+              <span class="tiny-hint">Click to toggle live</span>
+            </div>
+            <div class="pro-effects-grid">
+              <button type="button" class="effect-card active" data-effect="vignette">
+                <span class="effect-icon">🎯</span>
+                <strong>Lens Vignette</strong>
+                <small>Cinematic focus</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="halation">
+                <span class="effect-icon">🌟</span>
+                <strong>Film Halation</strong>
+                <small>Warm highlight glow</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="vhs">
+                <span class="effect-icon">📼</span>
+                <strong>Retro VHS Tape</strong>
+                <small>90s scanlines &amp; REC</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="rgbSplit">
+                <span class="effect-icon">🌈</span>
+                <strong>RGB Dispersion</strong>
+                <small>Chromatic lens split</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="letterbox">
+                <span class="effect-icon">🎬</span>
+                <strong>Cinema Letterbox</strong>
+                <small>2.39:1 Anamorphic bars</small>
+              </button>
+              <button type="button" class="effect-card active" data-effect="filmGrain">
+                <span class="effect-icon">🎞️</span>
+                <strong>35mm Film Grain</strong>
+                <small>Kodak 5219 texture</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="lightLeak">
+                <span class="effect-icon">☀️</span>
+                <strong>Warm Light Leak</strong>
+                <small>Sun flare accent</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="tiltShift">
+                <span class="effect-icon">🌫️</span>
+                <strong>Depth Lens Blur</strong>
+                <small>f/1.4 Subject pop</small>
+              </button>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>EFFECT INTENSITY CONTROLS</span></div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Vignette Strength:</span>
+                <span id="vignetteIntensityVal" class="mono-val">45%</span>
+              </div>
+              <input type="range" id="vignetteIntensitySlider" min="0" max="100" step="5" value="45" class="drawer-slider" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>35mm Film Grain:</span>
+                <span id="grainIntensityVal" class="mono-val">20%</span>
+              </div>
+              <input type="range" id="grainIntensitySlider" min="0" max="100" step="5" value="20" class="drawer-slider" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Halation Glow:</span>
+                <span id="halationIntensityVal" class="mono-val">40%</span>
+              </div>
+              <input type="range" id="halationIntensitySlider" min="0" max="100" step="5" value="40" class="drawer-slider" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Cinema Letterbox Bars:</span>
+                <span id="letterboxHeightVal" class="mono-val">120px</span>
+              </div>
+              <input type="range" id="letterboxHeightSlider" min="40" max="220" step="10" value="120" class="drawer-slider" />
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>CUT TRANSITION FLASH</span></div>
             <label class="toggle-row">
               <span class="toggle-label">
-                <strong>⚡ Dynamic Punch-In Zooms</strong>
-                <small>Auto-cuts camera zoom on hook &amp; vocal beats</small>
-              </span>
-              <input type="checkbox" id="hardJumpCutsToggle" />
-            </label>
-            <label class="toggle-row">
-              <span class="toggle-label">
-                <strong>💥 Camera Impact Shake</strong>
-                <small>Brief energetic shake on intro entrance</small>
-              </span>
-              <input type="checkbox" id="hardImpactShakeToggle" />
-            </label>
-            <label class="toggle-row">
-              <span class="toggle-label">
-                <strong>⚡ 2-Frame Strobe Flash</strong>
-                <small>Clean white cut flash between sequence scenes</small>
+                <strong>⚡ Clean Cut Flash (60ms)</strong>
+                <small>Subtle white luminance pop on scene cuts</small>
               </span>
               <input type="checkbox" id="hardStrobeFlashToggle" />
-            </label>
-            <label class="toggle-row">
-              <span class="toggle-label">
-                <strong>🎞️ 35mm Film Grain &amp; Vignette</strong>
-                <small>Cinematic film texture and corner vignette</small>
-              </span>
-              <input type="checkbox" id="hardFilmGrainToggle" />
-            </label>
-            <label class="toggle-row">
-              <span class="toggle-label">
-                <strong>💨 Radial Speed Burst Lines</strong>
-                <small>Anime/manga speed lines during punch-in</small>
-              </span>
-              <input type="checkbox" id="hardSpeedLinesToggle" />
             </label>
           </div>
         </div>

@@ -57,7 +57,25 @@
     wholeScreenFit: false, // false = pure 9:16 vertical fill, true = fit whole width
     showSafeZones: false,
 
-    // CapCut-Style Hard Edits Engine (Disabled by default for clean, smooth playback)
+    // Professional Video Effects Suite (VFX & Color Grading)
+    activeFilter: 'clean', // 'clean' | 'cinematic' | 'cyberpunk' | 'noir' | 'vintage' | 'vivid' | 'moody'
+    effects: {
+      vignette: true,
+      vignetteIntensity: 0.45,
+      halation: false,
+      halationIntensity: 0.4,
+      vhs: false,
+      rgbSplit: false,
+      letterbox: false,
+      letterboxHeight: 120,
+      filmGrain: true,
+      filmGrainIntensity: 0.20,
+      lightLeak: false,
+      lightLeakIntensity: 0.35,
+      tiltShift: false
+    },
+
+    // CapCut-Style Cut Sequences (Zero camera shake, zero zoom in/out oscillation)
     hardEdit: {
       enabled: false,
       jumpCuts: false,
@@ -66,11 +84,11 @@
       cinematicGrain: false,
       rgbGlitch: false,
       speedLines: false,
-      zoomIntensity: 1.28,
+      zoomIntensity: 1.0,
       cutFrequency: 2.8,
     },
 
-    // CapCut Multi-Clip Sequence Model (Multiple real video cuts on the timeline!)
+    // CapCut Multi-Clip Sequence Model (Stable 1.0x cuts)
     sequence: {
       videoClips: [
         {
@@ -80,12 +98,12 @@
           end: 4.8,
           sourceStart: 0.0,
           sourceEnd: 4.8,
-          zoom: 1.25,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'none'
         },
         {
           id: 'cut-2',
@@ -98,22 +116,22 @@
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'normal',
+          effect: 'none',
           transition: 'cut'
         },
         {
           id: 'cut-3',
-          title: 'Punch Zoom #3',
+          title: 'Key Dialogue #3',
           start: 13.5,
           end: 22.0,
           sourceStart: 13.5,
           sourceEnd: 22.0,
-          zoom: 1.32,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'glitch'
+          effect: 'none',
+          transition: 'cut'
         },
         {
           id: 'cut-4',
@@ -122,12 +140,12 @@
           end: 29.8,
           sourceStart: 22.0,
           sourceEnd: 29.8,
-          zoom: 1.15,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'shake',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'cut'
         }
       ],
       selectedClipId: 'cut-1',
@@ -663,12 +681,12 @@
           end: cut1End,
           sourceStart: state.trimStart,
           sourceEnd: cut1End,
-          zoom: 1.25,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'none'
         },
         {
           id: 'cut-2',
@@ -681,22 +699,22 @@
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'normal',
+          effect: 'none',
           transition: 'cut'
         },
         {
           id: 'cut-3',
-          title: 'Punch Zoom #3',
+          title: 'Key Moment #3',
           start: cut2End,
           end: cut3End,
           sourceStart: cut2End,
           sourceEnd: cut3End,
-          zoom: 1.32,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'glitch'
+          effect: 'none',
+          transition: 'cut'
         },
         {
           id: 'cut-4',
@@ -705,12 +723,12 @@
           end: state.trimEnd,
           sourceStart: cut3End,
           sourceEnd: state.trimEnd,
-          zoom: 1.15,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'shake',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'cut'
         }
       ],
       selectedClipId: 'cut-1',
@@ -978,20 +996,21 @@
       dom.mainVideoEl.currentTime = state.currentTime;
     }
 
-    // Set styling and CapCut hard edits
+    // Set styling (Zero camera shake, zero zoom in/out)
     state.captionsEnabled = true;
     state.captionStyle = 'hormozi-pop';
     state.captionSize = 105;
     state.captionPosY = 56;
     state.autoEmoji = true;
-    state.autoZoom = true;
+    state.autoZoom = false;
     state.hookMode = '3s';
 
-    state.hardEdit.enabled = true;
-    state.hardEdit.jumpCuts = true;
-    state.hardEdit.impactShake = true;
-    state.hardEdit.strobeFlash = true;
-    state.hardEdit.cinematicGrain = true;
+    state.hardEdit.enabled = false;
+    state.hardEdit.jumpCuts = false;
+    state.hardEdit.impactShake = false;
+    state.hardEdit.strobeFlash = false;
+    state.hardEdit.cinematicGrain = false;
+    state.hardEdit.zoomIntensity = 1.0;
 
     if (window.WhopAudioEngine) {
       window.WhopAudioEngine.playSfx('cash');
@@ -1037,16 +1056,17 @@
     state.cameraPanX = 0;
     state.useCustomBrollVideo = false;
 
-    // 3. Enable CapCut-Style Hard Edits Engine (Dynamic Jump Cuts, Camera Shakes, Strobe Flash)
-    state.hardEdit.enabled = true;
-    state.hardEdit.jumpCuts = true;
-    state.hardEdit.impactShake = true;
-    state.hardEdit.strobeFlash = true;
-    state.hardEdit.cinematicGrain = true;
-    state.hardEdit.rgbGlitch = true;
-    state.hardEdit.speedLines = true;
+    // 3. Stable Pro Edits (Zero shake, zero jump-cut zoom rhythm)
+    state.hardEdit.enabled = false;
+    state.hardEdit.jumpCuts = false;
+    state.hardEdit.impactShake = false;
+    state.hardEdit.strobeFlash = false;
+    state.hardEdit.cinematicGrain = false;
+    state.hardEdit.rgbGlitch = false;
+    state.hardEdit.speedLines = false;
+    state.hardEdit.zoomIntensity = 1.0;
 
-    // 4. Build Multi-Clip Sequence
+    // 4. Build Multi-Clip Sequence (Stable 1.0x cuts)
     const autoDur = Math.max(8, state.trimEnd - state.trimStart);
     const aCut1End = Number((state.trimStart + Math.min(4.8, autoDur * 0.18)).toFixed(2));
     const aCut2End = Number((state.trimStart + autoDur * 0.45).toFixed(2));
@@ -1061,12 +1081,12 @@
           end: aCut1End,
           sourceStart: state.trimStart,
           sourceEnd: aCut1End,
-          zoom: 1.25,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'none'
         },
         {
           id: 'cut-2',
@@ -1079,22 +1099,22 @@
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'normal',
+          effect: 'none',
           transition: 'cut'
         },
         {
           id: 'cut-3',
-          title: 'Punch Zoom #3',
+          title: 'Key Dialogue #3',
           start: aCut2End,
           end: aCut3End,
           sourceStart: aCut2End,
           sourceEnd: aCut3End,
-          zoom: 1.32,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'punch-in',
-          transition: 'glitch'
+          effect: 'none',
+          transition: 'cut'
         },
         {
           id: 'cut-4',
@@ -1103,12 +1123,12 @@
           end: state.trimEnd,
           sourceStart: aCut3End,
           sourceEnd: state.trimEnd,
-          zoom: 1.15,
+          zoom: 1.0,
           panX: 0,
           panY: 0,
           volume: 1.0,
-          effect: 'shake',
-          transition: 'flash'
+          effect: 'none',
+          transition: 'cut'
         }
       ],
       selectedClipId: 'cut-1',
@@ -1123,7 +1143,7 @@
     state.captionSize = 105;
     state.captionPosY = 56;
     state.autoEmoji = true;
-    state.autoZoom = true;
+    state.autoZoom = false;
 
     // 5. Enable AI Silence Cutter + Loudness Normalizer (No BG Sound by default)
     state.cutSilence = true;
@@ -1153,100 +1173,163 @@
   }
 
   // =========================================================================
-  // HARD EDITS MATH & RENDERING ENGINE
+  // PRO VIDEO EFFECTS (VFX) & COLOR GRADING ENGINE
   // =========================================================================
   function getHardEditEffectsAtTime(timeSec, clipStart, voiceLevel) {
-    if (!state.hardEdit || !state.hardEdit.enabled) {
-      return { zoom: 1.0, shakeX: 0, shakeY: 0, flashOpacity: 0, showSpeedLines: false, glitchOffset: 0 };
-    }
-
-    const elapsed = Math.max(0, timeSec - clipStart);
-    const cycleDuration = state.hardEdit.cutFrequency || 2.8;
-    const cycleIndex = Math.floor(elapsed / cycleDuration);
-    const timeIntoCycle = elapsed % cycleDuration;
-
-    // 1. Jump Cut Zoom rhythm (Alternates 1.0x wide, 1.28x punch zoom, 1.10x medium)
-    let zoom = 1.0;
-    if (state.hardEdit.jumpCuts) {
-      const punchVal = state.hardEdit.zoomIntensity || 1.28;
-      const pattern = [1.0, punchVal, 1.08, punchVal * 1.04];
-      zoom = pattern[cycleIndex % pattern.length];
-      if (voiceLevel > 0.65) zoom *= 1.04;
-    }
-
-    // 2. White strobe flash on cut transitions (first 0.08s of each cycle or first 0.12s of clip)
     let flashOpacity = 0;
-    if (state.hardEdit.strobeFlash) {
-      if (timeIntoCycle < 0.08) {
-        flashOpacity = (1.0 - (timeIntoCycle / 0.08)) * 0.45;
-      } else if (elapsed < 0.12) {
-        flashOpacity = (1.0 - (elapsed / 0.12)) * 0.65;
+    if (state.hardEdit && state.hardEdit.strobeFlash) {
+      const elapsed = Math.max(0, timeSec - clipStart);
+      const cycleDuration = state.hardEdit.cutFrequency || 2.8;
+      const timeIntoCycle = elapsed % cycleDuration;
+      if (timeIntoCycle < 0.06) {
+        flashOpacity = (1.0 - (timeIntoCycle / 0.06)) * 0.35;
       }
     }
-
-    // 3. Camera Impact Shake (on hook entrance elapsed < 0.65s or cut beat hits)
-    let shakeX = 0;
-    let shakeY = 0;
-    if (state.hardEdit.impactShake) {
-      if (elapsed < 0.65) {
-        const decay = 1.0 - (elapsed / 0.65);
-        shakeX = (Math.random() - 0.5) * 18 * decay;
-        shakeY = (Math.random() - 0.5) * 18 * decay;
-      } else if (timeIntoCycle < 0.14) {
-        const decay = 1.0 - (timeIntoCycle / 0.14);
-        shakeX = (Math.random() - 0.5) * 12 * decay;
-        shakeY = (Math.random() - 0.5) * 12 * decay;
-      } else if (voiceLevel > 0.75) {
-        shakeX = (Math.random() - 0.5) * 8;
-        shakeY = (Math.random() - 0.5) * 8;
-      }
-    }
-
-    // 4. Glitch / RGB Channel shift
-    let glitchOffset = 0;
-    if (state.hardEdit.rgbGlitch) {
-      if (elapsed < 0.45 || (timeIntoCycle < 0.12 && cycleIndex % 2 === 1)) {
-        glitchOffset = (Math.random() > 0.3) ? Math.floor((Math.random() - 0.5) * 14) : 0;
-      }
-    }
-
-    // 5. Radial speed lines on punch zooms
-    let showSpeedLines = false;
-    if (state.hardEdit.speedLines && zoom > 1.15 && timeIntoCycle < 0.32) {
-      showSpeedLines = true;
-    }
-
-    return { zoom, shakeX, shakeY, flashOpacity, showSpeedLines, glitchOffset };
+    return { zoom: 1.0, shakeX: 0, shakeY: 0, flashOpacity, showSpeedLines: false, glitchOffset: 0 };
   }
 
-  function drawCinematicGrain(ctx, W, H) {
-    if (!state.hardEdit || !state.hardEdit.cinematicGrain) return;
+  // 1. Pro VFX: Cinematic Lens Vignette (Draws focus to subject)
+  function drawCinematicVignette(ctx, W, H, intensity = 0.45) {
+    if (intensity <= 0) return;
     ctx.save();
-    // Smooth cinematic vignette
-    const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, W * 0.35, W * 0.5, H * 0.5, W * 0.95);
+    const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, W * 0.28, W * 0.5, H * 0.5, W * 0.95);
     vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vig.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+    vig.addColorStop(0.65, `rgba(0, 0, 0, ${0.25 * intensity})`);
+    vig.addColorStop(1, `rgba(0, 0, 0, ${0.85 * intensity})`);
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 
-  function drawSpeedBurstLines(ctx, W, H, timeSec) {
+  // 2. Pro VFX: 2.39:1 Anamorphic Cinema Letterbox
+  function drawAnamorphicLetterbox(ctx, W, H, barH = 120) {
+    if (!barH || barH <= 0) return;
     ctx.save();
-    const cx = W * 0.5;
-    const cy = H * 0.5;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 2.5;
-    const numLines = 32;
-    for (let i = 0; i < numLines; i++) {
-      const angle = (i / numLines) * Math.PI * 2 + Math.sin(timeSec * 20 + i) * 0.05;
-      const innerR = 320 + (Math.sin(i * 3) * 60);
-      const outerR = Math.max(W, H);
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
-      ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
-      ctx.stroke();
+    ctx.fillStyle = '#000000';
+    // Top bar
+    ctx.fillRect(0, 0, W, barH);
+    // Bottom bar
+    ctx.fillRect(0, H - barH, W, barH);
+    // Subtle silver edge line
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.fillRect(0, barH, W, 1.5);
+    ctx.fillRect(0, H - barH - 1.5, W, 1.5);
+    ctx.restore();
+  }
+
+  // 3. Pro VFX: Retro 90s VHS Camcorder
+  function drawRetroVhsEffect(ctx, W, H, timeSec) {
+    ctx.save();
+    // Scanlines
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+    for (let y = 0; y < H; y += 6) {
+      ctx.fillRect(0, y, W, 2);
     }
+    // Bottom VCR tracking band
+    const trackY = H - 80 + Math.sin(timeSec * 3) * 20;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.fillRect(0, trackY, W, 22);
+
+    // VCR OSD Header
+    ctx.font = '700 24px "Courier New", monospace';
+    const blink = Math.floor(timeSec * 2) % 2 === 0;
+    if (blink) {
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(42, 62, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+    ctx.fillText('REC', 60, 70);
+    ctx.fillText('PLAY ►', 60, 108);
+
+    // Bottom timecode
+    const mins = Math.floor(timeSec / 60);
+    const secs = Math.floor(timeSec % 60);
+    const frames = Math.floor((timeSec % 1) * 30);
+    const vhsTime = `SP 0:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
+    ctx.fillText(vhsTime, 60, H - 70);
+    ctx.restore();
+  }
+
+  // 4. Pro VFX: Film Halation (Warm diffuse highlight glow)
+  function drawCinematicHalation(ctx, W, H, intensity = 0.4) {
+    if (intensity <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const rad = ctx.createRadialGradient(W * 0.5, H * 0.4, 80, W * 0.5, H * 0.4, W * 0.85);
+    rad.addColorStop(0, `rgba(255, 215, 160, ${0.30 * intensity})`);
+    rad.addColorStop(0.5, `rgba(255, 140, 70, ${0.12 * intensity})`);
+    rad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = rad;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // 5. Pro VFX: Warm Light Leak / Sunlight Flare
+  function drawLightLeakFlare(ctx, W, H, timeSec, intensity = 0.35) {
+    if (intensity <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const pulse = 1.0 + Math.sin(timeSec * 1.8) * 0.15;
+    const leak = ctx.createRadialGradient(0, 0, 40, 120, 120, W * 0.7 * pulse);
+    leak.addColorStop(0, `rgba(255, 230, 180, ${0.45 * intensity})`);
+    leak.addColorStop(0.35, `rgba(255, 130, 60, ${0.25 * intensity})`);
+    leak.addColorStop(0.7, `rgba(240, 70, 130, ${0.10 * intensity})`);
+    leak.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = leak;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // 6. Pro VFX: Depth Lens Blur (f/1.4 Subject Focus)
+  function drawTiltShiftBlur(ctx, W, H) {
+    ctx.save();
+    const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.22);
+    topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
+    topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, W, H * 0.22);
+
+    const botGrad = ctx.createLinearGradient(0, H, 0, H * 0.78);
+    botGrad.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+    botGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = botGrad;
+    ctx.fillRect(0, H * 0.78, W, H * 0.22);
+    ctx.restore();
+  }
+
+  // 7. Pro VFX: Ultra-Fast 60fps 35mm Film Grain (Kodak 5219 texture)
+  let cachedGrainPattern = null;
+  function getGrainPattern(ctx) {
+    if (cachedGrainPattern) return cachedGrainPattern;
+    const gCanvas = document.createElement('canvas');
+    gCanvas.width = 160;
+    gCanvas.height = 160;
+    const gCtx = gCanvas.getContext('2d');
+    const imgData = gCtx.createImageData(160, 160);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = Math.floor(Math.random() * 255);
+      d[i] = v;
+      d[i + 1] = v;
+      d[i + 2] = v;
+      d[i + 3] = 45;
+    }
+    gCtx.putImageData(imgData, 0, 0);
+    cachedGrainPattern = ctx.createPattern(gCanvas, 'repeat');
+    return cachedGrainPattern;
+  }
+
+  function drawFilmGrain(ctx, W, H, intensity = 0.20) {
+    if (intensity <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = intensity;
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = getGrainPattern(ctx);
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 
@@ -1264,19 +1347,12 @@
     ctx.fillStyle = '#05050a';
     ctx.fillRect(0, 0, W, H);
 
-    // Get real-time vocal envelope level for reactive visual effects
+    // Get real-time vocal envelope level
     const voiceLevel = window.WhopAudioEngine
       ? window.WhopAudioEngine.getCurrentLevel(state.currentTime)
       : 0.35;
 
-    // Calculate Hard Edit parameters
     const hardEffects = getHardEditEffectsAtTime(state.currentTime, state.trimStart, voiceLevel);
-
-    // Apply Camera Shake
-    ctx.save();
-    if (hardEffects.shakeX !== 0 || hardEffects.shakeY !== 0) {
-      ctx.translate(hardEffects.shakeX, hardEffects.shakeY);
-    }
 
     if (state.layoutMode === 'ambient-blur') {
       if (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
@@ -1309,10 +1385,9 @@
         ctx.lineWidth = 3;
         ctx.strokeRect(0, drawY, W, drawH);
       } else {
-        renderMainViewport(ctx, { x: 0, y: 0, w: W, h: H }, state.currentTime, voiceLevel, hardEffects.zoom, hardEffects.glitchOffset);
+        renderMainViewport(ctx, { x: 0, y: 0, w: W, h: H }, state.currentTime, voiceLevel, 1.0, 0);
       }
     } else {
-      // Determine Top/Main & Bottom/B-Roll rectangles based on layoutMode
       let mainRect = { x: 0, y: 0, w: W, h: H };
       let brollRect = null;
       let seamY = null;
@@ -1331,10 +1406,9 @@
         mainRect = { x: 0, y: 0, w: W, h: H };
         brollRect = { x: W - 380, y: H - 640, w: 340, h: 520, isPip: true };
       }
-      // 'full-main' keeps mainRect as whole 9:16 {x:0, y:0, w:W, h:H} and brollRect=null
 
-      // 1. Render Main Speaker Video with Jump-Cut Zoom & Glitch Offset
-      renderMainViewport(ctx, mainRect, state.currentTime, voiceLevel, hardEffects.zoom, hardEffects.glitchOffset);
+      // 1. Render Main Speaker Video (Zero camera shake, zero zoom in/out!)
+      renderMainViewport(ctx, mainRect, state.currentTime, voiceLevel, 1.0, 0);
 
       // 2. Render Optional Satisfying B-Roll Viewport (only in split modes)
       if (brollRect) {
@@ -1350,10 +1424,6 @@
         seamGrad.addColorStop(1, '#10b981');
         ctx.fillStyle = seamGrad;
         ctx.fillRect(0, seamY - 4, W, 8);
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.25 + voiceLevel * 0.45})`;
-        const pulseW = W * (0.3 + voiceLevel * 0.45);
-        ctx.fillRect((W - pulseW) * 0.5, seamY - 2, pulseW, 4);
         ctx.restore();
       }
     }
@@ -1381,7 +1451,32 @@
       drawKaraokeCaptionsOnCanvas(ctx, W, H, state.currentTime);
     }
 
-    // 8. Strobe Flash Transition on Cuts
+    // 8. Pro VFX Stack (Halation, Light Leak, Tilt-Shift, Vignette, VHS, Grain, Letterbox)
+    if (state.effects) {
+      if (state.effects.halation) {
+        drawCinematicHalation(ctx, W, H, state.effects.halationIntensity || 0.4);
+      }
+      if (state.effects.lightLeak) {
+        drawLightLeakFlare(ctx, W, H, state.currentTime, state.effects.lightLeakIntensity || 0.35);
+      }
+      if (state.effects.tiltShift) {
+        drawTiltShiftBlur(ctx, W, H);
+      }
+      if (state.effects.vignette) {
+        drawCinematicVignette(ctx, W, H, state.effects.vignetteIntensity || 0.45);
+      }
+      if (state.effects.vhs) {
+        drawRetroVhsEffect(ctx, W, H, state.currentTime);
+      }
+      if (state.effects.filmGrain) {
+        drawFilmGrain(ctx, W, H, state.effects.filmGrainIntensity || 0.20);
+      }
+      if (state.effects.letterbox) {
+        drawAnamorphicLetterbox(ctx, W, H, state.effects.letterboxHeight || 120);
+      }
+    }
+
+    // 9. Clean White Strobe Flash on Cuts (if enabled)
     if (hardEffects.flashOpacity > 0) {
       ctx.save();
       ctx.fillStyle = `rgba(255, 255, 255, ${hardEffects.flashOpacity})`;
@@ -1390,20 +1485,7 @@
       ctx.restore();
     }
 
-    // 10. Radial Zoom Speed Burst Lines
-    if (hardEffects.showSpeedLines) {
-      drawSpeedBurstLines(ctx, W, H, state.currentTime);
-    }
-
-    // 11. Cinematic 35mm Film Grain & Lens Vignette
-    if (state.hardEdit && state.hardEdit.cinematicGrain) {
-      drawCinematicGrain(ctx, W, H);
-    }
-
-    // Restore Camera Shake
-    ctx.restore();
-
-    // 12. TikTok / Reels / Shorts Safe-Zone Overlay Guide
+    // 10. TikTok / Reels / Shorts Safe-Zone Overlay Guide
     if (state.showSafeZones) {
       drawSafeZoneOverlay(ctx, W, H);
     }
@@ -1443,29 +1525,54 @@
       ctx.rect(rect.x, rect.y, rect.w, rect.h);
       ctx.clip();
 
+      // Pro Color Grading Filter
+      if (state.activeFilter && state.activeFilter !== 'clean') {
+        const filterMap = {
+          'cinematic': 'contrast(1.16) saturate(1.22) hue-rotate(-8deg) sepia(0.08)',
+          'cyberpunk': 'contrast(1.25) saturate(1.45) hue-rotate(24deg)',
+          'noir': 'grayscale(1) contrast(1.35) brightness(0.95)',
+          'vintage': 'sepia(0.38) contrast(1.12) brightness(1.04) saturate(1.15)',
+          'vivid': 'saturate(1.45) contrast(1.16) brightness(1.02)'
+        };
+        ctx.filter = filterMap[state.activeFilter] || 'none';
+      } else {
+        ctx.filter = 'contrast(1.04) saturate(1.05) brightness(1.02)';
+      }
+
       const vw = dom.mainVideoEl.videoWidth || 1920;
       const vh = dom.mainVideoEl.videoHeight || 1080;
       const isFit = state.layoutMode === 'ambient-blur' ? (state.wholeScreenFit !== false) : false;
       const baseScale = isFit ? Math.min(rect.w / vw, rect.h / vh) : Math.max(rect.w / vw, rect.h / vh);
 
-      const zoom = (state.cameraZoom || 1.0) * extraZoom * cutZoom;
+      const zoom = (state.cameraZoom || 1.0) * cutZoom; // Clean, stable 1.0x scale
       const drawW = vw * baseScale * zoom;
       const drawH = vh * baseScale * zoom;
       const panShiftX = (totalPanX / 100) * (drawW - rect.w) * 0.5;
-      const drawX = rect.x + (rect.w - drawW) * 0.5 - panShiftX + glitchOffset;
+      const drawX = rect.x + (rect.w - drawW) * 0.5 - panShiftX;
       const drawY = rect.y + (rect.h - drawH) * 0.5;
+
+      // Rotate & Flip Transform
+      if (state.cameraFlipH || (state.cameraRotation && state.cameraRotation !== 0)) {
+        ctx.translate(rect.x + rect.w * 0.5, rect.y + rect.h * 0.5);
+        if (state.cameraFlipH) ctx.scale(-1, 1);
+        if (state.cameraRotation) ctx.rotate((state.cameraRotation * Math.PI) / 180);
+        ctx.translate(-(rect.x + rect.w * 0.5), -(rect.y + rect.h * 0.5));
+      }
 
       ctx.drawImage(dom.mainVideoEl, drawX, drawY, drawW, drawH);
 
-      // Glitch channel effect
-      if (glitchOffset !== 0) {
+      // Pro VFX: RGB Dispersion / Chromatic Aberration
+      if (state.effects && state.effects.rgbSplit) {
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(dom.mainVideoEl, drawX - 6, drawY, drawW, drawH);
+        ctx.fillStyle = 'rgba(255, 0, 80, 0.10)';
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.restore();
       }
 
+      ctx.filter = 'none';
       ctx.restore();
       return;
     }
@@ -4138,6 +4245,7 @@
           clip.zoom = parseFloat(dom.selectedCutZoomSlider.value);
           if (dom.selectedCutZoomLabel) dom.selectedCutZoomLabel.textContent = `${clip.zoom.toFixed(2)}×`;
           renderTimelineTracks();
+          renderCanvasFrame();
         }
       });
     }
@@ -4148,6 +4256,7 @@
           clip.panX = parseInt(dom.selectedCutPanXSlider.value, 10);
           if (dom.selectedCutPanXLabel) dom.selectedCutPanXLabel.textContent = `${clip.panX}%`;
           renderTimelineTracks();
+          renderCanvasFrame();
         }
       });
     }
@@ -5191,12 +5300,14 @@
     if (dom.rotateCutBtn) {
       safeOn(dom.rotateCutBtn, 'click', () => {
         state.cameraRotation = ((state.cameraRotation || 0) + 90) % 360;
+        renderCanvasFrame();
         showToast(`↻ Rotated video ${state.cameraRotation}°`);
       });
     }
     if (dom.flipCutBtn) {
       safeOn(dom.flipCutBtn, 'click', () => {
         state.cameraFlipH = !state.cameraFlipH;
+        renderCanvasFrame();
         showToast(state.cameraFlipH ? '⇄ Flipped Horizontal' : '⇄ Reset Horizontal Flip');
       });
     }
@@ -5248,9 +5359,75 @@
         document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         state.activeFilter = btn.dataset.filter;
+        renderCanvasFrame();
         showToast(`🎨 Color filter applied: ${state.activeFilter}`);
       });
     });
+
+    // Pro Video Effects (VFX) Toggles & Sliders
+    document.querySelectorAll('.effect-card[data-effect]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const eff = btn.dataset.effect;
+        if (!state.effects) state.effects = {};
+        state.effects[eff] = !state.effects[eff];
+        btn.classList.toggle('active', state.effects[eff]);
+        renderCanvasFrame();
+        showToast(`${state.effects[eff] ? '✨ Enabled' : '⏸️ Disabled'} effect: ${btn.querySelector('strong')?.innerText || eff}`, '#00f2fe');
+      });
+    });
+
+    const vignetteSlider = document.getElementById('vignetteIntensitySlider');
+    const vignetteLabel = document.getElementById('vignetteIntensityVal');
+    if (vignetteSlider) {
+      vignetteSlider.addEventListener('input', () => {
+        const val = parseInt(vignetteSlider.value, 10);
+        if (state.effects) state.effects.vignetteIntensity = val / 100;
+        if (vignetteLabel) vignetteLabel.textContent = `${val}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    const grainSlider = document.getElementById('grainIntensitySlider');
+    const grainLabel = document.getElementById('grainIntensityVal');
+    if (grainSlider) {
+      grainSlider.addEventListener('input', () => {
+        const val = parseInt(grainSlider.value, 10);
+        if (state.effects) state.effects.filmGrainIntensity = val / 100;
+        if (grainLabel) grainLabel.textContent = `${val}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    const halationSlider = document.getElementById('halationIntensitySlider');
+    const halationLabel = document.getElementById('halationIntensityVal');
+    if (halationSlider) {
+      halationSlider.addEventListener('input', () => {
+        const val = parseInt(halationSlider.value, 10);
+        if (state.effects) state.effects.halationIntensity = val / 100;
+        if (halationLabel) halationLabel.textContent = `${val}%`;
+        renderCanvasFrame();
+      });
+    }
+
+    const letterboxSlider = document.getElementById('letterboxHeightSlider');
+    const letterboxLabel = document.getElementById('letterboxHeightVal');
+    if (letterboxSlider) {
+      letterboxSlider.addEventListener('input', () => {
+        const val = parseInt(letterboxSlider.value, 10);
+        if (state.effects) state.effects.letterboxHeight = val;
+        if (letterboxLabel) letterboxLabel.textContent = `${val}px`;
+        renderCanvasFrame();
+      });
+    }
+
+    const strobeToggle = document.getElementById('hardStrobeFlashToggle');
+    if (strobeToggle) {
+      strobeToggle.addEventListener('change', () => {
+        if (!state.hardEdit) state.hardEdit = {};
+        state.hardEdit.strobeFlash = strobeToggle.checked;
+        showToast(strobeToggle.checked ? '⚡ Clean cut flash enabled' : 'Clean cut flash disabled');
+      });
+    }
 
     // Timeline Zoom & Utilities
     if (dom.zoomOutBtn && dom.timelineZoomSlider) {

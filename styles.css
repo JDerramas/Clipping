@@ -4236,3 +4236,58 @@ input[type="range"] {
 .swatch-noir { background: linear-gradient(135deg, #000000 0%, #ffffff 100%); }
 .swatch-vintage { background: linear-gradient(135deg, #d97706 0%, #78350f 100%); }
 .swatch-vivid { background: linear-gradient(135deg, #ef4444 0%, #3b82f6 100%); }
+
+/* Pro Video Effects (VFX) Grid */
+.pro-effects-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.effect-card {
+  background: #14161a;
+  border: 1px solid var(--oc-border);
+  border-radius: 8px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--oc-text-main);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.effect-card:hover {
+  background: #1c1f26;
+  border-color: rgba(0, 242, 254, 0.4);
+  transform: translateY(-1px);
+}
+
+.effect-card.active {
+  border-color: var(--oc-cyan);
+  background: rgba(0, 242, 254, 0.12);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.15);
+}
+
+.effect-card .effect-icon {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.effect-card strong {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.effect-card small {
+  font-size: 9.5px;
+  color: var(--oc-text-muted);
+}
+
+.effect-card.active strong {
+  color: var(--oc-cyan);
+}
