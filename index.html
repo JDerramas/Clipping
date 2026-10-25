@@ -1248,13 +1248,15 @@
       </div>
 
       <div class="jarvis-modal-body">
-        <!-- Quick Command Action Chips -->
+        <!-- Quick Command & Chitchat Action Chips -->
         <div class="jarvis-quick-commands">
+          <button type="button" class="jarvis-cmd-chip" data-cmd="hello">👋 "Hello Jarvis"</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="kamusta">🇵🇭 "Kamusta ka?"</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="chitchat">💬 "Kwentuhan mo ako"</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="split">✂️ Split Clip</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="play">▶️ Play / Pause</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="picture">🖼️ Insert Picture</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="auto-edit">⚡ 1-Click Auto Edit</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="status">📊 Status Report</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="done">🗣️ "It's done, sir"</button>
         </div>
 
@@ -1312,6 +1314,13 @@
                 <option value="jarvis-british">George (British Butler / Classic JARVIS)</option>
                 <option value="jarvis-deep">Adam (Deep Authoritative Male)</option>
                 <option value="jarvis-callum">Callum (Crisp Confident Male)</option>
+              </select>
+            </div>
+            <div>
+              <label class="jarvis-field-label">Speech Recognition Language:</label>
+              <select id="jarvisLangSelect" class="studio-select">
+                <option value="fil-PH">🇵🇭 Filipino / Tagalog (Taglish Bilingual)</option>
+                <option value="en-US">🇺🇸 English (United States)</option>
               </select>
             </div>
             <div style="display:flex; align-items:flex-end;">

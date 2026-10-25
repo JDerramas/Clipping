@@ -27,6 +27,7 @@
       this.elevenKey = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_elevenlabs_key')) || DEFAULT_ELEVEN_KEY;
       this.googleKey = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_google_api_key')) || DEFAULT_GOOGLE_KEY;
       this.voicePreset = 'jarvis-british';
+      this.recognitionLang = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_jarvis_lang')) || 'fil-PH';
       this.voiceEnabled = true;
       this.isSpeaking = false;
       this.isListening = false;
@@ -35,6 +36,7 @@
       this.chatHistory = [];
       this.speechSynth = typeof window !== 'undefined' ? window.speechSynthesis : null;
       this.selectedWebVoice = null;
+      this.selectedFilipinoVoice = null;
       this.siriWave = null;
 
       this.initWebVoice();
@@ -43,6 +45,12 @@
           this.initSiriWave();
         });
       }
+    }
+
+    setRecognitionLang(lang) {
+      if (!lang) return;
+      this.recognitionLang = lang.trim();
+      if (typeof localStorage !== 'undefined') localStorage.setItem('whop_jarvis_lang', this.recognitionLang);
     }
 
     playStartSound() {
@@ -82,6 +90,9 @@
       if (!this.speechSynth) return;
       const loadVoices = () => {
         const voices = this.speechSynth.getVoices();
+        // Look for Filipino / Tagalog voice
+        this.selectedFilipinoVoice =
+          voices.find((v) => v.lang.startsWith('fil') || v.lang.startsWith('tl')) || null;
         // Look for British or sophisticated English male voice
         this.selectedWebVoice =
           voices.find((v) => (v.name.includes('George') || v.name.includes('Daniel') || v.name.includes('UK English Male') || v.name.includes('Oliver') || v.name.includes('Arthur')) && v.lang.startsWith('en')) ||
@@ -227,10 +238,18 @@
         try {
           this.speechSynth.cancel();
           const utter = new SpeechSynthesisUtterance(text);
-          if (this.selectedWebVoice) utter.voice = this.selectedWebVoice;
-          // Calm, measured British butler cadence
-          utter.pitch = 0.90;
-          utter.rate = 1.04;
+          const isTagalogText = /\b(po|opo|kamusta|kumusta|mabuti|nandito|ako|ikaw|atin|natin|salamat|pwede|paborito|pelikula|kwentuhan|magandang|araw|hapon|gabi|umaga|bura|hati|hatiin)\b/i.test(text);
+          if (isTagalogText && this.selectedFilipinoVoice) {
+            utter.voice = this.selectedFilipinoVoice;
+            utter.lang = 'fil-PH';
+            utter.pitch = 0.95;
+            utter.rate = 1.0;
+          } else {
+            if (this.selectedWebVoice) utter.voice = this.selectedWebVoice;
+            // Calm, measured British butler cadence
+            utter.pitch = 0.90;
+            utter.rate = isTagalogText ? 0.98 : 1.04;
+          }
           utter.volume = 1.0;
 
           await new Promise((resolve) => {
@@ -342,7 +361,7 @@
         this.recognition = new SpeechRec();
         this.recognition.continuous = false;
         this.recognition.interimResults = false;
-        this.recognition.lang = 'en-US';
+        this.recognition.lang = this.recognitionLang || 'fil-PH';
 
         const reactor = document.getElementById('jarvisReactor');
         if (reactor) reactor.classList.add('listening-active');
@@ -408,57 +427,57 @@
       if (!rawText) return;
       const text = rawText.trim().toLowerCase();
 
-      // 1. Direct Editor Control Commands
-      if (text.includes('split') || text.includes('cut here') || text.includes('slice')) {
+      // 1. Direct Editor Control Commands (English & Tagalog)
+      if (text.includes('hatiin') || text.includes('hati') || text.includes('putulin') || text.includes('split') || text.includes('cut here') || text.includes('slice')) {
         if (window.WhopStudio?.splitClipAtPlayhead) {
           window.WhopStudio.splitClipAtPlayhead();
-          await this.speak("Splitting the footage at current timecode, sir.");
+          await this.speak("Hahatiin ko na po ang video sa inyong playhead, sir.");
           return;
         }
       }
 
-      if (text.includes('play') || text.includes('resume') || text.includes('start video')) {
+      if (text.includes('patugtugin') || text.includes('i-play') || text.includes('iplay') || text.includes('play') || text.includes('resume') || text.includes('start video')) {
         const playBtn = document.getElementById('playPauseBtn');
         if (playBtn && !window.WhopState?.isPlaying) playBtn.click();
-        await this.speak("Resuming playback, sir.");
+        await this.speak("Pinapatugtog na po ang video, sir.");
         return;
       }
 
-      if (text.includes('pause') || text.includes('stop')) {
+      if (text.includes('ihinto') || text.includes('itigil') || text.includes('tigil') || text.includes('pause') || text.includes('stop')) {
         const playBtn = document.getElementById('playPauseBtn');
         if (playBtn && window.WhopState?.isPlaying) playBtn.click();
-        await this.speak("Playback paused, sir.");
+        await this.speak("Nakahinto na po ang playback, sir.");
         return;
       }
 
-      if (text.includes('delete') || text.includes('remove clip') || text.includes('remove cut')) {
+      if (text.includes('tanggalin') || text.includes('burahin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut')) {
         if (window.WhopStudio?.deleteSelectedCapCutItem) {
           window.WhopStudio.deleteSelectedCapCutItem();
-          await this.speak("Selected item removed from timeline, sir.");
+          await this.speak("Tinanggal ko na po ang napiling clip sa timeline, sir.");
           return;
         }
       }
 
-      if (text.includes('auto edit') || text.includes('make viral') || text.includes('edit video')) {
+      if (text.includes('auto edit') || text.includes('i-edit mo') || text.includes('make viral') || text.includes('edit video')) {
         const autoBtn = document.getElementById('oneClickAutoEditBtn');
         if (autoBtn) autoBtn.click();
-        await this.speak("Executing one-click multi-engine auto edit, sir.");
+        await this.speak("Sinisimulan ko na po ang 1-click multi-engine auto edit para sa inyo, sir.");
         return;
       }
 
-      if (text.includes('export') || text.includes('render') || text.includes('save video')) {
+      if (text.includes('export') || text.includes('render') || text.includes('save video') || text.includes('i-download')) {
         const expBtn = document.getElementById('openExportModalBtn');
         if (expBtn) expBtn.click();
-        await this.speak("Opening export configuration for 1080p compilation, sir.");
+        await this.speak("Binubuksan ko na po ang export configuration para sa inyong 1080p short, sir.");
         return;
       }
 
-      if (text.includes('add picture') || text.includes('add image') || text.includes('insert visual') || text.includes('picture')) {
+      if (text.includes('maglagay ng litrato') || text.includes('lagyan ng picture') || text.includes('lagay ng picture') || text.includes('add picture') || text.includes('add image') || text.includes('insert visual') || text.includes('picture')) {
         const imgInput = document.getElementById('visualOverlayFileInput');
         if (imgInput) {
           imgInput.accept = 'image/*';
           imgInput.click();
-          await this.speak("Opening file selector to insert your visual overlay into the gap, sir.");
+          await this.speak("Binubuksan ko na po ang file selector para sa inyong visual overlay o picture, sir.");
           return;
         }
       }
@@ -466,46 +485,136 @@
       if (text.includes('caption') && (text.includes('hormozi') || text.includes('pop'))) {
         if (window.WhopState) window.WhopState.captionStyle = 'hormozi-pop';
         if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-        await this.speak("Switched captions to Hormozi Pop styling, sir.");
+        await this.speak("Pinalitan ko na po ang caption style sa Hormozi Pop, sir.");
         return;
       }
 
       if (text.includes('caption') && (text.includes('mrbeast') || text.includes('bold'))) {
         if (window.WhopState) window.WhopState.captionStyle = 'mrbeast-bold';
         if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-        await this.speak("Switched captions to MrBeast Bold styling, sir.");
+        await this.speak("Pinalitan ko na po ang caption style sa MrBeast Bold, sir.");
         return;
       }
 
-      // 2. Conversational Assistant via Google Gemini / Gemma AI
+      // Greetings check: Instant suave response with zero latency
+      const cleanLower = text.replace(/[?!.,]/g, '').trim();
+      const isGreeting =
+        cleanLower === 'hello' ||
+        cleanLower === 'hi' ||
+        cleanLower === 'hello jarvis' ||
+        cleanLower === 'hi jarvis' ||
+        cleanLower === 'hey jarvis' ||
+        cleanLower === 'kamusta' ||
+        cleanLower === 'kumusta' ||
+        cleanLower === 'kamusta ka' ||
+        cleanLower === 'kamusta ka na' ||
+        cleanLower === 'kamusta jarvis' ||
+        cleanLower === 'kumusta jarvis' ||
+        cleanLower === 'musta' ||
+        cleanLower === 'magandang araw' ||
+        cleanLower === 'magandang umaga' ||
+        cleanLower === 'magandang hapon' ||
+        cleanLower === 'magandang gabi';
+
+      if (isGreeting) {
+        const isTagalog = cleanLower.includes('kamusta') || cleanLower.includes('kumusta') || cleanLower.includes('musta') || cleanLower.includes('magandang') || this.recognitionLang === 'fil-PH';
+        const greetingText = isTagalog
+          ? "Hello Sir! Mabuti naman po ako at nasa peak efficiency ang ating editing suites. Kumusta po kayo, Sir? Handa na po akong makipag-chitchat at tumulong sa inyong video."
+          : "Hello Sir. Always a pleasure. All systems and editing suites are operating at peak efficiency. How may I assist your edit today, sir?";
+        this.addChatMessage('user', rawText);
+        this.addChatMessage('jarvis', greetingText);
+        await this.speak(greetingText);
+        return;
+      }
+
+      // 2. Conversational Assistant via Google Gemini / Gemma AI (Full Tagalog & English Chitchat)
       await this.askAI(rawText);
     }
 
     async askAI(prompt) {
-      this.showVisualSpeechIndicator('Consulting AI database...');
+      this.showVisualSpeechIndicator('Consulting neural core...');
 
-      let responseText = "At your service, sir. All timeline tracks and neural face-tracking models are running smoothly.";
+      let responseText = "At your service, sir. Handa na po ang ating systems at neural models. Ano po ang maitutulong ko sa inyo, sir?";
 
       if (this.googleKey) {
         try {
-          // Use verified working model: gemma-4-26b-a4b-it or gemini-3.8-flash
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key=${this.googleKey}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated British AI butler and master video editor assistant. Always address the user as "sir". Reply in 1 or 2 concise, confident sentences. User says: ${prompt}`
-                }]
-              }]
-            })
-          });
+          const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'JARVIS'}: ${turn.text}`).join('\n');
 
-          if (res.ok) {
-            const data = await res.json();
-            const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (aiText) responseText = aiText.trim();
+          const systemPrompt = `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI butler and master video editor assistant.
+Always address the user as "Sir" or "sir".
+You are completely bilingual and speak both Tagalog (Filipino / Taglish) and English fluently.
+If the user talks to you in Tagalog or Taglish, understand them perfectly and reply in polite, natural, suave Tagalog or Taglish butler tone (e.g. "Mabuti naman po ako, Sir! Handa na po ang ating editing suite. Ano po ang maitutulong ko sa inyo ngayon?").
+If they speak in English, reply in suave British English.
+You love to chitchat, talk about their day, answer questions, make witty remarks, and help with their video editing (cuts, splits, visuals, B-rolls, captions).
+Keep responses concise (1 to 2 sentences max) so it sounds natural when spoken aloud.
+CRITICAL: Output ONLY your spoken response. Do not include thought processes, outlines, or bullet points.
+
+Conversation Context:
+${recentHistory}
+User: ${prompt}
+JARVIS:`;
+
+          // Try Gemini 3.8 Flash first for pristine spoken response, then fallback to Gemma 4
+          const modelsToTry = ['gemini-3.8-flash', 'gemma-4-26b-a4b-it'];
+          let aiText = '';
+
+          for (const model of modelsToTry) {
+            try {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.googleKey}`;
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: systemPrompt }] }],
+                  generationConfig: {
+                    temperature: 0.75,
+                    maxOutputTokens: 300
+                  }
+                }),
+                signal: AbortSignal.timeout(6500)
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const rawCandidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (rawCandidate) {
+                  aiText = rawCandidate;
+                  break;
+                }
+              }
+            } catch (err) {
+              console.warn(`[JARVIS] Model ${model} query attempt failed:`, err);
+            }
+          }
+
+          if (aiText) {
+            let clean = aiText.trim();
+            if (clean.includes('</thought>')) {
+              clean = clean.split('</thought>')[1].trim();
+            }
+            const quotes = [...clean.matchAll(/["“]([^"”]{8,})["”]/g)];
+            if (quotes.length > 0) {
+              clean = quotes[quotes.length - 1][1].trim();
+            } else {
+              const lines = clean.split('\n')
+                .map((l) => l.trim())
+                .filter((l) => l &&
+                  !l.startsWith('*') &&
+                  !l.startsWith('-') &&
+                  !l.startsWith('#') &&
+                  !l.toLowerCase().startsWith('draft') &&
+                  !l.toLowerCase().startsWith('option') &&
+                  !l.toLowerCase().startsWith('persona') &&
+                  !l.toLowerCase().startsWith('input') &&
+                  !l.toLowerCase().startsWith('constraint') &&
+                  !l.toLowerCase().startsWith('user:') &&
+                  !l.toLowerCase().startsWith('jarvis:'));
+              if (lines.length > 0) {
+                clean = lines[lines.length - 1].replace(/^["'“]|["'”]$/g, '').trim();
+              } else {
+                clean = clean.replace(/[*#]/g, '').trim();
+              }
+            }
+            if (clean) responseText = clean;
           }
         } catch (e) {
           console.warn('[JARVIS] AI query notice:', e);

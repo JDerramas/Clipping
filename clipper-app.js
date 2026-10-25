@@ -451,6 +451,7 @@
     dom.jarvisElevenKeyInput = document.getElementById('jarvisElevenKeyInput');
     dom.jarvisGoogleKeyInput = document.getElementById('jarvisGoogleKeyInput');
     dom.jarvisVoicePresetSelect = document.getElementById('jarvisVoicePresetSelect');
+    dom.jarvisLangSelect = document.getElementById('jarvisLangSelect');
     dom.jarvisTestVoiceBtn = document.getElementById('jarvisTestVoiceBtn');
   }
 
@@ -4136,6 +4137,7 @@
       if (dom.jarvisElevenKeyInput && window.jarvis) dom.jarvisElevenKeyInput.value = window.jarvis.elevenKey || '';
       if (dom.jarvisGoogleKeyInput && window.jarvis) dom.jarvisGoogleKeyInput.value = window.jarvis.googleKey || '';
       if (dom.jarvisVoicePresetSelect && window.jarvis) dom.jarvisVoicePresetSelect.value = window.jarvis.voicePreset || 'jarvis-british';
+      if (dom.jarvisLangSelect && window.jarvis) dom.jarvisLangSelect.value = window.jarvis.recognitionLang || 'fil-PH';
       dom.jarvisModal.classList.remove('hidden');
       if (window.jarvis) {
         window.jarvis.playStartSound();
@@ -4216,6 +4218,13 @@
 
     safeOn(dom.jarvisVoicePresetSelect, 'change', (e) => {
       if (window.jarvis) window.jarvis.voicePreset = e.target.value;
+    });
+
+    safeOn(dom.jarvisLangSelect, 'change', (e) => {
+      if (window.jarvis) {
+        window.jarvis.setRecognitionLang(e.target.value);
+        showToast(`JARVIS language set to: ${e.target.options[e.target.selectedIndex].text}`, '#00f2fe');
+      }
     });
 
     safeOn(dom.jarvisTestVoiceBtn, 'click', () => {
