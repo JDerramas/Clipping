@@ -84,8 +84,21 @@
       </button>
     </div>
 
-    <!-- Right: AI API Key + Export Button + Theme Toggle -->
+    <!-- Right: JARVIS Voice Butler + AI API Key + Export Button + Theme Toggle -->
     <div class="nav-right">
+      <!-- JARVIS AI Voice Butler HUD Button -->
+      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="J.A.R.V.I.S. AI Voice Butler & Assistant (Click to Talk / Control)">
+        <div class="jarvis-reactor" id="jarvisReactor">
+          <div class="reactor-core"></div>
+          <div class="reactor-ring ring-1"></div>
+          <div class="reactor-ring ring-2"></div>
+        </div>
+        <span class="jarvis-label">JARVIS</span>
+        <span class="jarvis-voice-wave" id="jarvisVoiceWave">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+
       <button type="button" id="openAiKeyModalBtn" class="nav-btn nav-btn-ai-key" title="Configure AI API Key (Free Google Gemini / Multimodal)">
         <span class="ai-key-icon">🔑</span>
         <span id="aiKeyStatusText">AI Key</span>
@@ -1207,12 +1220,108 @@
     </div>
   </div>
 
+  <!-- Floating JARVIS Live Voice Bubble HUD -->
+  <div id="jarvisFloatingBubble" class="jarvis-floating-bubble hidden">
+    <div class="jarvis-bubble-reactor"></div>
+    <div class="jarvis-bubble-content">
+      <div class="jarvis-bubble-sender">JARVIS • AI BUTLER</div>
+      <div id="jarvisBubbleText" class="jarvis-bubble-text">"It's done, sir."</div>
+    </div>
+  </div>
+
+  <!-- JARVIS AI Command Center Modal -->
+  <div id="jarvisModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card jarvis-modal-card">
+      <div class="modal-header jarvis-modal-header">
+        <div class="jarvis-header-left">
+          <div class="jarvis-reactor modal-reactor glowing-active">
+            <div class="reactor-core"></div>
+            <div class="reactor-ring ring-1"></div>
+            <div class="reactor-ring ring-2"></div>
+          </div>
+          <div>
+            <h3 class="modal-title" style="color:#00f2fe; margin:0; font-size:16px;">J.A.R.V.I.S. AI Command Center</h3>
+            <span class="modal-sub" style="color:#94a3b8; font-size:11.5px;">Voice Butler • Timeline Automation • ElevenLabs &amp; Google AI</span>
+          </div>
+        </div>
+        <button type="button" id="closeJarvisModalBtn" class="modal-close" aria-label="Close JARVIS HUD">&times;</button>
+      </div>
+
+      <div class="jarvis-modal-body">
+        <!-- Quick Command Action Chips -->
+        <div class="jarvis-quick-commands">
+          <button type="button" class="jarvis-cmd-chip" data-cmd="split">✂️ Split Clip</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="play">▶️ Play / Pause</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="picture">🖼️ Insert Picture</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="auto-edit">⚡ 1-Click Auto Edit</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="status">📊 Status Report</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="done">🗣️ "It's done, sir"</button>
+        </div>
+
+        <!-- Interactive Chat History -->
+        <div id="jarvisChatMessages" class="jarvis-chat-stream">
+          <div class="jarvis-msg msg-jarvis">
+            <div class="msg-author">JARVIS • AI BUTLER</div>
+            <div class="msg-body">At your service, sir. All editing suites, video cuts, and neural models are operational. How may I assist with your edit?</div>
+          </div>
+        </div>
+
+        <!-- Voice & Text Input Bar -->
+        <div class="jarvis-input-bar">
+          <button type="button" id="jarvisMicBtn" class="jarvis-mic-btn" title="Speak to JARVIS (Microphone)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <input type="text" id="jarvisTextInput" class="jarvis-text-input" placeholder="Give JARVIS a command or question (e.g. 'split here', 'is it done?')..." />
+          <button type="button" id="jarvisSendBtn" class="jarvis-send-btn">
+            <span>Send</span>
+          </button>
+        </div>
+
+        <!-- Voice Configuration Settings Accordion -->
+        <div class="jarvis-settings-box">
+          <div class="jarvis-settings-title">
+            <span>⚙️ Voice &amp; Provider Settings</span>
+          </div>
+          <div class="jarvis-settings-grid">
+            <div>
+              <label class="jarvis-field-label">ElevenLabs API Key:</label>
+              <input type="password" id="jarvisElevenKeyInput" class="studio-input" value="" placeholder="sk_... (ElevenLabs API Key)" />
+            </div>
+            <div>
+              <label class="jarvis-field-label">Google API Key:</label>
+              <input type="password" id="jarvisGoogleKeyInput" class="studio-input" value="" placeholder="AI key... (Google API Key)" />
+            </div>
+            <div>
+              <label class="jarvis-field-label">Voice Persona:</label>
+              <select id="jarvisVoicePresetSelect" class="studio-select">
+                <option value="jarvis-british">George (British Butler / Classic JARVIS)</option>
+                <option value="jarvis-deep">Adam (Deep Authoritative Male)</option>
+                <option value="jarvis-callum">Callum (Crisp Confident Male)</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button type="button" id="jarvisTestVoiceBtn" class="btn-chip" style="width:100%; height:38px; font-weight:600; border-color:#00f2fe; color:#00f2fe;">
+                <span>🔊 Test JARVIS Voice</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <!-- Engines & Application Scripts -->
   <script src="broll-engine.js"></script>
   <script src="audio-engine.js"></script>
+  <script src="jarvis-engine.js"></script>
   <script src="clipper-app.js"></script>
 </body>
 </html>

@@ -440,6 +440,18 @@
     dom.rippleToggleBtn = document.getElementById('rippleToggleBtn');
     dom.zoomOutBtn = document.getElementById('zoomOutBtn');
     dom.zoomInBtn = document.getElementById('zoomInBtn');
+
+    // JARVIS AI Voice Butler DOM References
+    dom.jarvisHudBtn = document.getElementById('jarvisHudBtn');
+    dom.jarvisModal = document.getElementById('jarvisModal');
+    dom.closeJarvisModalBtn = document.getElementById('closeJarvisModalBtn');
+    dom.jarvisMicBtn = document.getElementById('jarvisMicBtn');
+    dom.jarvisTextInput = document.getElementById('jarvisTextInput');
+    dom.jarvisSendBtn = document.getElementById('jarvisSendBtn');
+    dom.jarvisElevenKeyInput = document.getElementById('jarvisElevenKeyInput');
+    dom.jarvisGoogleKeyInput = document.getElementById('jarvisGoogleKeyInput');
+    dom.jarvisVoicePresetSelect = document.getElementById('jarvisVoicePresetSelect');
+    dom.jarvisTestVoiceBtn = document.getElementById('jarvisTestVoiceBtn');
   }
 
   // =========================================================================
@@ -998,6 +1010,7 @@
       '#10b981',
       6000
     );
+    if (window.jarvis) window.jarvis.notify('auto-edit-done');
   }
 
   function runClientOneClickAutoEdit(forcedClipIdx) {
@@ -1436,6 +1449,16 @@
     else if (state.framingPreset === 'right') framingOffset = 22;
 
     const activeCut = getActiveVideoCutAtTime(timeSec);
+    if (!activeCut) {
+      // In a gap between cuts! Do NOT draw main video frames.
+      // Draw sleek dark studio backdrop so pictures/visuals in this gap stand out cleanly!
+      ctx.save();
+      ctx.fillStyle = '#05050a';
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.restore();
+      return;
+    }
+
     const cutZoom = activeCut ? (activeCut.zoom || 1.0) : 1.0;
     const cutPanX = activeCut ? (activeCut.panX || 0) : 0;
     const cutPanY = activeCut ? (activeCut.panY || 0) : 0;
@@ -2549,6 +2572,17 @@
         <div class="clip-handle clip-handle-right" data-action="trim-out" data-clip-id="${clip.id}" title="Trim Out (Right Edge)"></div>
       `;
 
+      block.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const updated = window.prompt('Rename video cut:', clip.title);
+        if (updated !== null && updated.trim() !== '') {
+          clip.title = updated.trim();
+          renderTimelineTracks();
+          syncSelectedCutInspector();
+          showToast(`✏️ Renamed cut to "${clip.title}"`);
+        }
+      });
+
       block.addEventListener('mousedown', (e) => {
         e.stopPropagation();
         const action = e.target.dataset.action || 'move';
@@ -2623,6 +2657,36 @@
         <div class="clip-handle clip-handle-right" data-action="trim-cap-right" data-cap-id="${seg.id}" title="Trim Caption Out"></div>
       `;
       block.title = `${seg.text} (${(seg.end - seg.start).toFixed(1)}s) • Click to select / Del to delete`;
+
+      block.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const updated = window.prompt('Edit subtitle text:', seg.text);
+        if (updated !== null && updated.trim() !== '') {
+          seg.text = updated.trim();
+          const clip = getActiveClip();
+          if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
+            const newWords = updated.trim().split(/\s+/);
+            const chunkDur = Math.max(0.3, seg.end - seg.start);
+            const wDur = chunkDur / newWords.length;
+            const updatedWords = newWords.map((nw, idx) => ({
+              word: nw,
+              start: Number((seg.start + idx * wDur).toFixed(2)),
+              end: Number((seg.start + (idx + 1) * wDur).toFixed(2)),
+              relStart: Number((seg.start + idx * wDur).toFixed(2)),
+              relEnd: Number((seg.start + (idx + 1) * wDur).toFixed(2)),
+              emoji: '',
+              emphasis: false
+            }));
+            clip.transcript.splice(seg.chunkStartIdx, seg.chunkCount || 3, ...updatedWords);
+            seg.chunkCount = newWords.length;
+          }
+          renderCaptionTrack();
+          renderTranscriptCloud();
+          renderCanvasFrame();
+          showToast(`✏️ Updated subtitle: "${seg.text}"`);
+          if (window.jarvis) window.jarvis.speak("Subtitle updated, sir.");
+        }
+      });
 
       block.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -2842,10 +2906,9 @@
     const clips = state.sequence?.videoClips || [];
     if (!clips.length) return null;
     for (const c of clips) {
-      if (time >= c.start && time <= c.end) return c;
+      if (time >= c.start && time < c.end) return c;
     }
-    if (time > clips[clips.length - 1].end) return clips[clips.length - 1];
-    return clips[0];
+    return null; // Return null if in a gap between cuts or beyond end!
   }
 
   function updateTrimUI() {
@@ -2897,14 +2960,15 @@
     state.currentTime = clamp(targetSec, 0, dur);
     if (state.useCustomMainVideo && dom.mainVideoEl) {
       const activeClip = getActiveVideoCutAtTime(state.currentTime);
-      let targetSrc = state.currentTime;
       if (activeClip) {
         const offset = Math.max(0, state.currentTime - activeClip.start);
         const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
-        targetSrc = clamp(srcStart + offset, 0, dom.mainVideoEl.duration || dur);
-      }
-      if (Math.abs(dom.mainVideoEl.currentTime - targetSrc) > 0.04) {
-        dom.mainVideoEl.currentTime = targetSrc;
+        const targetSrc = clamp(srcStart + offset, 0, dom.mainVideoEl.duration || dur);
+        if (Math.abs(dom.mainVideoEl.currentTime - targetSrc) > 0.04) {
+          dom.mainVideoEl.currentTime = targetSrc;
+        }
+      } else if (!dom.mainVideoEl.paused) {
+        dom.mainVideoEl.pause();
       }
     }
     updatePlayheadUI();
@@ -3734,6 +3798,7 @@
 
       const bannerText = azData.project?.plan?.hook_banner || 'Top Viral Moment';
       showToast(`🎉 0-Click Auto-Edit Complete! "${bannerText}" (${azData.ai_engine || 'AI'})`, '#10b981', 6000);
+      if (window.jarvis) window.jarvis.notify('upload-done');
     } catch (err) {
       showToast(`❌ Process failed: ${err.message}`, '#ef4444');
     } finally {
@@ -3747,6 +3812,7 @@
       showToast('No video file loaded to render!', '#f59e0b');
       return;
     }
+    if (window.jarvis) window.jarvis.notify('render-start');
     dom.exportProgressSection.classList.remove('hidden');
     dom.exportProgressStatus.textContent = '⚡ Running Fast Server-Side FFmpeg Render (1080x1920 MP4)...';
     dom.exportProgressPercent.textContent = 'Processing';
@@ -3804,6 +3870,7 @@
       document.body.removeChild(a);
 
       showToast(`🎬 Fast Render Complete (${data.size_mb} MB)! Download started.`);
+      if (window.jarvis) window.jarvis.notify('render-done');
       setTimeout(() => {
         dom.exportModal.classList.add('hidden');
         dom.exportProgressSection.classList.add('hidden');
@@ -4062,6 +4129,94 @@
         showToast('💾 AI API Key saved! AI co-editor activated.', '#10b981');
       });
     }
+
+    // JARVIS AI Voice Butler HUD Modal & Interactions
+    function openJarvisModal() {
+      if (!dom.jarvisModal) return;
+      if (dom.jarvisElevenKeyInput && window.jarvis) dom.jarvisElevenKeyInput.value = window.jarvis.elevenKey || '';
+      if (dom.jarvisGoogleKeyInput && window.jarvis) dom.jarvisGoogleKeyInput.value = window.jarvis.googleKey || '';
+      if (dom.jarvisVoicePresetSelect && window.jarvis) dom.jarvisVoicePresetSelect.value = window.jarvis.voicePreset || 'jarvis-british';
+      dom.jarvisModal.classList.remove('hidden');
+    }
+
+    function closeJarvisModal() {
+      if (!dom.jarvisModal) return;
+      dom.jarvisModal.classList.add('hidden');
+    }
+
+    safeOn(dom.jarvisHudBtn, 'click', openJarvisModal);
+    safeOn(dom.closeJarvisModalBtn, 'click', closeJarvisModal);
+
+    if (dom.jarvisModal) {
+      dom.jarvisModal.addEventListener('click', (e) => {
+        if (e.target === dom.jarvisModal) closeJarvisModal();
+      });
+    }
+
+    // Quick Command Action Chips
+    document.querySelectorAll('.jarvis-cmd-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const cmd = chip.dataset.cmd;
+        if (!cmd) return;
+        if (window.jarvis) {
+          window.jarvis.handleUserCommand(cmd);
+        }
+      });
+    });
+
+    // Mic Button
+    safeOn(dom.jarvisMicBtn, 'click', () => {
+      if (window.jarvis) {
+        const listening = window.jarvis.toggleListening((text) => {
+          if (dom.jarvisTextInput) dom.jarvisTextInput.value = text;
+        });
+        if (dom.jarvisMicBtn) {
+          dom.jarvisMicBtn.classList.toggle('active', listening);
+        }
+      }
+    });
+
+    // Send Button & Text Input
+    const submitJarvisChat = () => {
+      if (!dom.jarvisTextInput) return;
+      const val = dom.jarvisTextInput.value.trim();
+      if (!val) return;
+      dom.jarvisTextInput.value = '';
+      if (window.jarvis) {
+        window.jarvis.handleUserCommand(val);
+      }
+    };
+
+    safeOn(dom.jarvisSendBtn, 'click', submitJarvisChat);
+    if (dom.jarvisTextInput) {
+      dom.jarvisTextInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitJarvisChat();
+        }
+      });
+    }
+
+    // Key settings & Voice preset
+    safeOn(dom.jarvisElevenKeyInput, 'change', (e) => {
+      if (window.jarvis) window.jarvis.setElevenKey(e.target.value);
+      showToast('JARVIS ElevenLabs Key updated.', '#00f2fe');
+    });
+
+    safeOn(dom.jarvisGoogleKeyInput, 'change', (e) => {
+      if (window.jarvis) window.jarvis.setGoogleKey(e.target.value);
+      showToast('JARVIS Google AI Key updated.', '#00f2fe');
+    });
+
+    safeOn(dom.jarvisVoicePresetSelect, 'change', (e) => {
+      if (window.jarvis) window.jarvis.voicePreset = e.target.value;
+    });
+
+    safeOn(dom.jarvisTestVoiceBtn, 'click', () => {
+      if (window.jarvis) {
+        window.jarvis.speak("It's done, sir. All editing suites and neural models are operational.");
+      }
+    });
 
     // Export Modal open/close & actions
     const openExportModal = () => {
@@ -4971,6 +5126,7 @@
       syncSelectedCutInspector();
       switchInspectorTab('hard-cuts');
       showToast(`✂️ Split cut at ${formatTimecode(cur)}! Created "${newClip.title}"`, '#00f2fe');
+      if (window.jarvis) window.jarvis.notify('split-done');
     };
 
     rippleTrimIn = function rippleTrimIn() {
@@ -5076,6 +5232,7 @@
           renderTimelineTracks();
           syncSelectedCutInspector();
           showToast(`🗑️ Deleted ${removed.title}`, '#ef4444');
+          if (window.jarvis) window.jarvis.notify('cut-deleted');
           return;
         }
       }
@@ -5922,62 +6079,45 @@
     lastFrameTs = nowTs;
 
     if (state.isPlaying) {
-      if (state.useCustomMainVideo && dom.mainVideoEl && !dom.mainVideoEl.paused) {
-        // High-performance hardware clock directly from HTML5 video element!
-        const vidTime = dom.mainVideoEl.currentTime;
-        const dur = dom.mainVideoEl.duration || state.streamDuration || 58.05;
-        const endLimit = Math.min(state.trimEnd, dur);
+      const step = dt * (state.playbackSpeed || 1.0);
+      state.currentTime += step;
 
-        // Check if reaching the end of the trim boundary or video duration
-        if (vidTime >= endLimit - 0.05) {
-          if (state.loopClip && !state.isRecordingExport) {
-            dom.mainVideoEl.currentTime = state.trimStart;
-            state.currentTime = state.trimStart;
-          } else if (!state.isRecordingExport) {
-            state.currentTime = endLimit;
-            state.isPlaying = false;
-            updatePlayPauseButtonUI();
-            dom.mainVideoEl.pause();
-            if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
-          }
-        } else {
-          // Continuous seamless playback:
-          state.currentTime = vidTime;
+      const clips = state.sequence?.videoClips || [];
+      const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
+      const endLimit = clips.length > 0
+        ? Math.max(state.trimEnd, clips[clips.length - 1].end)
+        : Math.min(state.trimEnd, dur);
 
-          // Check if crossing a NON-contiguous cut boundary (e.g. deleted silence or split gap)
-          const activeClip = getActiveVideoCutAtTime(vidTime);
-          if (activeClip) {
-            const srcEnd = activeClip.sourceEnd !== undefined ? activeClip.sourceEnd : activeClip.end;
-            if (vidTime >= srcEnd - 0.04) {
-              const cuts = state.sequence?.videoClips || [];
-              const curIdx = cuts.findIndex((c) => c.id === activeClip.id);
-              if (curIdx >= 0 && curIdx < cuts.length - 1) {
-                const nextCut = cuts[curIdx + 1];
-                const nextSrc = nextCut.sourceStart !== undefined ? nextCut.sourceStart : nextCut.start;
-                // ONLY seek if there is an actual non-contiguous gap (> 0.12s)!
-                if (Math.abs(nextSrc - srcEnd) > 0.12) {
-                  dom.mainVideoEl.currentTime = nextSrc;
-                  state.currentTime = nextCut.start;
-                }
-              }
-            }
-          }
+      if (state.currentTime >= endLimit - 0.04) {
+        if (state.loopClip && !state.isRecordingExport) {
+          const startT = clips.length > 0 ? clips[0].start : state.trimStart;
+          seekToTime(startT);
+        } else if (!state.isRecordingExport) {
+          state.currentTime = endLimit;
+          state.isPlaying = false;
+          updatePlayPauseButtonUI();
+          if (dom.mainVideoEl) dom.mainVideoEl.pause();
+          if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
         }
       } else {
-        // Delta-time fallback clock
-        state.currentTime += dt * (state.playbackSpeed || 1.0);
-        const dur = state.streamDuration || 58.05;
-        const endLimit = Math.min(state.trimEnd, dur);
-        if (state.currentTime >= endLimit) {
-          if (state.loopClip && !state.isRecordingExport) {
-            seekToTime(state.trimStart);
-          } else if (!state.isRecordingExport) {
-            state.currentTime = endLimit;
-            state.isPlaying = false;
-            updatePlayPauseButtonUI();
-            if (dom.mainVideoEl) dom.mainVideoEl.pause();
-            if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
+        const activeClip = getActiveVideoCutAtTime(state.currentTime);
+        if (activeClip && state.useCustomMainVideo && dom.mainVideoEl) {
+          const cutOffset = Math.max(0, state.currentTime - activeClip.start);
+          const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
+          const targetSourceTime = srcStart + cutOffset;
+
+          // Sync video time if drifted by more than 0.08s
+          if (Math.abs(dom.mainVideoEl.currentTime - targetSourceTime) > 0.08) {
+            dom.mainVideoEl.currentTime = targetSourceTime;
           }
+          if (dom.mainVideoEl.paused) {
+            dom.mainVideoEl.play().catch(() => {});
+          }
+          const cutVol = typeof activeClip.volume === 'number' ? activeClip.volume : 1.0;
+          dom.mainVideoEl.volume = clamp(cutVol * (state.sequence?.mainAudioMuted ? 0 : 1), 0, 1);
+        } else if (!activeClip && dom.mainVideoEl && !dom.mainVideoEl.paused) {
+          // In a GAP between cuts! Pause main video so NO video or audio plays during the gap!
+          dom.mainVideoEl.pause();
         }
       }
 
