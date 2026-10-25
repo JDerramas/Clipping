@@ -1184,12 +1184,27 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         system_directive = (
             "You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor. "
             "Always address the user as 'Sir' or 'sir'. "
-            "You possess full interactive control over the user's video editor timeline: you can split and cut clips, delete unwanted segments, switch layout modes (9:16 full-screen or 50/50 split), layer dynamic B-rolls (Minecraft, Subway Surfers, Slime), insert visual overlays/pictures, change hook banners, style dynamic captions (MrBeast, Hormozi, Neon), and trigger 1080p exports. "
-            "The user speaks to you in Tagalog (Filipino / Taglish) or English. "
-            "You understand Tagalog and Taglish 100% fluently. "
+            "You have DIRECT CONTROL over the user's video editing suite. You can actively manipulate the video timeline, split cuts, delete segments, switch layouts, apply B-rolls, customize captions, and export. "
+            "The user speaks to you in Tagalog (Filipino / Taglish) or English. You understand Tagalog and Taglish 100% fluently. "
             "CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog). "
-            "Never repeat canned phrases. Answer whatever the user says or asks with high intelligence, wit, and helpfulness. "
-            "Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech."
+            "Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech. Never repeat canned phrases. "
+            "Whenever the user asks or commands an edit, you MUST return executable actions in your JSON response! "
+            "Available Actions: "
+            "- 'split': { 'action': 'split', 'time': <seconds_float or null> } "
+            "- 'delete': { 'action': 'delete' } "
+            "- 'set_layout': { 'action': 'set_layout', 'mode': 'split-50-50' | 'split-60-40' | 'full-main' | 'ambient-blur' | 'pip-facecam' } "
+            "- 'set_broll': { 'action': 'set_broll', 'preset': 'minecraft-parkour' | 'subway-surfers' | 'satisfying-slime' | 'neon-runner' } "
+            "- 'set_caption_style': { 'action': 'set_caption_style', 'style': 'hormozi-pop' | 'mrbeast-bold' | 'neon-cyber' | 'minimal-sub' } "
+            "- 'set_banner': { 'action': 'set_banner', 'text': '<banner_title>' } "
+            "- 'seek': { 'action': 'seek', 'time': <seconds_float> } "
+            "- 'play': { 'action': 'play' } "
+            "- 'pause': { 'action': 'pause' } "
+            "- 'insert_image': { 'action': 'insert_image' } "
+            "- 'auto_edit': { 'action': 'auto_edit' } "
+            "- 'export': { 'action': 'export' } "
+            "OUTPUT FORMAT: You MUST return a single JSON object: "
+            "{\"reply\": \"Your British spoken response here, sir.\", \"actions\": [ ...actions if any, else [] ]} "
+            "Do NOT include markdown fences, thoughts, or extra explanations outside JSON."
         )
 
         full_prompt = (
@@ -1204,24 +1219,30 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         }
 
         reply_text = ""
+        actions_list = []
+        raw_output = ""
         temp_req_file = engine.TEMP / f"jarvis_req_{int(time.time() * 1000)}.json"
         try:
             temp_req_file.write_text(json.dumps(req_body), encoding="utf-8")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}"
             file_arg = f"@{str(temp_req_file).replace(chr(92), '/')}"
-            proc = subprocess.run(
-                ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
-                capture_output=True,
-                text=True,
-                timeout=25
-            )
-            if proc.returncode == 0 and proc.stdout:
-                res_data = json.loads(proc.stdout)
-                candidates = res_data.get("candidates") or []
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        reply_text = parts[0].get("text", "").strip()
+            models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+            for model_name in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                proc = subprocess.run(
+                    ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    res_data = json.loads(proc.stdout)
+                    candidates = res_data.get("candidates") or []
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            raw_output = parts[0].get("text", "").strip()
+                            if raw_output:
+                                break
         except Exception as e:
             sys.stderr.write(f"[Server JARVIS] curl query notice: {e}\n")
         finally:
@@ -1230,6 +1251,65 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     temp_req_file.unlink()
                 except Exception:
                     pass
+
+        if raw_output:
+            clean_json = raw_output
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
+
+            try:
+                parsed = json.loads(clean_json)
+                if isinstance(parsed, dict):
+                    reply_text = str(parsed.get("reply", "")).strip()
+                    if isinstance(parsed.get("actions"), list):
+                        actions_list = parsed.get("actions")
+            except Exception:
+                reply_text = raw_output
+
+        # Regex fallback action parser to guarantee actions execute even if LLM omits JSON
+        p_lower = prompt.lower()
+        if not actions_list:
+            import re
+            if any(k in p_lower for k in ["hatiin", "hati", "putulin", "split", "cut here", "slice", "cut"]):
+                t_match = re.search(r"(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?", p_lower)
+                t_val = float(t_match.group(1)) if t_match else None
+                actions_list.append({"action": "split", "time": t_val})
+            if "minecraft" in p_lower:
+                actions_list.append({"action": "set_broll", "preset": "minecraft-parkour"})
+                if not any(a.get("action") == "set_layout" for a in actions_list):
+                    actions_list.append({"action": "set_layout", "mode": "split-50-50"})
+            elif "subway" in p_lower or "surfer" in p_lower:
+                actions_list.append({"action": "set_broll", "preset": "subway-surfers"})
+                if not any(a.get("action") == "set_layout" for a in actions_list):
+                    actions_list.append({"action": "set_layout", "mode": "split-50-50"})
+            elif "slime" in p_lower or "satisfying" in p_lower:
+                actions_list.append({"action": "set_broll", "preset": "satisfying-slime"})
+            if any(k in p_lower for k in ["split 50", "split screen", "dalawang video"]):
+                actions_list.append({"action": "set_layout", "mode": "split-50-50"})
+            elif any(k in p_lower for k in ["full screen", "buong screen", "solo video", "isang video"]):
+                actions_list.append({"action": "set_layout", "mode": "full-main"})
+            elif "ambient" in p_lower or "blur" in p_lower:
+                actions_list.append({"action": "set_layout", "mode": "ambient-blur"})
+            if any(k in p_lower for k in ["tanggalin", "burahin", "alisin", "delete", "remove clip", "remove cut"]):
+                actions_list.append({"action": "delete"})
+            if any(k in p_lower for k in ["patugtugin", "i-play", "play", "resume"]):
+                actions_list.append({"action": "play"})
+            elif any(k in p_lower for k in ["ihinto", "itigil", "tigil", "pause", "stop"]):
+                actions_list.append({"action": "pause"})
+            if "mrbeast" in p_lower:
+                actions_list.append({"action": "set_caption_style", "style": "mrbeast-bold"})
+            elif "hormozi" in p_lower:
+                actions_list.append({"action": "set_caption_style", "style": "hormozi-pop"})
+            elif "neon" in p_lower:
+                actions_list.append({"action": "set_caption_style", "style": "neon-cyber"})
+            if any(k in p_lower for k in ["litrato", "picture", "image", "photo", "overlay"]):
+                actions_list.append({"action": "insert_image"})
+            if any(k in p_lower for k in ["auto edit", "i-edit mo", "make viral"]):
+                actions_list.append({"action": "auto_edit"})
+            if any(k in p_lower for k in ["export", "render", "save video", "i-download"]):
+                actions_list.append({"action": "export"})
 
         if not reply_text:
             import random
@@ -1244,6 +1324,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         self.send_json_response({
             "success": True,
             "reply": reply_text,
+            "actions": actions_list,
             "model": "gemini-3.1-flash-lite"
         })
 

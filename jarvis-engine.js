@@ -479,163 +479,267 @@
       if (reactor) reactor.classList.remove('listening-active');
     }
 
+    // Execute a single editor timeline manipulation action
+    executeEditorAction(action) {
+      if (!action || !action.action) return false;
+      const type = action.action;
+      const studio = window.WhopStudio;
+      const state = window.WhopState;
+      console.log('[JARVIS Action Executor] Executing action:', action);
+
+      // Trigger glowing arc reactor pulse animation
+      const reactor = document.getElementById('jarvisReactor');
+      if (reactor) {
+        reactor.classList.add('glowing-active');
+        setTimeout(() => reactor.classList.remove('glowing-active'), 1500);
+      }
+
+      switch (type) {
+        case 'split': {
+          const t = action.time !== undefined && action.time !== null ? Number(action.time) : null;
+          if (studio?.splitClipAtPlayhead) {
+            return studio.splitClipAtPlayhead(t);
+          }
+          break;
+        }
+        case 'delete': {
+          if (studio?.deleteSelectedCapCutItem) {
+            return studio.deleteSelectedCapCutItem();
+          }
+          break;
+        }
+        case 'set_layout': {
+          const mode = action.mode || 'split-50-50';
+          if (studio?.setLayoutMode) {
+            return studio.setLayoutMode(mode);
+          } else if (state) {
+            state.layoutMode = mode;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            return true;
+          }
+          break;
+        }
+        case 'set_broll': {
+          const preset = action.preset || 'minecraft-parkour';
+          if (studio?.setBrollPreset) {
+            return studio.setBrollPreset(preset);
+          } else if (state) {
+            state.brollPreset = preset;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            return true;
+          }
+          break;
+        }
+        case 'set_caption_style': {
+          const style = action.style || 'hormozi-pop';
+          if (studio?.setCaptionStyle) {
+            return studio.setCaptionStyle(style);
+          } else if (state) {
+            state.captionStyle = style;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            return true;
+          }
+          break;
+        }
+        case 'set_banner': {
+          const text = action.text || '';
+          if (studio?.setHookBanner) {
+            return studio.setHookBanner(text);
+          } else if (state) {
+            state.hookBannerText = text;
+            const bEl = document.getElementById('previewHookBanner');
+            if (bEl) bEl.textContent = text.toUpperCase();
+            return true;
+          }
+          break;
+        }
+        case 'seek': {
+          const sec = Number(action.time || 0);
+          if (studio?.seekToTime) {
+            return studio.seekToTime(sec);
+          }
+          break;
+        }
+        case 'play': {
+          if (studio?.playVideo) return studio.playVideo();
+          const pBtn = document.getElementById('playPauseBtn');
+          if (pBtn && !state?.isPlaying) pBtn.click();
+          return true;
+        }
+        case 'pause': {
+          if (studio?.pauseVideo) return studio.pauseVideo();
+          const pBtn = document.getElementById('playPauseBtn');
+          if (pBtn && state?.isPlaying) pBtn.click();
+          return true;
+        }
+        case 'insert_image': {
+          if (studio?.triggerVisualOverlayPicker) return studio.triggerVisualOverlayPicker();
+          const inp = document.getElementById('visualOverlayFileInput');
+          if (inp) { inp.click(); return true; }
+          break;
+        }
+        case 'auto_edit': {
+          if (studio?.runAutoEdit) return studio.runAutoEdit();
+          const aBtn = document.getElementById('oneClickAutoEditBtn');
+          if (aBtn) { aBtn.click(); return true; }
+          break;
+        }
+        case 'export': {
+          if (studio?.openExportModal) return studio.openExportModal();
+          const eBtn = document.getElementById('openExportModalBtn');
+          if (eBtn) { eBtn.click(); return true; }
+          break;
+        }
+        default:
+          console.warn('[JARVIS] Unknown action type:', type);
+          return false;
+      }
+      return false;
+    }
+
+    executeActionList(actions) {
+      if (!Array.isArray(actions) || actions.length === 0) return 0;
+      let count = 0;
+      for (const act of actions) {
+        try {
+          const ok = this.executeEditorAction(act);
+          if (ok !== false) count++;
+        } catch (e) {
+          console.warn('[JARVIS] Error executing action:', act, e);
+        }
+      }
+      return count;
+    }
+
     // Process voice/chat command from user
     async handleUserCommand(rawText) {
       if (!rawText) return;
       const text = rawText.trim().toLowerCase();
 
-      // 1. Direct Editor Control Commands (English & Tagalog)
+      // 1. Extract and immediately execute fast local actions (< 10ms response)
+      const localActions = [];
+
+      // Split / Cut check
       if (text.includes('hatiin') || text.includes('hati') || text.includes('putulin') || text.includes('split') || text.includes('cut here') || text.includes('slice')) {
-        if (window.WhopStudio?.splitClipAtPlayhead) {
-          window.WhopStudio.splitClipAtPlayhead();
-          await this.speak("Splitting clip at your playhead, sir.");
-          return;
-        }
+        const timeMatch = text.match(/(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?/i);
+        const splitTime = timeMatch ? Number(timeMatch[1]) : null;
+        localActions.push({ action: 'split', time: splitTime });
       }
 
+      // Delete cut / segment check
+      if (text.includes('tanggalin') || text.includes('burahin') || text.includes('alisin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut')) {
+        localActions.push({ action: 'delete' });
+      }
+
+      // Playback controls
       if (text.includes('patugtugin') || text.includes('i-play') || text.includes('iplay') || text.includes('play') || text.includes('resume') || text.includes('start video')) {
-        const playBtn = document.getElementById('playPauseBtn');
-        if (playBtn && !window.WhopState?.isPlaying) playBtn.click();
-        await this.speak("Playing timeline, sir.");
-        return;
+        localActions.push({ action: 'play' });
+      } else if (text.includes('ihinto') || text.includes('itigil') || text.includes('tigil') || text.includes('pause') || text.includes('stop')) {
+        localActions.push({ action: 'pause' });
       }
 
-      if (text.includes('ihinto') || text.includes('itigil') || text.includes('tigil') || text.includes('pause') || text.includes('stop')) {
-        const playBtn = document.getElementById('playPauseBtn');
-        if (playBtn && window.WhopState?.isPlaying) playBtn.click();
-        await this.speak("Playback paused, sir.");
-        return;
-      }
-
-      if (text.includes('tanggalin') || text.includes('burahin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut')) {
-        if (window.WhopStudio?.deleteSelectedCapCutItem) {
-          window.WhopStudio.deleteSelectedCapCutItem();
-          await this.speak("Removing selected segment from the timeline, sir.");
-          return;
-        }
-      }
-
-      if (text.includes('auto edit') || text.includes('i-edit mo') || text.includes('make viral') || text.includes('edit video')) {
-        const autoBtn = document.getElementById('oneClickAutoEditBtn');
-        if (autoBtn) autoBtn.click();
-        await this.speak("Initiating multi-engine auto-edit sequence, sir.");
-        return;
-      }
-
-      if (text.includes('export') || text.includes('render') || text.includes('save video') || text.includes('i-download')) {
-        const expBtn = document.getElementById('openExportModalBtn');
-        if (expBtn) expBtn.click();
-        await this.speak("Opening export configuration for your vertical short, sir.");
-        return;
-      }
-
-      if (text.includes('maglagay ng litrato') || text.includes('lagyan ng picture') || text.includes('lagay ng picture') || text.includes('add picture') || text.includes('add image') || text.includes('insert visual') || text.includes('picture')) {
-        const imgInput = document.getElementById('visualOverlayFileInput');
-        if (imgInput) {
-          imgInput.accept = 'image/*';
-          imgInput.click();
-          await this.speak("Opening visual overlay selector, sir.");
-          return;
-        }
-      }
-
-      if (text.includes('caption') && (text.includes('hormozi') || text.includes('pop'))) {
-        if (window.WhopState) window.WhopState.captionStyle = 'hormozi-pop';
-        if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-        await this.speak("Applied Hormozi Pop subtitle style, sir.");
-        return;
-      }
-
-      if (text.includes('caption') && (text.includes('mrbeast') || text.includes('bold'))) {
-        if (window.WhopState) window.WhopState.captionStyle = 'mrbeast-bold';
-        if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-        await this.speak("Applied MrBeast Bold subtitle style, sir.");
-        return;
-      }
-
-      if (text.includes('caption') && (text.includes('neon') || text.includes('glow') || text.includes('cyber'))) {
-        if (window.WhopState) window.WhopState.captionStyle = 'neon-cyber';
-        if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-        await this.speak("Applied Neon Cyber subtitle style, sir.");
-        return;
-      }
-
-      // Layout Manipulation Commands
+      // Layout Modes
       if (text.includes('split 50') || text.includes('split screen') || text.includes('dalawang video') || text.includes('split layout')) {
-        if (window.WhopState) {
-          window.WhopState.layoutMode = 'split-50-50';
-          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-          await this.speak("Switched layout to 50/50 split screen with satisfying B-roll, sir.");
-          return;
-        }
+        localActions.push({ action: 'set_layout', mode: 'split-50-50' });
+      } else if (text.includes('split 60') || text.includes('top bottom')) {
+        localActions.push({ action: 'set_layout', mode: 'split-60-40' });
+      } else if (text.includes('full screen') || text.includes('buong screen') || text.includes('solo video') || text.includes('full main') || text.includes('isang video')) {
+        localActions.push({ action: 'set_layout', mode: 'full-main' });
+      } else if (text.includes('ambient') || text.includes('blur background')) {
+        localActions.push({ action: 'set_layout', mode: 'ambient-blur' });
       }
 
-      if (text.includes('full screen') || text.includes('buong screen') || text.includes('solo video') || text.includes('full main')) {
-        if (window.WhopState) {
-          window.WhopState.layoutMode = 'full-main';
-          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-          await this.speak("Switched layout to full 9 by 16 vertical frame, sir.");
-          return;
-        }
-      }
-
-      // B-Roll Video Manipulation Commands
+      // B-Roll presets
       if (text.includes('minecraft')) {
-        if (window.WhopState) {
-          window.WhopState.brollPreset = 'minecraft-parkour';
-          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-          await this.speak("Synchronized Minecraft Parkour B-roll to the lower frame, sir.");
-          return;
+        localActions.push({ action: 'set_broll', preset: 'minecraft-parkour' });
+        if (!localActions.some(a => a.action === 'set_layout')) {
+          localActions.push({ action: 'set_layout', mode: 'split-50-50' });
         }
+      } else if (text.includes('subway') || text.includes('surfer')) {
+        localActions.push({ action: 'set_broll', preset: 'subway-surfers' });
+        if (!localActions.some(a => a.action === 'set_layout')) {
+          localActions.push({ action: 'set_layout', mode: 'split-50-50' });
+        }
+      } else if (text.includes('slime') || text.includes('satisfying')) {
+        localActions.push({ action: 'set_broll', preset: 'satisfying-slime' });
       }
 
-      if (text.includes('subway') || text.includes('surfer')) {
-        if (window.WhopState) {
-          window.WhopState.brollPreset = 'subway-surfers';
-          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-          await this.speak("Loaded Subway Surfers gameplay B-roll, sir.");
-          return;
-        }
+      // Caption styles
+      if (text.includes('hormozi') || (text.includes('caption') && text.includes('pop'))) {
+        localActions.push({ action: 'set_caption_style', style: 'hormozi-pop' });
+      } else if (text.includes('mrbeast') || (text.includes('caption') && text.includes('bold'))) {
+        localActions.push({ action: 'set_caption_style', style: 'mrbeast-bold' });
+      } else if (text.includes('neon') || text.includes('cyber') || (text.includes('caption') && text.includes('glow'))) {
+        localActions.push({ action: 'set_caption_style', style: 'neon-cyber' });
       }
 
-      if (text.includes('slime') || text.includes('satisfying')) {
-        if (window.WhopState) {
-          window.WhopState.brollPreset = 'satisfying-slime';
-          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
-          await this.speak("Applied satisfying kinetic slime B-roll, sir.");
-          return;
-        }
+      // Seeking
+      const seekMatch = text.match(/(?:seek to|jump to|go to|punta sa|punta|timestamp|segundo|second|sec)\s*(\d+(?:\.\d+)?)/i);
+      if (seekMatch && seekMatch[1] && !text.includes('split') && !text.includes('hatiin')) {
+        localActions.push({ action: 'seek', time: Number(seekMatch[1]) });
       }
 
-      // Timeline Seeking / Scrubbing Navigation
-      const seekMatch = text.match(/(?:seek to|jump to|go to|punta sa|punta|timestamp|segundo|second|sec)\s*(\d+)/i);
-      if (seekMatch && seekMatch[1]) {
-        const sec = parseInt(seekMatch[1], 10);
-        if (window.WhopStudio?.seekToTime) {
-          window.WhopStudio.seekToTime(sec);
-          await this.speak(`Navigated playhead to ${sec} seconds, sir.`);
-          return;
-        }
-      }
-
-      // Viral Hook Banner Customization
+      // Hook banner
       const hookMatch = rawText.match(/(?:change hook to|set banner to|set title to|palitan ang title sa|hook banner)\s*(.+)/i);
       if (hookMatch && hookMatch[1]) {
-        const newTitle = hookMatch[1].trim();
-        if (window.WhopState) {
-          window.WhopState.hookBannerText = newTitle;
-          const bannerEl = document.getElementById('previewHookBanner');
-          if (bannerEl) bannerEl.textContent = newTitle.toUpperCase();
-          await this.speak(`Updated hook banner headline to: ${newTitle}, sir.`);
-          return;
-        }
+        localActions.push({ action: 'set_banner', text: hookMatch[1].trim() });
       }
 
-      // 2. Real-Time Conversational AI (Full Tagalog/Taglish understanding, dynamic British English speech)
-      await this.askAI(rawText);
+      // Visual picture overlay
+      if (text.includes('maglagay ng litrato') || text.includes('lagyan ng picture') || text.includes('lagay ng picture') || text.includes('add picture') || text.includes('add image') || text.includes('insert visual') || text.includes('picture')) {
+        localActions.push({ action: 'insert_image' });
+      }
+
+      // Auto edit
+      if (text.includes('auto edit') || text.includes('i-edit mo') || text.includes('make viral') || text.includes('edit video')) {
+        localActions.push({ action: 'auto_edit' });
+      }
+
+      // Export / render
+      if (text.includes('export') || text.includes('render') || text.includes('save video') || text.includes('i-download')) {
+        localActions.push({ action: 'export' });
+      }
+
+      // Execute local actions immediately
+      if (localActions.length > 0) {
+        this.executeActionList(localActions);
+      }
+
+      // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
+      const isSimpleCommand = (
+        (text.length < 25 && localActions.length > 0) ||
+        text === 'play' || text === 'pause' || text === 'split' || text === 'hatiin' || text === 'stop' || text === 'delete'
+      );
+
+      if (isSimpleCommand && localActions.length > 0) {
+        let msg = "It is done, sir.";
+        const first = localActions[0];
+        if (first.action === 'split') {
+          msg = first.time ? `Split cut at ${first.time} seconds, sir.` : "Split cut at playhead, sir.";
+        } else if (first.action === 'play') {
+          msg = "Timeline playback started, sir.";
+        } else if (first.action === 'pause') {
+          msg = "Timeline playback paused, sir.";
+        } else if (first.action === 'delete') {
+          msg = "Removed segment from timeline, sir.";
+        } else if (first.action === 'set_layout') {
+          msg = `Switched layout to ${first.mode.replace('-', ' ')}, sir.`;
+        } else if (first.action === 'set_broll') {
+          msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage, sir.`;
+        } else if (first.action === 'set_caption_style') {
+          msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
+        }
+        this.addChatMessage('user', rawText);
+        this.addChatMessage('jarvis', msg);
+        await this.speak(msg);
+        return;
+      }
+
+      // 2. Real-Time Conversational AI (Full Tagalog/Taglish understanding, dynamic British English speech + AI actions)
+      await this.askAI(rawText, localActions);
     }
 
-    async askAI(prompt) {
+    async askAI(prompt, alreadyExecuted = []) {
       this.showVisualSpeechIndicator('Consulting neural core...');
 
       const dynamicFallbacks = [
@@ -651,7 +755,7 @@
       let responseText = dynamicFallbacks[Math.floor(Math.random() * dynamicFallbacks.length)];
       let aiText = '';
 
-      // Step 1: Server-side accelerated query via /api/jarvis_chat (uses curl HTTP/2 with ~1.5s latency)
+      // Step 1: Server-side accelerated query via /api/jarvis_chat (uses curl HTTP/2 with ~1.2s latency)
       try {
         const srvRes = await fetch('/api/jarvis_chat', {
           method: 'POST',
@@ -667,6 +771,15 @@
           const srvData = await srvRes.json();
           if (srvData && srvData.reply && srvData.reply.trim()) {
             aiText = srvData.reply.trim();
+          }
+          if (srvData && Array.isArray(srvData.actions) && srvData.actions.length > 0) {
+            // Filter out actions already executed locally
+            const newActions = srvData.actions.filter(a =>
+              !alreadyExecuted.some(ex => ex.action === a.action)
+            );
+            if (newActions.length > 0) {
+              this.executeActionList(newActions);
+            }
           }
         }
       } catch (err) {
@@ -685,14 +798,16 @@ You understand Tagalog and Taglish 100% fluently.
 CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog).
 Never repeat canned phrases. Answer whatever the user says or asks with high intelligence, wit, and helpfulness.
 Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech.
-CRITICAL: Output ONLY your spoken response. Do not include thought processes, outlines, or bullet points.
+OUTPUT FORMAT: You MUST return a single JSON object:
+{"reply": "Your British spoken response here, sir.", "actions": []}
+Do NOT include markdown fences, thoughts, or extra explanations outside JSON.
 
 Conversation Context:
 ${recentHistory}
 User: ${prompt}
 JARVIS:`;
 
-          const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemma-4-26b-a4b-it'];
+          const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemma-4-26b-a4b-it'];
           for (const model of modelsToTry) {
             try {
               const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.googleKey}`;
@@ -703,7 +818,7 @@ JARVIS:`;
                   contents: [{ parts: [{ text: systemPrompt }] }],
                   generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 150
+                    maxOutputTokens: 200
                   }
                 }),
                 signal: AbortSignal.timeout(6500)
@@ -730,27 +845,44 @@ JARVIS:`;
         if (clean.includes('</thought>')) {
           clean = clean.split('</thought>')[1].trim();
         }
-        const quotes = [...clean.matchAll(/["“]([^"”]{8,})["”]/g)];
-        if (quotes.length > 0) {
-          clean = quotes[quotes.length - 1][1].trim();
-        } else {
-          const lines = clean.split('\n')
-            .map((l) => l.trim())
-            .filter((l) => l &&
-              !l.startsWith('*') &&
-              !l.startsWith('-') &&
-              !l.startsWith('#') &&
-              !l.toLowerCase().startsWith('draft') &&
-              !l.toLowerCase().startsWith('option') &&
-              !l.toLowerCase().startsWith('persona') &&
-              !l.toLowerCase().startsWith('input') &&
-              !l.toLowerCase().startsWith('constraint') &&
-              !l.toLowerCase().startsWith('user:') &&
-              !l.toLowerCase().startsWith('jarvis:'));
-          if (lines.length > 0) {
-            clean = lines[lines.length - 1].replace(/^["'“]|["'”]$/g, '').trim();
+        if (clean.startsWith('```json')) {
+          clean = clean.split('```json')[1].split('```')[0].trim();
+        } else if (clean.startsWith('```')) {
+          clean = clean.split('```')[1].split('```')[0].trim();
+        }
+
+        try {
+          const parsed = JSON.parse(clean);
+          if (parsed && parsed.reply) {
+            clean = parsed.reply;
+            if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+              this.executeActionList(parsed.actions);
+            }
+          }
+        } catch (jsonErr) {
+          // Plain text fallback
+          const quotes = [...clean.matchAll(/["“]([^"”]{8,})["”]/g)];
+          if (quotes.length > 0) {
+            clean = quotes[quotes.length - 1][1].trim();
           } else {
-            clean = clean.replace(/[*#]/g, '').trim();
+            const lines = clean.split('\n')
+              .map((l) => l.trim())
+              .filter((l) => l &&
+                !l.startsWith('*') &&
+                !l.startsWith('-') &&
+                !l.startsWith('#') &&
+                !l.toLowerCase().startsWith('draft') &&
+                !l.toLowerCase().startsWith('option') &&
+                !l.toLowerCase().startsWith('persona') &&
+                !l.toLowerCase().startsWith('input') &&
+                !l.toLowerCase().startsWith('constraint') &&
+                !l.toLowerCase().startsWith('user:') &&
+                !l.toLowerCase().startsWith('jarvis:'));
+            if (lines.length > 0) {
+              clean = lines[lines.length - 1].replace(/^["'“]|["'”]$/g, '').trim();
+            } else {
+              clean = clean.replace(/[*#]/g, '').trim();
+            }
           }
         }
         if (clean) responseText = clean;

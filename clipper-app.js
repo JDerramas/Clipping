@@ -5112,13 +5112,38 @@
       });
     }
     // CapCut Direct Timeline Tools & Multi-Clip Slicing
-    splitClipAtPlayhead = function splitClipAtPlayhead() {
-      const cur = Number(state.currentTime.toFixed(2));
-      const clips = state.sequence?.videoClips || [];
-      const targetIdx = clips.findIndex((c) => cur >= c.start + 0.08 && cur <= c.end - 0.08);
+    splitClipAtPlayhead = function splitClipAtPlayhead(splitTime = null) {
+      if (!state.sequence) state.sequence = {};
+      if (!Array.isArray(state.sequence.videoClips) || state.sequence.videoClips.length === 0) {
+        const fullDur = Math.max(10, state.streamDuration || 30.0);
+        state.sequence.videoClips = [{
+          id: 'clip-master-1',
+          title: 'Cut #1 (Main)',
+          start: state.trimStart || 0,
+          end: state.trimEnd || fullDur,
+          sourceStart: state.trimStart || 0,
+          sourceEnd: state.trimEnd || fullDur,
+          zoom: 1.0,
+          panX: 0,
+          panY: 0,
+          volume: 1.0
+        }];
+      }
+
+      const clips = state.sequence.videoClips;
+      let cur = splitTime !== null ? Number(splitTime) : Number(state.currentTime.toFixed(2));
+
+      // Find clip that contains cur
+      let targetIdx = clips.findIndex((c) => cur >= c.start && cur <= c.end);
       if (targetIdx === -1) {
-        showToast('⚠️ Position playhead inside a video cut to split (Ctrl+B / C)', '#f59e0b');
-        return;
+        targetIdx = 0;
+        const orig = clips[0];
+        cur = Number(((orig.start + orig.end) / 2).toFixed(2));
+      } else {
+        const orig = clips[targetIdx];
+        if (cur <= orig.start + 0.1 || cur >= orig.end - 0.1) {
+          cur = Number(((orig.start + orig.end) / 2).toFixed(2));
+        }
       }
 
       const orig = clips[targetIdx];
@@ -5148,6 +5173,8 @@
       clips.splice(targetIdx + 1, 0, newClip);
       state.sequence.selectedClipId = newClip.id;
       state.sequence.selectedTrackType = 'video';
+      state.currentTime = cur;
+      if (dom.mainVideoEl) dom.mainVideoEl.currentTime = cur;
 
       renderTimelineRuler();
       renderTimelineTracks();
@@ -5155,6 +5182,7 @@
       switchInspectorTab('hard-cuts');
       showToast(`✂️ Split cut at ${formatTimecode(cur)}! Created "${newClip.title}"`, '#00f2fe');
       if (window.jarvis) window.jarvis.notify('split-done');
+      return true;
     };
 
     rippleTrimIn = function rippleTrimIn() {
@@ -5237,6 +5265,15 @@
       }
 
       const clips = state.sequence?.videoClips || [];
+      if (!state.sequence?.selectedClipId && clips.length > 1) {
+        const cur = Number(state.currentTime.toFixed(2));
+        const currentClip = clips.find((c) => cur >= c.start && cur <= c.end);
+        if (currentClip) {
+          state.sequence.selectedClipId = currentClip.id;
+        } else {
+          state.sequence.selectedClipId = clips[clips.length - 1].id;
+        }
+      }
       if (state.sequence?.selectedClipId) {
         if (clips.length <= 1) {
           showToast('⚠️ Cannot delete the only remaining cut in sequence', '#f59e0b');
@@ -6260,6 +6297,105 @@
     renderCanvasFrame();
     ensureStarterSavedClip();
 
+    function setLayoutMode(mode) {
+      if (!mode) return false;
+      state.layoutMode = mode;
+      if (dom.layoutModeGrid) {
+        dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
+          card.classList.toggle('active', card.dataset.layout === mode);
+        });
+      }
+      if (mode === 'ambient-blur') {
+        state.wholeScreenFit = true;
+        if (dom.wholeScreenFitToggle) dom.wholeScreenFitToggle.checked = true;
+      } else if (mode === 'split-60-40' || mode === 'split-50-50') {
+        if (dom.brollVideoEl && (!dom.brollVideoEl.src || dom.brollVideoEl.src === window.location.href)) {
+          dom.brollVideoEl.src = '/assets/broll/satisfying_neon_runner.mp4';
+          dom.brollVideoEl.load();
+          dom.brollVideoEl.play().catch(() => {});
+          state.useCustomBrollVideo = true;
+        }
+      }
+      if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
+      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+      showToast(`Switched layout mode to ${mode.replace('-', ' ')}`, '#00f2fe');
+      return true;
+    }
+
+    function setBrollPreset(presetId) {
+      if (!presetId) return false;
+      state.useCustomBrollVideo = false;
+      state.brollPreset = presetId;
+      if (typeof renderBrollPresetCards === 'function') renderBrollPresetCards();
+      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+      if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
+      showToast(`Switched B-Roll to ${presetId.replace('-', ' ')}`, '#00f2fe');
+      return true;
+    }
+
+    function setCaptionStyle(style) {
+      if (!style) return false;
+      state.captionStyle = style;
+      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+      showToast(`Applied caption style: ${style.replace('-', ' ')}`, '#00f2fe');
+      return true;
+    }
+
+    function setHookBanner(text) {
+      if (!text) return false;
+      state.hookBannerText = text;
+      state.hookMode = 'top-banner';
+      const bannerEl = document.getElementById('previewHookBanner');
+      if (bannerEl) bannerEl.textContent = text.toUpperCase();
+      if (typeof syncAllInspectorControlsFromState === 'function') syncAllInspectorControlsFromState();
+      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+      showToast(`Hook banner set to: "${text}"`, '#00f2fe');
+      return true;
+    }
+
+    function playVideo() {
+      if (dom.playPauseBtn && !state.isPlaying) {
+        dom.playPauseBtn.click();
+      }
+      return true;
+    }
+
+    function pauseVideo() {
+      if (dom.playPauseBtn && state.isPlaying) {
+        dom.playPauseBtn.click();
+      }
+      return true;
+    }
+
+    function triggerVisualOverlayPicker() {
+      const inp = document.getElementById('visualOverlayFileInput');
+      if (inp) {
+        inp.accept = 'image/*';
+        inp.click();
+        showToast('Opening visual overlay selector...', '#00f2fe');
+        return true;
+      }
+      return false;
+    }
+
+    function runAutoEdit() {
+      const autoBtn = document.getElementById('oneClickAutoEditBtn');
+      if (autoBtn) {
+        autoBtn.click();
+        return true;
+      }
+      return false;
+    }
+
+    function openExportModal() {
+      const expBtn = document.getElementById('openExportModalBtn');
+      if (expBtn) {
+        expBtn.click();
+        return true;
+      }
+      return false;
+    }
+
     window.WhopStudio = {
       state,
       dom,
@@ -6275,6 +6411,15 @@
       getActiveClip,
       renderTranscriptCloud,
       fetchActiveProject,
+      setLayoutMode,
+      setBrollPreset,
+      setCaptionStyle,
+      setHookBanner,
+      playVideo,
+      pauseVideo,
+      triggerVisualOverlayPicker,
+      runAutoEdit,
+      openExportModal,
     };
     window.WhopState = state;
     window.getActiveClip = getActiveClip;
