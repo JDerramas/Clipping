@@ -417,25 +417,43 @@
 
         this.recognition = new SpeechRec();
         this.recognition.continuous = false;
-        this.recognition.interimResults = false;
+        this.recognition.interimResults = true;
         this.recognition.lang = this.recognitionLang || 'fil-PH';
 
         const reactor = document.getElementById('jarvisReactor');
         if (reactor) reactor.classList.add('listening-active');
         this.isListening = true;
+        this.showVisualSpeechIndicator('🎙️ Listening...');
 
         this.recognition.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          this.isListening = false;
-          if (reactor) reactor.classList.remove('listening-active');
-          if (this.siriWave) {
-            try {
-              this.siriWave.setSpeed(0.12);
-              this.siriWave.setAmplitude(0.25);
-            } catch (e) {}
+          let interim = '';
+          let finalTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              finalTranscript += res[0].transcript;
+            } else {
+              interim += res[0].transcript;
+            }
           }
-          if (typeof onTextCallback === 'function') onTextCallback(transcript);
-          this.handleUserCommand(transcript);
+          if (interim) {
+            this.showVisualSpeechIndicator(`🎙️ ${interim}...`);
+            if (typeof onTextCallback === 'function') onTextCallback(interim);
+            return;
+          }
+          if (finalTranscript) {
+            const transcript = finalTranscript.trim();
+            this.isListening = false;
+            if (reactor) reactor.classList.remove('listening-active');
+            if (this.siriWave) {
+              try {
+                this.siriWave.setSpeed(0.12);
+                this.siriWave.setAmplitude(0.25);
+              } catch (e) {}
+            }
+            if (typeof onTextCallback === 'function') onTextCallback(transcript);
+            this.handleUserCommand(transcript);
+          }
         };
 
         this.recognition.onerror = () => {
@@ -487,6 +505,11 @@
       const state = window.WhopState;
       console.log('[JARVIS Action Executor] Executing action:', action);
 
+      if (studio?.setSystemPulse) {
+        studio.setSystemPulse(true);
+        setTimeout(() => studio.setSystemPulse(false), 750);
+      }
+
       // Trigger glowing arc reactor pulse animation
       const reactor = document.getElementById('jarvisReactor');
       if (reactor) {
@@ -506,6 +529,46 @@
           if (studio?.deleteSelectedCapCutItem) {
             return studio.deleteSelectedCapCutItem();
           }
+          break;
+        }
+        case 'add_text': {
+          if (studio?.addTextLayer) {
+            studio.addTextLayer(action.preset || 'heading', action.text || null);
+            return true;
+          }
+          break;
+        }
+        case 'set_watermark': {
+          if (studio?.setWatermark) {
+            return studio.setWatermark(action.text || '', action.enabled !== false);
+          }
+          break;
+        }
+        case 'freeze_frame': {
+          if (studio?.freezeFrameAtPlayhead) {
+            return studio.freezeFrameAtPlayhead(Number(action.duration || 2.0));
+          }
+          break;
+        }
+        case 'jump_cuts': {
+          if (studio?.applyAutoSilenceJumpCuts) {
+            return studio.applyAutoSilenceJumpCuts();
+          }
+          break;
+        }
+        case 'aspect_ratio': {
+          if (studio?.setCanvasAspectRatio) {
+            studio.setCanvasAspectRatio(action.ratio || '9:16');
+            return true;
+          }
+          break;
+        }
+        case 'undo': {
+          if (studio?.undoAction) return studio.undoAction();
+          break;
+        }
+        case 'redo': {
+          if (studio?.redoAction) return studio.redoAction();
           break;
         }
         case 'set_layout': {
@@ -621,10 +684,50 @@
     // Process voice/chat command from user
     async handleUserCommand(rawText) {
       if (!rawText) return;
+      const startTs = performance.now();
       const text = rawText.trim().toLowerCase();
 
       // 1. Extract and immediately execute fast local actions (< 10ms response)
       const localActions = [];
+
+      // Undo / Redo
+      if (text === 'undo' || text.includes('i-undo') || text.includes('ibalik')) {
+        localActions.push({ action: 'undo' });
+      } else if (text === 'redo' || text.includes('i-redo')) {
+        localActions.push({ action: 'redo' });
+      }
+
+      // Add Text Layer ("T" Tool)
+      if (text === 'add-text' || text.includes('add text') || text.includes('lagyan ng text') || text.includes('maglagay ng text')) {
+        const txtMatch = rawText.match(/(?:add text|lagyan ng text|maglagay ng text)\s*[:"]?(.+?)["]?$/i);
+        localActions.push({ action: 'add_text', preset: 'heading', text: txtMatch && txtMatch[1] ? txtMatch[1].trim() : null });
+      }
+
+      // Watermark Hide / Update
+      if (text === 'hide-watermark' || ((text.includes('watermark') || text.includes('tag')) && (text.includes('hide') || text.includes('alisin') || text.includes('tanggalin') || text.includes('off')))) {
+        localActions.push({ action: 'set_watermark', enabled: false });
+      } else if (text.includes('show watermark') || text.includes('ibalik watermark')) {
+        localActions.push({ action: 'set_watermark', enabled: true });
+      }
+
+      // Freeze Frame
+      if (text === 'freeze' || text.includes('freeze frame') || text.includes('i-freeze')) {
+        localActions.push({ action: 'freeze_frame', duration: 2.0 });
+      }
+
+      // Auto Silence Jump-Cuts
+      if (text === 'jump-cuts' || text.includes('jump cut') || text.includes('cut silence') || text.includes('dead air')) {
+        localActions.push({ action: 'jump_cuts' });
+      }
+
+      // Aspect Ratio
+      if (text.includes('16:9') || text.includes('youtube landscape')) {
+        localActions.push({ action: 'aspect_ratio', ratio: '16:9' });
+      } else if (text.includes('1:1') || text.includes('square')) {
+        localActions.push({ action: 'aspect_ratio', ratio: '1:1' });
+      } else if (text.includes('9:16')) {
+        localActions.push({ action: 'aspect_ratio', ratio: '9:16' });
+      }
 
       // Split / Cut check
       if (text.includes('hatiin') || text.includes('hati') || text.includes('putulin') || text.includes('split') || text.includes('cut here') || text.includes('slice')) {
@@ -634,7 +737,7 @@
       }
 
       // Delete cut / segment check
-      if (text.includes('tanggalin') || text.includes('burahin') || text.includes('alisin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut')) {
+      if (!localActions.some((a) => a.action === 'set_watermark') && (text.includes('tanggalin') || text.includes('burahin') || text.includes('alisin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut'))) {
         localActions.push({ action: 'delete' });
       }
 
@@ -659,12 +762,12 @@
       // B-Roll presets
       if (text.includes('minecraft')) {
         localActions.push({ action: 'set_broll', preset: 'minecraft-parkour' });
-        if (!localActions.some(a => a.action === 'set_layout')) {
+        if (!localActions.some((a) => a.action === 'set_layout')) {
           localActions.push({ action: 'set_layout', mode: 'split-50-50' });
         }
       } else if (text.includes('subway') || text.includes('surfer')) {
         localActions.push({ action: 'set_broll', preset: 'subway-surfers' });
-        if (!localActions.some(a => a.action === 'set_layout')) {
+        if (!localActions.some((a) => a.action === 'set_layout')) {
           localActions.push({ action: 'set_layout', mode: 'split-50-50' });
         }
       } else if (text.includes('slime') || text.includes('satisfying')) {
@@ -719,8 +822,8 @@
 
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
-        (text.length < 25 && localActions.length > 0) ||
-        text === 'play' || text === 'pause' || text === 'split' || text === 'hatiin' || text === 'stop' || text === 'delete'
+        (text.length < 28 && localActions.length > 0) ||
+        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark'].includes(text)
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -733,7 +836,19 @@
         } else if (first.action === 'pause') {
           msg = "Timeline playback paused, sir.";
         } else if (first.action === 'delete') {
-          msg = "Removed segment from timeline, sir.";
+          msg = "Removed selected element from your workspace, sir.";
+        } else if (first.action === 'add_text') {
+          msg = "Added a draggable, editable text layer onto your canvas, sir.";
+        } else if (first.action === 'set_watermark') {
+          msg = first.enabled === false ? "Creator watermark hidden from canvas, sir." : "Creator watermark restored, sir.";
+        } else if (first.action === 'freeze_frame') {
+          msg = "Inserted a two-second freeze frame at the playhead, sir.";
+        } else if (first.action === 'jump_cuts') {
+          msg = "Applied automatic silence jump-cuts across dead air intervals, sir.";
+        } else if (first.action === 'undo') {
+          msg = "Reverted your previous edit action, sir.";
+        } else if (first.action === 'redo') {
+          msg = "Restored your edit action, sir.";
         } else if (first.action === 'set_layout') {
           msg = `Switched layout to ${first.mode.replace('-', ' ')}, sir.`;
         } else if (first.action === 'set_broll') {
@@ -741,18 +856,20 @@
         } else if (first.action === 'set_caption_style') {
           msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
         }
+        const latencyMs = Math.max(1, Math.round(performance.now() - startTs));
         this.addChatMessage('user', rawText);
-        this.addChatMessage('jarvis', msg);
+        this.addChatMessage('jarvis', msg, { actions: localActions, latencyMs, engine: 'OpenJarvis Local Reflex' });
         await this.speak(msg);
         return;
       }
 
       // 2. Real-Time Conversational AI (Full Tagalog/Taglish understanding, dynamic British English speech + AI actions)
-      await this.askAI(rawText, localActions);
+      await this.askAI(rawText, localActions, startTs);
     }
 
-    async askAI(prompt, alreadyExecuted = []) {
+    async askAI(prompt, alreadyExecuted = [], startTs = performance.now()) {
       this.showVisualSpeechIndicator('Consulting neural core...');
+      if (window.WhopStudio?.setSystemPulse) window.WhopStudio.setSystemPulse(true);
 
       const dynamicFallbacks = [
         "At your service, sir. All neural engines and editing timelines are active. What would you like to create?",
@@ -766,6 +883,7 @@
       ];
       let responseText = dynamicFallbacks[Math.floor(Math.random() * dynamicFallbacks.length)];
       let aiText = '';
+      const executedTools = [...alreadyExecuted];
 
       // Step 1: Server-side accelerated query via /api/jarvis_chat (uses curl HTTP/2 with ~1.2s latency)
       try {
@@ -785,12 +903,12 @@
             aiText = srvData.reply.trim();
           }
           if (srvData && Array.isArray(srvData.actions) && srvData.actions.length > 0) {
-            // Filter out actions already executed locally
-            const newActions = srvData.actions.filter(a =>
-              !alreadyExecuted.some(ex => ex.action === a.action)
+            const newActions = srvData.actions.filter((a) =>
+              !alreadyExecuted.some((ex) => ex.action === a.action)
             );
             if (newActions.length > 0) {
               this.executeActionList(newActions);
+              executedTools.push(...newActions);
             }
           }
         }
@@ -804,11 +922,10 @@
           const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'JARVIS'}: ${turn.text}`).join('\n');
           const systemPrompt = `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor.
 Always address the user as "Sir" or "sir".
-You possess full interactive control over the user's video editor timeline: you can split and cut clips, delete unwanted segments, switch layout modes (9:16 full-screen or 50/50 split), layer dynamic B-rolls (Minecraft, Subway Surfers, Slime), insert visual overlays/pictures, change hook banners, style dynamic captions (MrBeast, Hormozi, Neon), and trigger 1080p exports.
+You possess full interactive control over the user's CapCut Pro video editor timeline: you can split clips, delete layers, add editable text overlays ('add_text'), hide/update watermarks ('set_watermark'), insert freeze frames ('freeze_frame'), auto-cut silences ('jump_cuts'), undo/redo, switch layouts, layer B-rolls, insert clean PIP pictures, style captions, and trigger 1080p exports.
 The user speaks to you in Tagalog (Filipino / Taglish) or English.
 You understand Tagalog and Taglish 100% fluently.
-CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog).
-Never repeat canned phrases. Answer whatever the user says or asks with high intelligence, wit, and helpfulness.
+CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English.
 Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech.
 OUTPUT FORMAT: You MUST return a single JSON object:
 {"reply": "Your British spoken response here, sir.", "actions": []}
@@ -869,10 +986,10 @@ JARVIS:`;
             clean = parsed.reply;
             if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
               this.executeActionList(parsed.actions);
+              executedTools.push(...parsed.actions);
             }
           }
         } catch (jsonErr) {
-          // Plain text fallback
           const quotes = [...clean.matchAll(/["“]([^"”]{8,})["”]/g)];
           if (quotes.length > 0) {
             clean = quotes[quotes.length - 1][1].trim();
@@ -900,21 +1017,49 @@ JARVIS:`;
         if (clean) responseText = clean;
       }
 
+      if (window.WhopStudio?.setSystemPulse) window.WhopStudio.setSystemPulse(false);
+      const latencyMs = Math.max(12, Math.round(performance.now() - startTs));
       this.addChatMessage('user', prompt);
-      this.addChatMessage('jarvis', responseText);
+      this.addChatMessage('jarvis', responseText, {
+        actions: executedTools,
+        latencyMs,
+        engine: aiText ? 'OpenJarvis Neural Core' : 'OpenJarvis Fallback'
+      });
       await this.speak(responseText);
     }
 
-    addChatMessage(role, text) {
+    addChatMessage(role, text, telemetry = null) {
       this.chatHistory.push({ role, text, time: new Date() });
       const container = document.getElementById('jarvisChatMessages');
       if (!container) return;
 
+      let toolCardsHtml = '';
+      if (telemetry && Array.isArray(telemetry.actions) && telemetry.actions.length > 0) {
+        const badges = telemetry.actions.map((a) => `<code>⚡ ${this.escapeHtml(a.action)}</code>`).join(' ');
+        toolCardsHtml = `
+          <div class="jarvis-tool-card">
+            <span class="jtc-status">✓ EXECUTED</span>
+            <span class="jtc-tools">${badges}</span>
+          </div>
+        `;
+      }
+      let xrayHtml = '';
+      if (telemetry && telemetry.latencyMs !== undefined) {
+        xrayHtml = `
+          <div class="jarvis-xray-footer">
+            <span>🧠 ${this.escapeHtml(telemetry.engine || 'OpenJarvis')}</span>
+            <span>⏱️ ${telemetry.latencyMs}ms</span>
+          </div>
+        `;
+      }
+
       const bubble = document.createElement('div');
       bubble.className = `jarvis-msg ${role === 'user' ? 'msg-user' : 'msg-jarvis'}`;
       bubble.innerHTML = `
-        <div class="msg-author">${role === 'user' ? 'YOU' : 'JARVIS • AI BUTLER'}</div>
+        <div class="msg-author">${role === 'user' ? 'YOU' : 'JARVIS • AI CO-DIRECTOR'}</div>
         <div class="msg-body">${this.escapeHtml(text)}</div>
+        ${toolCardsHtml}
+        ${xrayHtml}
       `;
       container.appendChild(bubble);
       container.scrollTop = container.scrollHeight;

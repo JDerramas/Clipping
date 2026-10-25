@@ -116,30 +116,53 @@
 
     // Visual Media Overlays & Memes Cut-Ins (Clean default, no clutter)
     visualOverlays: [],
+    selectedVisualOverlayId: null,
 
-    // Captions & Hook Banner
+    // Custom CapCut Text Layers (T Tool)
+    textLayers: [],
+    selectedTextLayerId: null,
+    activeTextTarget: 'hook', // 'layer' | 'hook' | 'watermark'
+
+    // Captions & Hook Banner (100% Editable Typography, Color & Canvas Position)
     captionsEnabled: true,
-    captionStyle: 'hormozi-pop', // 'hormozi-pop' | 'mrbeast-bold' | 'whop-fire' | 'neon-cyber' | 'clean-pill'
+    captionStyle: 'hormozi-pop', // 'hormozi-pop' | 'mrbeast-bold' | 'whop-fire' | 'neon-cyber' | 'clean-pill' | 'minimal-white'
+    captionFontFamily: 'Plus Jakarta Sans',
+    captionColor: '#ffffff',
+    captionHighlightColor: '#facc15',
+    captionStrokeWidth: 14,
+    captionFontPx: 68,
     captionSize: 100,
-    captionPosY: 56,
+    captionPosX: 50,
+    captionPosY: 72,
     autoEmoji: true,
-    hookText: 'WAIT TILL HE REVEALS THE $12K/MO WHOP SECRET 🤯👇',
+    hookText: 'WAIT FOR THE CRAZY TWIST 🤯👇',
     hookMode: '3s', // '3s' | 'always' | 'off'
+    hookPos: { x: 50, y: 10 },
+    hookScale: 1.0,
+    hookDuration: 3.5,
 
     // Audio & AI Polish
     cutSilence: true,
+    silenceThresholdSec: 0.45,
     loudnessNorm: true,
     mainVolume: 0.95,
     musicVolume: 0.0,
     brollVolume: 0.15,
     musicPreset: 'none',
 
-    // Whop Campaign & Bounty
-    campaignId: 'whop-creator',
+    // Creator Tag / Watermark (100% Editable, Movable & Toggleable!)
+    campaignId: 'tiktok-viral',
     campaignCpm: 2.5,
     projectedViews: 250000,
     watermarkEnabled: true,
     watermarkText: '@WhopClipper • Verified Bounty',
+    watermarkPos: { x: 24, y: 92 },
+    watermarkScale: 1.0,
+
+    // Color Adjustments & Stage Settings
+    colorAdjust: { brightness: 0, contrast: 0, saturation: 0 },
+    aspectRatio: '9:16',
+    previewZoom: 'fit',
 
     // Timeline Zoom & Focus Mode
     timelineViewMode: 'clip', // 'clip' (Zoomed to active clip) | 'full' (Full 20m video)
@@ -153,20 +176,32 @@
     overlayImagePos: { x: 0.5, y: 0.34 },
     overlayImageScale: 1.0,
 
-    // CapCut Timeline & Direct Canvas Manipulation State
+    // CapCut NLE Timeline, Snapping, Ripple, Undo/Redo & Direct Canvas Manipulation State
     timelineZoom: 1.0, // 1.0 = Clip Focus (100%), 0.0 = Full Video
-    selectedTimelineItem: null, // 'overlay-image' | 'hook-banner'
-    selectedCanvasLayer: null, // No intrusive bounding box on canvas by default
-    canvasDragMode: null, // 'move-image' | 'resize-image'
+    snappingEnabled: true,
+    rippleEnabled: true,
+    bookmarks: [],
+    inspectorMode: 'video', // 'video' | 'caption' | 'text' | 'overlay' | 'audio'
+    selectedTimelineItem: null,
+    selectedCanvasLayer: null,
+    canvasHitBoxes: [],
+    canvasSnapGuides: { vCenter: false, hCenter: false },
+    canvasDragMode: null,
     canvasDragStart: null,
     timelineBlockDrag: null,
     lastImageBounds: null,
-    trackVisibility: { main: true, captions: true, overlays: true, broll: true },
+    trackVisibility: { main: true, captions: true, text: true, overlays: true, broll: true },
+    trackLocks: { video: false, captions: false, text: false, overlays: false, audio: false },
     mainAudioMuted: false,
     bgSoundMuted: true,
+    undoStack: [],
+    redoStack: [],
+    filmstripFrames: [],
+    filmstripVideoKey: '',
 
     // Export Recording State
     isRecordingExport: false,
+    activeMediaRecorder: null,
     activeDragMode: null // 'playhead' | 'trim-in' | 'trim-out'
   };
 
@@ -466,6 +501,189 @@
     dom.jarvisVoicePresetSelect = document.getElementById('jarvisVoicePresetSelect');
     dom.jarvisLangSelect = document.getElementById('jarvisLangSelect');
     dom.jarvisTestVoiceBtn = document.getElementById('jarvisTestVoiceBtn');
+    dom.closeJarvisBubbleBtn = document.getElementById('closeJarvisBubbleBtn');
+
+    // CapCut Pro × OpenCut × FilmCraft New Studio DOM References
+    dom.systemPulseBar = document.getElementById('systemPulseBar');
+    dom.undoBtn = document.getElementById('undoBtn');
+    dom.redoBtn = document.getElementById('redoBtn');
+    dom.timelineUndoBtn = document.getElementById('timelineUndoBtn');
+    dom.timelineRedoBtn = document.getElementById('timelineRedoBtn');
+    dom.projectAspectBadge = document.getElementById('projectAspectBadge');
+    dom.openCmdPaletteBtn = document.getElementById('openCmdPaletteBtn');
+    dom.commandPaletteModal = document.getElementById('commandPaletteModal');
+    dom.cmdPaletteInput = document.getElementById('cmdPaletteInput');
+    dom.cmdPaletteResults = document.getElementById('cmdPaletteResults');
+
+    dom.replaceOverlayFileInput = document.getElementById('replaceOverlayFileInput');
+    dom.autoJumpCutsQuickBtn = document.getElementById('autoJumpCutsQuickBtn');
+    dom.resetMasterTrackBtn = document.getElementById('resetMasterTrackBtn');
+    dom.drawerFitScreenBtn = document.getElementById('drawerFitScreenBtn');
+    dom.drawerFillCropBtn = document.getElementById('drawerFillCropBtn');
+
+    // Drawer Text & Captions Controls
+    dom.hookBannerTextDrawerInput = document.getElementById('hookBannerTextDrawerInput');
+    dom.selectHookOnCanvasBtn = document.getElementById('selectHookOnCanvasBtn');
+    dom.textLayersCountBadge = document.getElementById('textLayersCountBadge');
+    dom.textLayersList = document.getElementById('textLayersList');
+    dom.captionPresetGrid = document.getElementById('captionPresetGrid');
+    dom.captionFontFamilySelect = document.getElementById('captionFontFamilySelect');
+    dom.captionColorInput = document.getElementById('captionColorInput');
+    dom.captionHighlightColorInput = document.getElementById('captionHighlightColorInput');
+    dom.captionFontSizeSlider = document.getElementById('captionFontSizeSlider');
+    dom.captionFontSizeLabel = document.getElementById('captionFontSizeLabel');
+    dom.captionPosXSlider = document.getElementById('captionPosXSlider');
+    dom.captionPosXLabel = document.getElementById('captionPosXLabel');
+    dom.transcriptCutWordBtn = document.getElementById('transcriptCutWordBtn');
+    dom.addCaptionPhraseBtn = document.getElementById('addCaptionPhraseBtn');
+
+    // Drawer Color & Silence Controls
+    dom.drawerBrightnessSlider = document.getElementById('drawerBrightnessSlider');
+    dom.drawerBrightnessVal = document.getElementById('drawerBrightnessVal');
+    dom.drawerContrastSlider = document.getElementById('drawerContrastSlider');
+    dom.drawerContrastVal = document.getElementById('drawerContrastVal');
+    dom.drawerSaturationSlider = document.getElementById('drawerSaturationSlider');
+    dom.drawerSaturationVal = document.getElementById('drawerSaturationVal');
+    dom.drawerResetColorBtn = document.getElementById('drawerResetColorBtn');
+    dom.silenceThresholdSlider = document.getElementById('silenceThresholdSlider');
+    dom.silenceThresholdLabel = document.getElementById('silenceThresholdLabel');
+    dom.applySilenceJumpCutsBtn = document.getElementById('applySilenceJumpCutsBtn');
+
+    // Center Canvas Floating Toolbar & Inline Editor
+    dom.previewCanvasBox = document.getElementById('previewCanvasBox');
+    dom.canvasFloatingToolbar = document.getElementById('canvasFloatingToolbar');
+    dom.canvasSelectedTag = document.getElementById('canvasSelectedTag');
+    dom.cftEditTextBtn = document.getElementById('cftEditTextBtn');
+    dom.cftToggleStyleBtn = document.getElementById('cftToggleStyleBtn');
+    dom.cftCenterBtn = document.getElementById('cftCenterBtn');
+    dom.cftDuplicateBtn = document.getElementById('cftDuplicateBtn');
+    dom.cftDeleteBtn = document.getElementById('cftDeleteBtn');
+    dom.canvasInlineEditorWrap = document.getElementById('canvasInlineEditorWrap');
+    dom.cieLayerLabel = document.getElementById('cieLayerLabel');
+    dom.canvasInlineInput = document.getElementById('canvasInlineInput');
+
+    // Multi-Mode Context-Aware Right Inspector Panels
+    dom.inspectorModeBar = document.getElementById('inspectorModeBar');
+    dom.inspectorCaptionPanel = document.getElementById('inspectorCaptionPanel');
+    dom.inspectorTextPanel = document.getElementById('inspectorTextPanel');
+    dom.inspectorOverlayPanel = document.getElementById('inspectorOverlayPanel');
+    dom.inspectorAudioPanel = document.getElementById('inspectorAudioPanel');
+
+    // Video Cut Inspector Extras
+    dom.inspCutTitleInput = document.getElementById('inspCutTitleInput');
+    dom.inspCutStartInput = document.getElementById('inspCutStartInput');
+    dom.inspCutEndInput = document.getElementById('inspCutEndInput');
+    dom.btnFitAllPeople = document.getElementById('btnFitAllPeople');
+    dom.btnFillVertical = document.getElementById('btnFillVertical');
+    dom.btnResetZoom = document.getElementById('btnResetZoom');
+    dom.inspCutOpacitySlider = document.getElementById('inspCutOpacitySlider');
+    dom.inspCutOpacityLabel = document.getElementById('inspCutOpacityLabel');
+    dom.freezeFrameBtn = document.getElementById('freezeFrameBtn');
+    dom.inspBrightnessSlider = document.getElementById('inspBrightnessSlider');
+    dom.inspBrightnessLabel = document.getElementById('inspBrightnessLabel');
+    dom.inspContrastSlider = document.getElementById('inspContrastSlider');
+    dom.inspContrastLabel = document.getElementById('inspContrastLabel');
+    dom.inspSaturationSlider = document.getElementById('inspSaturationSlider');
+    dom.inspSaturationLabel = document.getElementById('inspSaturationLabel');
+    dom.inspResetColorBtn = document.getElementById('inspResetColorBtn');
+
+    // Caption Inspector Controls
+    dom.selectedCaptionBadge = document.getElementById('selectedCaptionBadge');
+    dom.inspCaptionTextInput = document.getElementById('inspCaptionTextInput');
+    dom.inspCapStartInput = document.getElementById('inspCapStartInput');
+    dom.inspCapEndInput = document.getElementById('inspCapEndInput');
+    dom.inspCapStyleSelect = document.getElementById('inspCapStyleSelect');
+    dom.inspCapFontSelect = document.getElementById('inspCapFontSelect');
+    dom.inspCapColorInput = document.getElementById('inspCapColorInput');
+    dom.inspCapHighlightInput = document.getElementById('inspCapHighlightInput');
+    dom.inspCapSizeSlider = document.getElementById('inspCapSizeSlider');
+    dom.inspCapSizeLabel = document.getElementById('inspCapSizeLabel');
+    dom.inspCapStrokeSlider = document.getElementById('inspCapStrokeSlider');
+    dom.inspCapStrokeLabel = document.getElementById('inspCapStrokeLabel');
+    dom.inspCapPosXSlider = document.getElementById('inspCapPosXSlider');
+    dom.inspCapPosXLabel = document.getElementById('inspCapPosXLabel');
+    dom.inspCapPosYSlider = document.getElementById('inspCapPosYSlider');
+    dom.inspCapPosYLabel = document.getElementById('inspCapPosYLabel');
+    dom.inspAddCaptionBtn = document.getElementById('inspAddCaptionBtn');
+    dom.inspDeleteCaptionBtn = document.getElementById('inspDeleteCaptionBtn');
+
+    // Text / Hook / Watermark Inspector Controls
+    dom.inspTextHeaderTitle = document.getElementById('inspTextHeaderTitle');
+    dom.selectedTextBadge = document.getElementById('selectedTextBadge');
+    dom.inspTextVisibleToggle = document.getElementById('inspTextVisibleToggle');
+    dom.inspTextContentInput = document.getElementById('inspTextContentInput');
+    dom.inspTextStartInput = document.getElementById('inspTextStartInput');
+    dom.inspTextDurInput = document.getElementById('inspTextDurInput');
+    dom.inspTextFontSelect = document.getElementById('inspTextFontSelect');
+    dom.inspTextColorInput = document.getElementById('inspTextColorInput');
+    dom.inspTextBgColorInput = document.getElementById('inspTextBgColorInput');
+    dom.inspTextBgToggle = document.getElementById('inspTextBgToggle');
+    dom.inspTextSizeSlider = document.getElementById('inspTextSizeSlider');
+    dom.inspTextSizeLabel = document.getElementById('inspTextSizeLabel');
+    dom.inspTextPosXSlider = document.getElementById('inspTextPosXSlider');
+    dom.inspTextPosXLabel = document.getElementById('inspTextPosXLabel');
+    dom.inspTextPosYSlider = document.getElementById('inspTextPosYSlider');
+    dom.inspTextPosYLabel = document.getElementById('inspTextPosYLabel');
+    dom.inspTextAnimSelect = document.getElementById('inspTextAnimSelect');
+    dom.inspTextDuplicateBtn = document.getElementById('inspTextDuplicateBtn');
+    dom.inspTextDeleteBtn = document.getElementById('inspTextDeleteBtn');
+
+    // Overlay / PIP Inspector Controls
+    dom.selectedOverlayBadge = document.getElementById('selectedOverlayBadge');
+    dom.inspOverlayNameInput = document.getElementById('inspOverlayNameInput');
+    dom.inspOverlayStyleSelect = document.getElementById('inspOverlayStyleSelect');
+    dom.inspReplaceOverlayBtn = document.getElementById('inspReplaceOverlayBtn');
+    dom.inspOverlayStartInput = document.getElementById('inspOverlayStartInput');
+    dom.inspOverlayDurInput = document.getElementById('inspOverlayDurInput');
+    dom.inspOverlayCenterBtn = document.getElementById('inspOverlayCenterBtn');
+    dom.inspOverlayScaleSlider = document.getElementById('inspOverlayScaleSlider');
+    dom.inspOverlayScaleLabel = document.getElementById('inspOverlayScaleLabel');
+    dom.inspOverlayPosXSlider = document.getElementById('inspOverlayPosXSlider');
+    dom.inspOverlayPosXLabel = document.getElementById('inspOverlayPosXLabel');
+    dom.inspOverlayPosYSlider = document.getElementById('inspOverlayPosYSlider');
+    dom.inspOverlayPosYLabel = document.getElementById('inspOverlayPosYLabel');
+    dom.inspOverlayRadiusSlider = document.getElementById('inspOverlayRadiusSlider');
+    dom.inspOverlayRadiusLabel = document.getElementById('inspOverlayRadiusLabel');
+    dom.inspOverlayOpacitySlider = document.getElementById('inspOverlayOpacitySlider');
+    dom.inspOverlayOpacityLabel = document.getElementById('inspOverlayOpacityLabel');
+    dom.inspOverlayRotateSlider = document.getElementById('inspOverlayRotateSlider');
+    dom.inspOverlayRotateLabel = document.getElementById('inspOverlayRotateLabel');
+    dom.inspOverlayAnimSelect = document.getElementById('inspOverlayAnimSelect');
+    dom.inspOverlayDuplicateBtn = document.getElementById('inspOverlayDuplicateBtn');
+    dom.inspOverlayDeleteBtn = document.getElementById('inspOverlayDeleteBtn');
+
+    // Audio Inspector Controls
+    dom.inspVoiceVolSlider = document.getElementById('inspVoiceVolSlider');
+    dom.inspVoiceVolLabel = document.getElementById('inspVoiceVolLabel');
+    dom.inspMusicVolSlider = document.getElementById('inspMusicVolSlider');
+    dom.inspMusicVolLabel = document.getElementById('inspMusicVolLabel');
+    dom.inspMusicPresetSelect = document.getElementById('inspMusicPresetSelect');
+    dom.inspApplySilenceCutsBtn = document.getElementById('inspApplySilenceCutsBtn');
+
+    // 5-Track Timeline New Controls
+    dom.textTrackLane = document.getElementById('textTrackLane');
+    dom.timelineFreezeBtn = document.getElementById('timelineFreezeBtn');
+    dom.timelineAddTextBtn = document.getElementById('timelineAddTextBtn');
+    dom.timelineSelectionBadge = document.getElementById('timelineSelectionBadge');
+    dom.zoomFitTimelineBtn = document.getElementById('zoomFitTimelineBtn');
+    dom.timelineSnapLine = document.getElementById('timelineSnapLine');
+    dom.capcutContextMenu = document.getElementById('capcutContextMenu');
+    dom.trackToggleMainVideo = document.getElementById('trackToggleMainVideo');
+    dom.trackToggleText = document.getElementById('trackToggleText');
+    dom.trackLockVideo = document.getElementById('trackLockVideo');
+    dom.trackLockCaptions = document.getElementById('trackLockCaptions');
+    dom.trackLockText = document.getElementById('trackLockText');
+    dom.trackLockOverlays = document.getElementById('trackLockOverlays');
+    dom.trackLockAudio = document.getElementById('trackLockAudio');
+    dom.trackAddCapBtn = document.getElementById('trackAddCapBtn');
+    dom.trackAddTextTrackBtn = document.getElementById('trackAddTextTrackBtn');
+    dom.trackAddOvBtn = document.getElementById('trackAddOvBtn');
+
+    // Export Modal Extras
+    dom.exportSpecResolution = document.getElementById('exportSpecResolution');
+    dom.exportSpecLayers = document.getElementById('exportSpecLayers');
+    dom.stopVideoRenderBtn = document.getElementById('stopVideoRenderBtn');
+    dom.exportPngModalBtn = document.getElementById('exportPngModalBtn');
   }
 
   // =========================================================================
@@ -510,8 +728,21 @@
       .slice(0, 42) || 'whop-clip';
   }
 
+  function formatSeconds(sec) {
+    return `${Math.max(0, Number(sec) || 0).toFixed(1)}s`;
+  }
+
+  function setSystemPulse(busy = false) {
+    if (dom.systemPulseBar) {
+      dom.systemPulseBar.classList.toggle('pulse-busy', !!busy);
+    }
+  }
+
   function showToast(message, accentColor = '#10b981') {
     if (!dom.toastContainer) return;
+    while (dom.toastContainer.children.length >= 2) {
+      dom.toastContainer.firstElementChild.remove();
+    }
     const toast = document.createElement('div');
     toast.className = 'studio-toast';
     toast.style.borderLeftColor = accentColor;
@@ -522,6 +753,1253 @@
       toast.style.transition = 'opacity 0.25s ease';
       setTimeout(() => toast.remove(), 260);
     }, 3200);
+  }
+
+  // =========================================================================
+  // CAPCUT PRO × OPENCUT COMMAND MANAGER (UNDO / REDO HISTORY STACK)
+  // =========================================================================
+  const mediaElementRegistry = new Map();
+
+  function captureEditableHistorySnapshot(label = 'Edit') {
+    const clip = getActiveClip();
+    (state.visualOverlays || []).forEach((ov) => {
+      if (ov && ov.id && ov.mediaEl) {
+        mediaElementRegistry.set(ov.id, ov.mediaEl);
+      }
+    });
+    return {
+      label,
+      ts: Date.now(),
+      trimStart: state.trimStart,
+      trimEnd: state.trimEnd,
+      videoClips: JSON.parse(JSON.stringify(state.sequence?.videoClips || [])),
+      selectedClipId: state.sequence?.selectedClipId || null,
+      textLayers: JSON.parse(JSON.stringify(state.textLayers || [])),
+      selectedTextLayerId: state.selectedTextLayerId,
+      visualOverlays: (state.visualOverlays || []).map((ov) => {
+        const clone = Object.assign({}, ov);
+        delete clone.mediaEl;
+        return JSON.parse(JSON.stringify(clone));
+      }),
+      captionsEnabled: state.captionsEnabled,
+      captionStyle: state.captionStyle,
+      captionFontFamily: state.captionFontFamily,
+      captionColor: state.captionColor,
+      captionHighlightColor: state.captionHighlightColor,
+      captionStrokeWidth: state.captionStrokeWidth,
+      captionFontPx: state.captionFontPx,
+      captionPosX: state.captionPosX,
+      captionPosY: state.captionPosY,
+      hookText: state.hookText,
+      hookMode: state.hookMode,
+      hookPos: Object.assign({}, state.hookPos || { x: 50, y: 10 }),
+      hookScale: state.hookScale || 1.0,
+      hookDuration: state.hookDuration || 3.5,
+      watermarkEnabled: state.watermarkEnabled,
+      watermarkText: state.watermarkText,
+      watermarkPos: Object.assign({}, state.watermarkPos || { x: 24, y: 92 }),
+      watermarkScale: state.watermarkScale || 1.0,
+      layoutMode: state.layoutMode,
+      videoFitMode: state.videoFitMode,
+      cameraZoom: state.cameraZoom,
+      cameraPanX: state.cameraPanX,
+      cameraPanY: state.cameraPanY,
+      activeFilter: state.activeFilter,
+      colorAdjust: Object.assign({}, state.colorAdjust || { brightness: 0, contrast: 0, saturation: 0 }),
+      bookmarks: JSON.parse(JSON.stringify(state.bookmarks || [])),
+      transcript: clip && Array.isArray(clip.transcript)
+        ? JSON.parse(JSON.stringify(clip.transcript))
+        : (state.analysis && Array.isArray(state.analysis.transcript) ? JSON.parse(JSON.stringify(state.analysis.transcript)) : null)
+    };
+  }
+
+  function applyHistorySnapshot(snap) {
+    if (!snap) return;
+    state.trimStart = snap.trimStart;
+    state.trimEnd = snap.trimEnd;
+    if (!state.sequence) state.sequence = {};
+    state.sequence.videoClips = JSON.parse(JSON.stringify(snap.videoClips || []));
+    state.sequence.selectedClipId = snap.selectedClipId;
+    state.textLayers = JSON.parse(JSON.stringify(snap.textLayers || []));
+    state.selectedTextLayerId = snap.selectedTextLayerId;
+    state.visualOverlays = (snap.visualOverlays || []).map((ov) => {
+      const restored = JSON.parse(JSON.stringify(ov));
+      if (mediaElementRegistry.has(restored.id)) {
+        restored.mediaEl = mediaElementRegistry.get(restored.id);
+      } else if (restored.customUrl && restored.type === 'custom_image') {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = restored.customUrl;
+        restored.mediaEl = img;
+        mediaElementRegistry.set(restored.id, img);
+      }
+      return restored;
+    });
+    state.captionsEnabled = snap.captionsEnabled;
+    state.captionStyle = snap.captionStyle;
+    state.captionFontFamily = snap.captionFontFamily;
+    state.captionColor = snap.captionColor;
+    state.captionHighlightColor = snap.captionHighlightColor;
+    state.captionStrokeWidth = snap.captionStrokeWidth;
+    state.captionFontPx = snap.captionFontPx;
+    state.captionPosX = snap.captionPosX;
+    state.captionPosY = snap.captionPosY;
+    state.hookText = snap.hookText;
+    state.hookMode = snap.hookMode;
+    state.hookPos = Object.assign({}, snap.hookPos);
+    state.hookScale = snap.hookScale;
+    state.hookDuration = snap.hookDuration;
+    state.watermarkEnabled = snap.watermarkEnabled;
+    state.watermarkText = snap.watermarkText;
+    state.watermarkPos = Object.assign({}, snap.watermarkPos);
+    state.watermarkScale = snap.watermarkScale;
+    state.layoutMode = snap.layoutMode;
+    state.videoFitMode = snap.videoFitMode;
+    state.cameraZoom = snap.cameraZoom;
+    state.cameraPanX = snap.cameraPanX;
+    state.cameraPanY = snap.cameraPanY;
+    state.activeFilter = snap.activeFilter;
+    state.colorAdjust = Object.assign({}, snap.colorAdjust);
+    state.bookmarks = JSON.parse(JSON.stringify(snap.bookmarks || []));
+    if (Array.isArray(snap.transcript)) {
+      const clip = getActiveClip();
+      if (clip) clip.transcript = JSON.parse(JSON.stringify(snap.transcript));
+      if (state.analysis) state.analysis.transcript = JSON.parse(JSON.stringify(snap.transcript));
+    }
+    lastActiveCutId = null;
+    updateUndoRedoButtonsUI();
+    syncAllInspectorControlsFromState();
+    renderTextLayersList();
+    renderVisualOverlaysList();
+    renderTranscriptCloud();
+    renderTimelineRuler();
+    renderTimelineTracks();
+    syncContextualInspector();
+    renderCanvasFrame();
+  }
+
+  function updateUndoRedoButtonsUI() {
+    const canUndo = state.undoStack && state.undoStack.length > 0;
+    const canRedo = state.redoStack && state.redoStack.length > 0;
+    if (dom.undoBtn) dom.undoBtn.disabled = !canUndo;
+    if (dom.timelineUndoBtn) dom.timelineUndoBtn.disabled = !canUndo;
+    if (dom.redoBtn) dom.redoBtn.disabled = !canRedo;
+    if (dom.timelineRedoBtn) dom.timelineRedoBtn.disabled = !canRedo;
+  }
+
+  function pushUndoState(label = 'Edit') {
+    if (!state.undoStack) state.undoStack = [];
+    state.undoStack.push(captureEditableHistorySnapshot(label));
+    if (state.undoStack.length > 55) state.undoStack.shift();
+    state.redoStack = [];
+    updateUndoRedoButtonsUI();
+  }
+
+  function undoAction() {
+    if (!state.undoStack || state.undoStack.length === 0) {
+      showToast('Nothing to undo', '#64748b');
+      return false;
+    }
+    const prev = state.undoStack.pop();
+    state.redoStack.push(captureEditableHistorySnapshot(prev.label));
+    applyHistorySnapshot(prev);
+    showToast(`↩️ Undid: ${prev.label}`, '#38bdf8');
+    return true;
+  }
+
+  function redoAction() {
+    if (!state.redoStack || state.redoStack.length === 0) {
+      showToast('Nothing to redo', '#64748b');
+      return false;
+    }
+    const next = state.redoStack.pop();
+    state.undoStack.push(captureEditableHistorySnapshot(next.label));
+    applyHistorySnapshot(next);
+    showToast(`↪️ Redid: ${next.label}`, '#38bdf8');
+    return true;
+  }
+
+  // =========================================================================
+  // OFFSCREEN FILMSTRIP THUMBNAIL EXTRACTOR (ZERO MAIN-DECODER IMPACT)
+  // =========================================================================
+  function ensureFilmstripCacheForVideo(videoSrc) {
+    if (!videoSrc || (videoSrc === state.filmstripVideoKey && (state.filmstripFrames || []).length > 0)) return;
+    state.filmstripVideoKey = videoSrc;
+    state.filmstripFrames = [];
+
+    const thumbVideo = document.createElement('video');
+    thumbVideo.muted = true;
+    thumbVideo.playsInline = true;
+    thumbVideo.preload = 'auto';
+    if (/^https?:\/\//i.test(videoSrc) && !videoSrc.startsWith(window.location.origin)) {
+      thumbVideo.crossOrigin = 'anonymous';
+    }
+    thumbVideo.src = videoSrc;
+    thumbVideo.load();
+
+    const cnv = document.createElement('canvas');
+    cnv.width = 112;
+    cnv.height = 64;
+    const tCtx = cnv.getContext('2d');
+
+    const cleanup = () => {
+      try {
+        thumbVideo.removeAttribute('src');
+        thumbVideo.load();
+      } catch (_) {}
+    };
+
+    thumbVideo.addEventListener('error', cleanup, { once: true });
+    thumbVideo.addEventListener('loadedmetadata', async () => {
+      const dur = Math.max(1, thumbVideo.duration || 30);
+      const count = 12;
+      const frames = [];
+      for (let i = 0; i < count; i++) {
+        if (state.filmstripVideoKey !== videoSrc) {
+          cleanup();
+          return;
+        }
+        const sampleT = Math.min(dur - 0.1, (i + 0.5) * (dur / count));
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, 450);
+          thumbVideo.onseeked = () => {
+            clearTimeout(timer);
+            try {
+              tCtx.drawImage(thumbVideo, 0, 0, cnv.width, cnv.height);
+              frames.push({ time: sampleT, url: cnv.toDataURL('image/jpeg', 0.58) });
+            } catch (_) {}
+            resolve();
+          };
+          try {
+            thumbVideo.currentTime = sampleT;
+          } catch (_) {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      }
+      if (state.filmstripVideoKey === videoSrc) {
+        state.filmstripFrames = frames;
+        renderVideoCutsTrack();
+      }
+      cleanup();
+    }, { once: true });
+  }
+
+  // =========================================================================
+  // CAPTION PRESETS GRID & CUSTOM CAPCUT TEXT LAYERS ("T" TOOL)
+  // =========================================================================
+  const CAPTION_PRESET_DEFS = [
+    { id: 'hormozi-pop', label: 'HORMOZI POP', sub: 'Yellow Active Word', bg: 'transparent', color: '#facc15' },
+    { id: 'mrbeast-bold', label: 'MRBEAST', sub: 'Cyan Impact', bg: 'transparent', color: '#38bdf8' },
+    { id: 'clean-pill', label: 'CLEAN PILL', sub: 'CapCut Rounded Box', bg: '#090912', color: '#34d399' },
+    { id: 'whop-fire', label: 'RED PILL', sub: 'Active Word Box', bg: '#e11d48', color: '#ffffff' },
+    { id: 'neon-cyber', label: 'NEON GLOW', sub: 'Cyberpunk Bloom', bg: 'transparent', color: '#e879f9' },
+    { id: 'minimal-white', label: 'MINIMAL', sub: 'Clean Cinema', bg: 'transparent', color: '#f8fafc' }
+  ];
+
+  function renderCaptionPresetsGrid() {
+    if (!dom.captionPresetGrid) return;
+    dom.captionPresetGrid.innerHTML = '';
+    CAPTION_PRESET_DEFS.forEach((p) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `caption-preset-card ${state.captionStyle === p.id ? 'active' : ''}`;
+      btn.dataset.captionStyle = p.id;
+      btn.innerHTML = `
+        <span class="cp-preview" style="font-weight:900; color:${p.color}; ${p.bg !== 'transparent' ? `background:${p.bg}; padding:2px 7px; border-radius:4px;` : 'text-shadow:0 2px 4px #000;'}">${p.label}</span>
+        <small>${p.sub}</small>
+      `;
+      btn.addEventListener('click', () => {
+        pushUndoState(`Caption style: ${p.label}`);
+        state.captionStyle = p.id;
+        if (p.id === 'hormozi-pop') state.captionHighlightColor = '#facc15';
+        else if (p.id === 'mrbeast-bold') state.captionHighlightColor = '#38bdf8';
+        else if (p.id === 'clean-pill') state.captionHighlightColor = '#34d399';
+        else if (p.id === 'neon-cyber') state.captionHighlightColor = '#e879f9';
+        else if (p.id === 'minimal-white') state.captionHighlightColor = '#ffffff';
+        renderCaptionPresetsGrid();
+        syncContextualInspector();
+        renderCanvasFrame();
+        showToast(`💬 Subtitle style: ${p.label}`, '#00f2fe');
+      });
+      dom.captionPresetGrid.appendChild(btn);
+    });
+  }
+
+  function addTextLayer(preset = 'heading', customText = '') {
+    pushUndoState('Add Text Layer');
+    const presets = {
+      'heading': { text: 'DOUBLE-CLICK TO EDIT', font: 'Montserrat', size: 64, color: '#ffffff', bgColor: '#0f172a', bgEnabled: false, yPct: 26, anim: 'spring-pop' },
+      'hormozi-badge': { text: '🔥 VIRAL SECRET', font: 'Plus Jakarta Sans', size: 54, color: '#05050a', bgColor: '#facc15', bgEnabled: true, yPct: 24, anim: 'spring-pop' },
+      'neon-glow': { text: 'WATCH CLOSELY ⚡', font: 'Plus Jakarta Sans', size: 56, color: '#00f2fe', bgColor: '#090d16', bgEnabled: false, yPct: 28, anim: 'fade', glow: true },
+      'red-alert': { text: '🚨 BREAKING UPDATE', font: 'Montserrat', size: 48, color: '#ffffff', bgColor: '#ef4444', bgEnabled: true, yPct: 20, anim: 'spring-pop' },
+      'lower-third': { text: '@Creator • Host', font: 'Plus Jakarta Sans', size: 40, color: '#f8fafc', bgColor: '#0f172a', bgEnabled: true, yPct: 82, anim: 'slide-up' },
+      'minimal-sub': { text: 'Key takeaway right here', font: 'Plus Jakarta Sans', size: 42, color: '#e2e8f0', bgColor: '#0f172a', bgEnabled: false, yPct: 32, anim: 'fade' }
+    };
+    const cfg = presets[preset] || presets['heading'];
+    const startSec = Number(Math.max(0, state.currentTime).toFixed(2));
+    const layer = {
+      id: `txt_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      text: customText || cfg.text,
+      start: startSec,
+      duration: 4.5,
+      xPct: 50,
+      yPct: cfg.yPct + ((state.textLayers?.length || 0) % 4) * 5,
+      fontSize: cfg.size,
+      fontFamily: cfg.font,
+      color: cfg.color,
+      bgColor: cfg.bgColor,
+      bgEnabled: cfg.bgEnabled,
+      glow: !!cfg.glow,
+      animation: cfg.anim,
+      visible: true
+    };
+    if (!Array.isArray(state.textLayers)) state.textLayers = [];
+    state.textLayers.push(layer);
+    state.selectedTextLayerId = layer.id;
+    state.activeTextTarget = 'layer';
+    state.selectedCanvasLayer = `text:${layer.id}`;
+    state.selectedTimelineItem = `text-layer-${layer.id}`;
+    setInspectorMode('text');
+    renderTextLayersList();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`🔤 Added Text Layer: "${layer.text}" (Drag or double-click on canvas!)`, '#a855f7');
+    return layer;
+  }
+
+  function renderTextLayersList() {
+    if (dom.textLayersCountBadge) {
+      dom.textLayersCountBadge.textContent = String((state.textLayers || []).length);
+    }
+    if (!dom.textLayersList) return;
+    dom.textLayersList.innerHTML = '';
+
+    if (!state.textLayers || state.textLayers.length === 0) {
+      dom.textLayersList.innerHTML = `
+        <div style="font-size:11px; color:#64748b; text-align:center; padding:10px; border:1px dashed #252545; border-radius:8px;">
+          No custom text layers yet. Click any preset above or press <strong>T</strong>!
+        </div>
+      `;
+      return;
+    }
+
+    state.textLayers.forEach((layer, idx) => {
+      const isSel = state.selectedTextLayerId === layer.id && state.activeTextTarget === 'layer';
+      const card = document.createElement('div');
+      card.className = `visual-overlay-card ${isSel ? 'active' : ''}`;
+      card.style.borderColor = isSel ? '#00f2fe' : '#252545';
+      card.innerHTML = `
+        <div class="overlay-card-header" style="cursor:pointer;">
+          <div class="overlay-card-title">
+            <span>🔤</span>
+            <span style="max-width:165px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${layer.text}</span>
+          </div>
+          <div style="display:flex; gap:4px;">
+            <button type="button" class="btn-micro btn-edit-txt" title="Edit on Stage">✏️</button>
+            <button type="button" class="btn-card-del" title="Delete text layer">🗑️</button>
+          </div>
+        </div>
+        <div style="font-size:10px; color:#94a3b8; font-family:var(--font-mono);">
+          ${layer.start.toFixed(1)}s → ${(layer.start + layer.duration).toFixed(1)}s • ${layer.fontSize}px
+        </div>
+      `;
+
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-card-del')) {
+          e.stopPropagation();
+          pushUndoState('Delete Text Layer');
+          state.textLayers.splice(idx, 1);
+          if (state.selectedTextLayerId === layer.id) {
+            state.selectedTextLayerId = null;
+            state.selectedCanvasLayer = null;
+          }
+          renderTextLayersList();
+          renderTimelineTracks();
+          syncContextualInspector();
+          renderCanvasFrame();
+          return;
+        }
+        state.selectedTextLayerId = layer.id;
+        state.activeTextTarget = 'layer';
+        state.selectedCanvasLayer = `text:${layer.id}`;
+        state.selectedTimelineItem = `text-layer-${layer.id}`;
+        seekToTime(layer.start + 0.05);
+        setInspectorMode('text');
+        renderTextLayersList();
+        renderTimelineTracks();
+        renderCanvasFrame();
+        if (e.target.closest('.btn-edit-txt')) {
+          openCanvasInlineEditor(`text:${layer.id}`);
+        }
+      });
+
+      dom.textLayersList.appendChild(card);
+    });
+  }
+
+  function drawTextLayersOnCanvas(ctx, W, H, timeSec) {
+    if (state.trackVisibility?.text === false) return;
+    if (!Array.isArray(state.textLayers) || state.textLayers.length === 0) return;
+
+    state.textLayers.forEach((layer) => {
+      if (layer.visible === false) return;
+      const start = Number(layer.start) || 0;
+      const dur = Math.max(0.4, Number(layer.duration) || 4.0);
+      const end = start + dur;
+      const isSelected = state.selectedCanvasLayer === `text:${layer.id}`;
+      const inTime = timeSec >= start && timeSec <= end;
+      if (!inTime && !isSelected) return;
+
+      const elapsed = Math.max(0, timeSec - start);
+      let animScale = 1.0;
+      let animAlpha = inTime ? 1.0 : 0.65;
+      let shiftY = 0;
+      let displayStr = String(layer.text || '');
+
+      if (inTime) {
+        if (layer.animation === 'spring-pop' && elapsed < 0.28) {
+          const p = elapsed / 0.28;
+          animScale = 0.72 + Math.sin(p * Math.PI * 0.5) * 0.28 + Math.sin(p * Math.PI) * 0.08;
+        } else if (layer.animation === 'slide-up' && elapsed < 0.28) {
+          const p = elapsed / 0.28;
+          shiftY = (1 - p) * 55;
+          animAlpha = p;
+        } else if (layer.animation === 'fade' && elapsed < 0.3) {
+          animAlpha = elapsed / 0.3;
+        } else if (layer.animation === 'typewriter' && elapsed < 0.9) {
+          const chars = Math.max(1, Math.floor((elapsed / 0.9) * displayStr.length));
+          displayStr = displayStr.slice(0, chars);
+        }
+      }
+
+      const fontPx = clamp(Number(layer.fontSize) || 52, 18, 140);
+      const cx = ((layer.xPct ?? 50) / 100) * W;
+      const cy = ((layer.yPct ?? 26) / 100) * H + shiftY;
+      const lines = displayStr.split('\n');
+
+      ctx.save();
+      ctx.globalAlpha = clamp(animAlpha, 0, 1);
+      ctx.font = `900 ${fontPx}px "${layer.fontFamily || 'Plus Jakarta Sans'}", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      let maxLineW = 120;
+      lines.forEach((ln) => {
+        maxLineW = Math.max(maxLineW, ctx.measureText(ln).width);
+      });
+      const lineH = fontPx * 1.24;
+      const padX = 28;
+      const padY = 18;
+      const boxW = maxLineW + padX * 2;
+      const boxH = lines.length * lineH + padY * 2;
+
+      ctx.translate(cx, cy);
+      ctx.scale(animScale, animScale);
+
+      if (layer.bgEnabled) {
+        ctx.fillStyle = layer.bgColor || '#facc15';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.roundRect(-boxW * 0.5, -boxH * 0.5, boxW, boxH, 16);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        if (layer.glow) {
+          ctx.shadowColor = layer.color || '#00f2fe';
+          ctx.shadowBlur = 24;
+        }
+      }
+
+      lines.forEach((ln, idx) => {
+        const ly = (idx - (lines.length - 1) * 0.5) * lineH;
+        if (!layer.bgEnabled) {
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = Math.max(4, Math.round(fontPx * 0.16));
+          ctx.strokeStyle = '#000000';
+          ctx.strokeText(ln, 0, ly);
+        }
+        ctx.fillStyle = layer.color || '#ffffff';
+        ctx.fillText(ln, 0, ly);
+      });
+
+      ctx.restore();
+
+      state.canvasHitBoxes.push({
+        id: `text:${layer.id}`,
+        layerType: 'text',
+        refId: layer.id,
+        label: `🔤 ${layer.text.slice(0, 18)}`,
+        x: cx - boxW * 0.5,
+        y: cy - boxH * 0.5,
+        w: boxW,
+        h: boxH,
+        cx,
+        cy
+      });
+    });
+  }
+
+  // =========================================================================
+  // MULTI-MODE CONTEXTUAL INSPECTOR & INLINE ON-CANVAS TEXT EDITOR
+  // =========================================================================
+  function setInspectorMode(mode) {
+    const valid = ['video', 'caption', 'text', 'overlay', 'audio'];
+    state.inspectorMode = valid.includes(mode) ? mode : 'video';
+
+    if (dom.inspectorModeBar) {
+      dom.inspectorModeBar.querySelectorAll('.insp-mode-tab').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.inspMode === state.inspectorMode);
+      });
+    }
+
+    if (dom.inspectorEmptyState) dom.inspectorEmptyState.classList.add('hidden');
+    if (dom.inspectorPropertiesPanel) dom.inspectorPropertiesPanel.classList.toggle('hidden', state.inspectorMode !== 'video');
+    if (dom.inspectorCaptionPanel) dom.inspectorCaptionPanel.classList.toggle('hidden', state.inspectorMode !== 'caption');
+    if (dom.inspectorTextPanel) dom.inspectorTextPanel.classList.toggle('hidden', state.inspectorMode !== 'text');
+    if (dom.inspectorOverlayPanel) dom.inspectorOverlayPanel.classList.toggle('hidden', state.inspectorMode !== 'overlay');
+    if (dom.inspectorAudioPanel) dom.inspectorAudioPanel.classList.toggle('hidden', state.inspectorMode !== 'audio');
+
+    syncContextualInspector();
+    updateCanvasFloatingToolbar();
+  }
+
+  function syncContextualInspector() {
+    // 1. Video Mode Sync
+    const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId) || (state.sequence?.videoClips || [])[0];
+    if (clip) {
+      if (dom.selectedCutBadge) dom.selectedCutBadge.textContent = clip.freezeDataUrl ? '❄️ Freeze' : (clip.title || 'Cut');
+      if (dom.inspCutTitleInput && document.activeElement !== dom.inspCutTitleInput) dom.inspCutTitleInput.value = clip.title || 'Master Video Track';
+      if (dom.inspCutStartInput && document.activeElement !== dom.inspCutStartInput) dom.inspCutStartInput.value = Number(clip.start || 0).toFixed(2);
+      if (dom.inspCutEndInput && document.activeElement !== dom.inspCutEndInput) dom.inspCutEndInput.value = Number(clip.end || 0).toFixed(2);
+      if (dom.selectedCutZoomSlider) dom.selectedCutZoomSlider.value = String(clip.zoom || 1.0);
+      if (dom.selectedCutZoomLabel) dom.selectedCutZoomLabel.textContent = `${Number(clip.zoom || 1.0).toFixed(2)}×`;
+      if (dom.selectedCutPanXSlider) dom.selectedCutPanXSlider.value = String(clip.panX || 0);
+      if (dom.selectedCutPanXLabel) dom.selectedCutPanXLabel.textContent = `${Math.round(clip.panX || 0)}%`;
+      if (dom.selectedCutPanYSlider) dom.selectedCutPanYSlider.value = String(clip.panY || 0);
+      if (dom.selectedCutPanYLabel) dom.selectedCutPanYLabel.textContent = `${Math.round(clip.panY || 0)}%`;
+      const op = clip.opacity !== undefined ? clip.opacity : 100;
+      if (dom.inspCutOpacitySlider) dom.inspCutOpacitySlider.value = String(op);
+      if (dom.inspCutOpacityLabel) dom.inspCutOpacityLabel.textContent = `${op}%`;
+      const vol = Math.round((clip.volume !== undefined ? clip.volume : 1.0) * 100);
+      if (dom.selectedCutVolSlider) dom.selectedCutVolSlider.value = String(vol);
+      if (dom.selectedCutVolLabel) dom.selectedCutVolLabel.textContent = `${vol}%`;
+      if (dom.selectedCutTransitionSelect) dom.selectedCutTransitionSelect.value = clip.transition || 'cut';
+    }
+    if (dom.btnFitAllPeople) dom.btnFitAllPeople.classList.toggle('active', state.videoFitMode !== 'fill');
+    if (dom.btnFillVertical) dom.btnFillVertical.classList.toggle('active', state.videoFitMode === 'fill');
+    if (dom.drawerFitScreenBtn) dom.drawerFitScreenBtn.classList.toggle('active', state.videoFitMode !== 'fill');
+    if (dom.drawerFillCropBtn) dom.drawerFillCropBtn.classList.toggle('active', state.videoFitMode === 'fill');
+
+    const ca = state.colorAdjust || { brightness: 0, contrast: 0, saturation: 0 };
+    if (dom.inspBrightnessSlider) dom.inspBrightnessSlider.value = String(ca.brightness || 0);
+    if (dom.inspBrightnessLabel) dom.inspBrightnessLabel.textContent = String(ca.brightness || 0);
+    if (dom.inspContrastSlider) dom.inspContrastSlider.value = String(ca.contrast || 0);
+    if (dom.inspContrastLabel) dom.inspContrastLabel.textContent = String(ca.contrast || 0);
+    if (dom.inspSaturationSlider) dom.inspSaturationSlider.value = String(ca.saturation || 0);
+    if (dom.inspSaturationLabel) dom.inspSaturationLabel.textContent = String(ca.saturation || 0);
+    if (dom.drawerBrightnessSlider) dom.drawerBrightnessSlider.value = String(ca.brightness || 0);
+    if (dom.drawerBrightnessVal) dom.drawerBrightnessVal.textContent = String(ca.brightness || 0);
+    if (dom.drawerContrastSlider) dom.drawerContrastSlider.value = String(ca.contrast || 0);
+    if (dom.drawerContrastVal) dom.drawerContrastVal.textContent = String(ca.contrast || 0);
+    if (dom.drawerSaturationSlider) dom.drawerSaturationSlider.value = String(ca.saturation || 0);
+    if (dom.drawerSaturationVal) dom.drawerSaturationVal.textContent = String(ca.saturation || 0);
+
+    // 2. Caption Mode Sync
+    const seg = state.selectedCaptionSegment;
+    if (seg) {
+      if (dom.selectedCaptionBadge) dom.selectedCaptionBadge.textContent = `${seg.start.toFixed(1)}s`;
+      if (dom.inspCaptionTextInput && document.activeElement !== dom.inspCaptionTextInput) dom.inspCaptionTextInput.value = seg.text || '';
+      if (dom.inspCapStartInput && document.activeElement !== dom.inspCapStartInput) dom.inspCapStartInput.value = Number(seg.start || 0).toFixed(2);
+      if (dom.inspCapEndInput && document.activeElement !== dom.inspCapEndInput) dom.inspCapEndInput.value = Number(seg.end || 1.0).toFixed(2);
+    } else if (window.WhopAudioEngine) {
+      const capState = window.WhopAudioEngine.getCaptionStateAtTime(getActiveClip() || state.analysis, state.currentTime, 4);
+      if (capState && capState.chunkWords && capState.chunkWords.length > 0 && dom.inspCaptionTextInput && document.activeElement !== dom.inspCaptionTextInput) {
+        dom.inspCaptionTextInput.value = capState.chunkWords.map((w) => w.word).join(' ');
+      }
+    }
+    if (dom.inspCapStyleSelect) dom.inspCapStyleSelect.value = state.captionStyle || 'hormozi-pop';
+    if (dom.inspCapFontSelect) dom.inspCapFontSelect.value = state.captionFontFamily || 'Plus Jakarta Sans';
+    if (dom.captionFontFamilySelect) dom.captionFontFamilySelect.value = state.captionFontFamily || 'Plus Jakarta Sans';
+    if (dom.inspCapColorInput) dom.inspCapColorInput.value = state.captionColor || '#ffffff';
+    if (dom.captionColorInput) dom.captionColorInput.value = state.captionColor || '#ffffff';
+    if (dom.inspCapHighlightInput) dom.inspCapHighlightInput.value = state.captionHighlightColor || '#facc15';
+    if (dom.captionHighlightColorInput) dom.captionHighlightColorInput.value = state.captionHighlightColor || '#facc15';
+    const capPx = state.captionFontPx || 68;
+    if (dom.inspCapSizeSlider) dom.inspCapSizeSlider.value = String(capPx);
+    if (dom.inspCapSizeLabel) dom.inspCapSizeLabel.textContent = `${capPx}px`;
+    if (dom.captionFontSizeSlider) dom.captionFontSizeSlider.value = String(capPx);
+    if (dom.captionFontSizeLabel) dom.captionFontSizeLabel.textContent = `${capPx}px`;
+    if (dom.inspCapStrokeSlider) dom.inspCapStrokeSlider.value = String(state.captionStrokeWidth ?? 14);
+    if (dom.inspCapStrokeLabel) dom.inspCapStrokeLabel.textContent = `${state.captionStrokeWidth ?? 14}px`;
+    if (dom.inspCapPosXSlider) dom.inspCapPosXSlider.value = String(Math.round(state.captionPosX ?? 50));
+    if (dom.inspCapPosXLabel) dom.inspCapPosXLabel.textContent = `${Math.round(state.captionPosX ?? 50)}%`;
+    if (dom.captionPosXSlider) dom.captionPosXSlider.value = String(Math.round(state.captionPosX ?? 50));
+    if (dom.captionPosXLabel) dom.captionPosXLabel.textContent = `${Math.round(state.captionPosX ?? 50)}%`;
+    if (dom.inspCapPosYSlider) dom.inspCapPosYSlider.value = String(Math.round(state.captionPosY ?? 72));
+    if (dom.inspCapPosYLabel) dom.inspCapPosYLabel.textContent = `${Math.round(state.captionPosY ?? 72)}%`;
+    if (dom.captionPosYSlider) dom.captionPosYSlider.value = String(Math.round(state.captionPosY ?? 72));
+    if (dom.captionPosYLabel) dom.captionPosYLabel.textContent = `${Math.round(state.captionPosY ?? 72)}%`;
+
+    // 3. Text / Hook / Watermark Mode Sync
+    const txtLayer = (state.textLayers || []).find((l) => l.id === state.selectedTextLayerId);
+    if (state.activeTextTarget === 'layer' && txtLayer) {
+      if (dom.inspTextHeaderTitle) dom.inspTextHeaderTitle.textContent = '🔤 Custom Text Layer';
+      if (dom.selectedTextBadge) dom.selectedTextBadge.textContent = 'Text Layer';
+      if (dom.inspTextVisibleToggle) dom.inspTextVisibleToggle.checked = txtLayer.visible !== false;
+      if (dom.inspTextContentInput && document.activeElement !== dom.inspTextContentInput) dom.inspTextContentInput.value = txtLayer.text || '';
+      if (dom.inspTextStartInput && document.activeElement !== dom.inspTextStartInput) dom.inspTextStartInput.value = Number(txtLayer.start || 0).toFixed(2);
+      if (dom.inspTextDurInput && document.activeElement !== dom.inspTextDurInput) dom.inspTextDurInput.value = Number(txtLayer.duration || 4.0).toFixed(2);
+      if (dom.inspTextFontSelect) dom.inspTextFontSelect.value = txtLayer.fontFamily || 'Plus Jakarta Sans';
+      if (dom.inspTextColorInput) dom.inspTextColorInput.value = txtLayer.color || '#ffffff';
+      if (dom.inspTextBgColorInput) dom.inspTextBgColorInput.value = txtLayer.bgColor || '#facc15';
+      if (dom.inspTextBgToggle) dom.inspTextBgToggle.checked = !!txtLayer.bgEnabled;
+      if (dom.inspTextSizeSlider) dom.inspTextSizeSlider.value = String(txtLayer.fontSize || 52);
+      if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${txtLayer.fontSize || 52}px`;
+      if (dom.inspTextPosXSlider) dom.inspTextPosXSlider.value = String(Math.round(txtLayer.xPct ?? 50));
+      if (dom.inspTextPosXLabel) dom.inspTextPosXLabel.textContent = `${Math.round(txtLayer.xPct ?? 50)}%`;
+      if (dom.inspTextPosYSlider) dom.inspTextPosYSlider.value = String(Math.round(txtLayer.yPct ?? 26));
+      if (dom.inspTextPosYLabel) dom.inspTextPosYLabel.textContent = `${Math.round(txtLayer.yPct ?? 26)}%`;
+      if (dom.inspTextAnimSelect) dom.inspTextAnimSelect.value = txtLayer.animation || 'spring-pop';
+    } else if (state.activeTextTarget === 'watermark') {
+      if (dom.inspTextHeaderTitle) dom.inspTextHeaderTitle.textContent = '🏷️ Creator Watermark';
+      if (dom.selectedTextBadge) dom.selectedTextBadge.textContent = 'Tag';
+      if (dom.inspTextVisibleToggle) dom.inspTextVisibleToggle.checked = state.watermarkEnabled !== false;
+      if (dom.inspTextContentInput && document.activeElement !== dom.inspTextContentInput) dom.inspTextContentInput.value = state.watermarkText || '';
+      if (dom.inspTextStartInput) dom.inspTextStartInput.value = Number(state.trimStart || 0).toFixed(2);
+      if (dom.inspTextDurInput) dom.inspTextDurInput.value = Number((state.trimEnd || 30) - (state.trimStart || 0)).toFixed(2);
+      const wmPx = Math.round(22 * (state.watermarkScale || 1.0));
+      if (dom.inspTextSizeSlider) dom.inspTextSizeSlider.value = String(clamp(wmPx * 2, 18, 120));
+      if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${Math.round((state.watermarkScale || 1.0) * 100)}%`;
+      if (dom.inspTextPosXSlider) dom.inspTextPosXSlider.value = String(Math.round(state.watermarkPos?.x ?? 24));
+      if (dom.inspTextPosXLabel) dom.inspTextPosXLabel.textContent = `${Math.round(state.watermarkPos?.x ?? 24)}%`;
+      if (dom.inspTextPosYSlider) dom.inspTextPosYSlider.value = String(Math.round(state.watermarkPos?.y ?? 92));
+      if (dom.inspTextPosYLabel) dom.inspTextPosYLabel.textContent = `${Math.round(state.watermarkPos?.y ?? 92)}%`;
+    } else {
+      // Default to Hook Banner
+      if (dom.inspTextHeaderTitle) dom.inspTextHeaderTitle.textContent = '🔥 Top Hook Banner';
+      if (dom.selectedTextBadge) dom.selectedTextBadge.textContent = 'Hook';
+      if (dom.inspTextVisibleToggle) dom.inspTextVisibleToggle.checked = state.hookMode !== 'off';
+      if (dom.inspTextContentInput && document.activeElement !== dom.inspTextContentInput) dom.inspTextContentInput.value = state.hookText || '';
+      if (dom.inspTextStartInput) dom.inspTextStartInput.value = Number(state.trimStart || 0).toFixed(2);
+      if (dom.inspTextDurInput) dom.inspTextDurInput.value = Number(state.hookDuration || 3.5).toFixed(2);
+      if (dom.inspTextSizeSlider) dom.inspTextSizeSlider.value = String(clamp(Math.round(34 * (state.hookScale || 1.0) * 1.4), 18, 120));
+      if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${Math.round((state.hookScale || 1.0) * 100)}%`;
+      if (dom.inspTextPosXSlider) dom.inspTextPosXSlider.value = String(Math.round(state.hookPos?.x ?? 50));
+      if (dom.inspTextPosXLabel) dom.inspTextPosXLabel.textContent = `${Math.round(state.hookPos?.x ?? 50)}%`;
+      if (dom.inspTextPosYSlider) dom.inspTextPosYSlider.value = String(Math.round(state.hookPos?.y ?? 10));
+      if (dom.inspTextPosYLabel) dom.inspTextPosYLabel.textContent = `${Math.round(state.hookPos?.y ?? 10)}%`;
+    }
+
+    // 4. Overlay / PIP Mode Sync
+    const ov = (state.visualOverlays || []).find((o) => o.id === state.selectedVisualOverlayId) || (state.visualOverlays || [])[0];
+    if (ov) {
+      if (dom.selectedOverlayBadge) dom.selectedOverlayBadge.textContent = ov.displayStyle === 'card' ? 'Card' : 'Clean PIP';
+      if (dom.inspOverlayNameInput && document.activeElement !== dom.inspOverlayNameInput) dom.inspOverlayNameInput.value = ov.name || 'Picture Overlay';
+      if (dom.inspOverlayStyleSelect) dom.inspOverlayStyleSelect.value = ov.displayStyle || 'clean-pip';
+      if (dom.inspOverlayStartInput && document.activeElement !== dom.inspOverlayStartInput) dom.inspOverlayStartInput.value = Number(ov.startTime || 0).toFixed(2);
+      if (dom.inspOverlayDurInput && document.activeElement !== dom.inspOverlayDurInput) dom.inspOverlayDurInput.value = Number(ov.duration || 3.5).toFixed(2);
+      const scPct = Math.round((ov.scale || 1.0) * 100);
+      if (dom.inspOverlayScaleSlider) dom.inspOverlayScaleSlider.value = String(scPct);
+      if (dom.inspOverlayScaleLabel) dom.inspOverlayScaleLabel.textContent = `${scPct}%`;
+      const xPct = ov.xPct !== undefined ? Math.round(ov.xPct) : Math.round(50 + ((ov.x || 0) / 1080) * 100);
+      const yPct = ov.yPct !== undefined ? Math.round(ov.yPct) : Math.round(38 + ((ov.y || 0) / 1920) * 100);
+      if (dom.inspOverlayPosXSlider) dom.inspOverlayPosXSlider.value = String(clamp(xPct, 5, 95));
+      if (dom.inspOverlayPosXLabel) dom.inspOverlayPosXLabel.textContent = `${clamp(xPct, 5, 95)}%`;
+      if (dom.inspOverlayPosYSlider) dom.inspOverlayPosYSlider.value = String(clamp(yPct, 5, 95));
+      if (dom.inspOverlayPosYLabel) dom.inspOverlayPosYLabel.textContent = `${clamp(yPct, 5, 95)}%`;
+      const rad = ov.cornerRadius !== undefined ? ov.cornerRadius : 16;
+      if (dom.inspOverlayRadiusSlider) dom.inspOverlayRadiusSlider.value = String(rad);
+      if (dom.inspOverlayRadiusLabel) dom.inspOverlayRadiusLabel.textContent = `${rad}px`;
+      const op = ov.opacity !== undefined ? ov.opacity : 100;
+      if (dom.inspOverlayOpacitySlider) dom.inspOverlayOpacitySlider.value = String(op);
+      if (dom.inspOverlayOpacityLabel) dom.inspOverlayOpacityLabel.textContent = `${op}%`;
+      const rot = ov.rotation || 0;
+      if (dom.inspOverlayRotateSlider) dom.inspOverlayRotateSlider.value = String(rot);
+      if (dom.inspOverlayRotateLabel) dom.inspOverlayRotateLabel.textContent = `${rot}°`;
+      if (dom.inspOverlayAnimSelect) dom.inspOverlayAnimSelect.value = ov.animation || 'spring-pop';
+    }
+
+    // 5. Audio Mode Sync
+    const vPct = Math.round((state.mainVolume ?? 0.95) * 100);
+    const mPct = Math.round((state.musicVolume ?? 0.0) * 100);
+    if (dom.inspVoiceVolSlider) dom.inspVoiceVolSlider.value = String(vPct);
+    if (dom.inspVoiceVolLabel) dom.inspVoiceVolLabel.textContent = `${vPct}%`;
+    if (dom.inspMusicVolSlider) dom.inspMusicVolSlider.value = String(mPct);
+    if (dom.inspMusicVolLabel) dom.inspMusicVolLabel.textContent = `${mPct}%`;
+    if (dom.inspMusicPresetSelect) dom.inspMusicPresetSelect.value = state.musicPreset || 'none';
+
+    updateSelectionBadgeUI();
+  }
+
+  function updateSelectionBadgeUI() {
+    if (!dom.timelineSelectionBadge) return;
+    let label = '🎬 Master Video';
+    const sel = state.selectedCanvasLayer;
+    if (sel && sel.startsWith('text:')) {
+      const l = (state.textLayers || []).find((x) => `text:${x.id}` === sel);
+      label = l ? `🔤 Text: ${l.text.slice(0, 16)}` : '🔤 Text Layer';
+    } else if (sel && sel.startsWith('overlay:')) {
+      const o = (state.visualOverlays || []).find((x) => `overlay:${x.id}` === sel);
+      label = o ? `🖼️ PIP: ${o.name}` : '🖼️ PIP Overlay';
+    } else if (sel === 'caption' || state.inspectorMode === 'caption') {
+      label = '💬 Subtitles';
+    } else if (sel === 'hook') {
+      label = '🔥 Hook Banner';
+    } else if (sel === 'watermark') {
+      label = '🏷️ Watermark';
+    } else {
+      const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+      if (clip) label = `🎬 ${clip.title}`;
+    }
+    dom.timelineSelectionBadge.textContent = label;
+  }
+
+  function updateCanvasFloatingToolbar() {
+    if (!dom.canvasFloatingToolbar) return;
+    const sel = state.selectedCanvasLayer;
+    if (!sel) {
+      dom.canvasFloatingToolbar.classList.add('hidden');
+      return;
+    }
+    dom.canvasFloatingToolbar.classList.remove('hidden');
+    const isTextLike = sel.startsWith('text:') || sel === 'hook' || sel === 'watermark' || sel === 'caption';
+    const isOverlay = sel.startsWith('overlay:');
+    if (dom.cftEditTextBtn) dom.cftEditTextBtn.classList.toggle('hidden', !isTextLike);
+    if (dom.cftToggleStyleBtn) dom.cftToggleStyleBtn.classList.toggle('hidden', !isOverlay);
+    if (dom.cftDuplicateBtn) dom.cftDuplicateBtn.classList.toggle('hidden', !(sel.startsWith('text:') || isOverlay));
+
+    if (dom.canvasSelectedTag) {
+      if (sel.startsWith('text:')) dom.canvasSelectedTag.textContent = '🔤 Text';
+      else if (isOverlay) dom.canvasSelectedTag.textContent = '🖼️ PIP';
+      else if (sel === 'hook') dom.canvasSelectedTag.textContent = '🔥 Hook';
+      else if (sel === 'watermark') dom.canvasSelectedTag.textContent = '🏷️ Tag';
+      else if (sel === 'caption') dom.canvasSelectedTag.textContent = '💬 Sub';
+      else dom.canvasSelectedTag.textContent = '🎬 Layer';
+    }
+  }
+
+  function openCanvasInlineEditor(targetKey) {
+    const key = targetKey || state.selectedCanvasLayer;
+    if (!key || !dom.canvasInlineEditorWrap || !dom.canvasInlineInput) return;
+
+    let currentText = '';
+    let headerLabel = '✏️ EDIT TEXT ON CANVAS';
+
+    if (key.startsWith('text:')) {
+      const id = key.slice(5);
+      const layer = (state.textLayers || []).find((l) => l.id === id);
+      if (!layer) return;
+      currentText = layer.text || '';
+      headerLabel = '✏️ EDIT TEXT LAYER';
+    } else if (key === 'hook') {
+      currentText = state.hookText || '';
+      headerLabel = '✏️ EDIT TOP HOOK BANNER';
+    } else if (key === 'watermark') {
+      currentText = state.watermarkText || '';
+      headerLabel = '✏️ EDIT CREATOR WATERMARK';
+    } else if (key === 'caption') {
+      if (state.selectedCaptionSegment) {
+        currentText = state.selectedCaptionSegment.text || '';
+      } else if (window.WhopAudioEngine) {
+        const cs = window.WhopAudioEngine.getCaptionStateAtTime(getActiveClip() || state.analysis, state.currentTime, 4);
+        if (cs && cs.chunkWords) {
+          currentText = cs.chunkWords.map((w) => w.word).join(' ');
+          state.inlineCaptionWordsRef = cs.chunkWords;
+        }
+      }
+      headerLabel = '✏️ EDIT SUBTITLE PHRASE';
+    } else {
+      return;
+    }
+
+    state.inlineEditTargetKey = key;
+    if (dom.cieLayerLabel) dom.cieLayerLabel.textContent = headerLabel;
+    dom.canvasInlineInput.value = currentText;
+    dom.canvasInlineEditorWrap.classList.remove('hidden');
+    setTimeout(() => {
+      dom.canvasInlineInput.focus();
+      dom.canvasInlineInput.select();
+    }, 20);
+  }
+
+  function commitCanvasInlineEdit() {
+    if (!state.inlineEditTargetKey || !dom.canvasInlineEditorWrap || dom.canvasInlineEditorWrap.classList.contains('hidden')) return;
+    const key = state.inlineEditTargetKey;
+    const val = dom.canvasInlineInput ? dom.canvasInlineInput.value.trim() : '';
+    dom.canvasInlineEditorWrap.classList.add('hidden');
+    state.inlineEditTargetKey = null;
+    if (!val) return;
+
+    pushUndoState('Inline Text Edit');
+    if (key.startsWith('text:')) {
+      const layer = (state.textLayers || []).find((l) => l.id === key.slice(5));
+      if (layer) layer.text = val;
+      renderTextLayersList();
+    } else if (key === 'hook') {
+      state.hookText = val;
+      if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = val;
+      if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = val;
+    } else if (key === 'watermark') {
+      state.watermarkText = val;
+      if (dom.watermarkTextInput) dom.watermarkTextInput.value = val;
+    } else if (key === 'caption') {
+      updateActiveCaptionPhraseText(val);
+    }
+
+    syncContextualInspector();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`✏️ Updated on canvas: "${val.slice(0, 28)}"`, '#00f2fe');
+  }
+
+  function cancelCanvasInlineEdit() {
+    state.inlineEditTargetKey = null;
+    if (dom.canvasInlineEditorWrap) dom.canvasInlineEditorWrap.classList.add('hidden');
+  }
+
+  function updateActiveCaptionPhraseText(newText) {
+    const clean = String(newText || '').trim();
+    if (!clean) return;
+    const clip = getActiveClip();
+    const wordsArr = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+      ? clip.transcript
+      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : null);
+    if (!wordsArr) return;
+
+    const seg = state.selectedCaptionSegment;
+    if (seg && seg.chunkStartIdx !== undefined) {
+      const tokens = clean.split(/\s+/);
+      const dur = Math.max(0.25, seg.end - seg.start);
+      const step = dur / tokens.length;
+      const replacements = tokens.map((w, i) => ({
+        word: w,
+        start: Number((seg.start + i * step).toFixed(2)),
+        end: Number((seg.start + (i + 1) * step).toFixed(2)),
+        emoji: '',
+        emphasis: false
+      }));
+      wordsArr.splice(seg.chunkStartIdx, seg.chunkCount || 3, ...replacements);
+      seg.text = clean;
+      seg.chunkCount = replacements.length;
+    } else if (Array.isArray(state.inlineCaptionWordsRef) && state.inlineCaptionWordsRef.length > 0) {
+      const firstRef = state.inlineCaptionWordsRef[0];
+      const lastRef = state.inlineCaptionWordsRef[state.inlineCaptionWordsRef.length - 1];
+      const startIdx = wordsArr.indexOf(firstRef);
+      if (startIdx !== -1) {
+        const tokens = clean.split(/\s+/);
+        const sT = firstRef.start;
+        const eT = Math.max(sT + 0.3, lastRef.end);
+        const step = (eT - sT) / tokens.length;
+        const replacements = tokens.map((w, i) => ({
+          word: w,
+          start: Number((sT + i * step).toFixed(2)),
+          end: Number((sT + (i + 1) * step).toFixed(2)),
+          emoji: '',
+          emphasis: false
+        }));
+        wordsArr.splice(startIdx, state.inlineCaptionWordsRef.length, ...replacements);
+      }
+      state.inlineCaptionWordsRef = null;
+    }
+    renderTranscriptCloud();
+    renderCaptionTrack();
+    renderCanvasFrame();
+  }
+
+  function addCustomCaptionPhraseAtPlayhead(customWords = 'NEW SUBTITLE HERE') {
+    pushUndoState('Add Subtitle Phrase');
+    const clip = getActiveClip();
+    if (!state.analysis) state.analysis = { transcript: [], silences: [], peaks: [] };
+    const targetArr = (clip && Array.isArray(clip.transcript)) ? clip.transcript : (state.analysis.transcript = state.analysis.transcript || []);
+    const sT = Number(state.currentTime.toFixed(2));
+    const tokens = String(customWords).trim().split(/\s+/);
+    const dur = 1.6;
+    const step = dur / tokens.length;
+    const entries = tokens.map((w, i) => ({
+      word: w,
+      start: Number((sT + i * step).toFixed(2)),
+      end: Number((sT + (i + 1) * step).toFixed(2)),
+      emoji: '',
+      emphasis: i === tokens.length - 1
+    }));
+    let insertAt = targetArr.findIndex((w) => w.start > sT);
+    if (insertAt === -1) insertAt = targetArr.length;
+    targetArr.splice(insertAt, 0, ...entries);
+    state.selectedCaptionSegment = {
+      id: `cap-chunk-${insertAt}`,
+      chunkStartIdx: insertAt,
+      chunkCount: entries.length,
+      start: sT,
+      end: Number((sT + dur).toFixed(2)),
+      text: String(customWords).trim()
+    };
+    state.selectedCanvasLayer = 'caption';
+    setInspectorMode('caption');
+    renderTranscriptCloud();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`💬 Added editable subtitle at ${sT.toFixed(1)}s!`, '#10b981');
+  }
+
+  // =========================================================================
+  // CAPCUT FREEZE FRAME, AUTO-VIDEO-EDITOR SILENCE JUMP-CUTS & PAPER-EDIT
+  // =========================================================================
+  const freezeImageCache = new Map();
+
+  function freezeFrameAtPlayhead(freezeDur = 2.0) {
+    if (!dom.mainVideoEl || dom.mainVideoEl.readyState < 2) {
+      showToast('⚠️ Load a video frame first to freeze', '#f59e0b');
+      return false;
+    }
+    pushUndoState('Freeze Frame 2.0s');
+    const cnv = document.createElement('canvas');
+    cnv.width = dom.mainVideoEl.videoWidth || 1280;
+    cnv.height = dom.mainVideoEl.videoHeight || 720;
+    const c = cnv.getContext('2d');
+    c.drawImage(dom.mainVideoEl, 0, 0, cnv.width, cnv.height);
+    const dataUrl = cnv.toDataURL('image/jpeg', 0.9);
+    const img = new Image();
+    img.src = dataUrl;
+
+    const clips = state.sequence?.videoClips || [];
+    const cur = Number(state.currentTime.toFixed(2));
+    let idx = clips.findIndex((cl) => cur >= cl.start && cur <= cl.end);
+    if (idx === -1) idx = 0;
+    const target = clips[idx];
+    if (!target) return false;
+
+    const splitPt = clamp(cur, target.start + 0.15, target.end - 0.15);
+    const offset = splitPt - target.start;
+    const srcSplit = Number(((target.sourceStart ?? target.start) + offset).toFixed(2));
+    const oldEnd = target.end;
+    const oldSrcEnd = target.sourceEnd ?? oldEnd;
+
+    target.end = splitPt;
+    target.sourceEnd = srcSplit;
+
+    const freezeId = `freeze_${Date.now()}`;
+    freezeImageCache.set(freezeId, img);
+
+    const freezeClip = {
+      id: freezeId,
+      title: '❄️ Freeze Frame',
+      start: splitPt,
+      end: Number((splitPt + freezeDur).toFixed(2)),
+      sourceStart: srcSplit,
+      sourceEnd: srcSplit,
+      freezeDataUrl: dataUrl,
+      zoom: target.zoom || 1.0,
+      panX: target.panX || 0,
+      panY: target.panY || 0,
+      volume: 0,
+      transition: 'flash'
+    };
+
+    const tailDur = Math.max(0.3, oldEnd - splitPt);
+    const tailClip = {
+      id: `cut_${Date.now() + 1}`,
+      title: `${target.title} (Cont.)`,
+      start: freezeClip.end,
+      end: Number((freezeClip.end + tailDur).toFixed(2)),
+      sourceStart: srcSplit,
+      sourceEnd: oldSrcEnd,
+      zoom: target.zoom || 1.0,
+      panX: target.panX || 0,
+      panY: target.panY || 0,
+      volume: target.volume ?? 1.0,
+      transition: 'cut'
+    };
+
+    // Shift downstream clips right by freezeDur
+    for (let i = idx + 1; i < clips.length; i++) {
+      clips[i].start = Number((clips[i].start + freezeDur).toFixed(2));
+      clips[i].end = Number((clips[i].end + freezeDur).toFixed(2));
+    }
+
+    clips.splice(idx + 1, 0, freezeClip, tailClip);
+    state.trimEnd = Math.max(state.trimEnd, clips[clips.length - 1].end);
+    state.sequence.selectedClipId = freezeClip.id;
+    setInspectorMode('video');
+    renderTimelineRuler();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`❄️ Inserted ${freezeDur.toFixed(1)}s Freeze Frame at ${formatTimecode(splitPt)}!`, '#00f2fe');
+    return true;
+  }
+
+  function applyAutoSilenceJumpCuts(customThresholdSec) {
+    const minGap = Number(customThresholdSec || state.silenceThresholdSec || 0.45);
+    const clip = getActiveClip();
+    const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+      ? clip.transcript
+      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
+    const silences = (state.analysis && Array.isArray(state.analysis.silences)) ? state.analysis.silences : [];
+
+    const startBound = state.trimStart || 0;
+    const endBound = state.trimEnd || state.streamDuration || 30;
+    const speechSpans = [];
+
+    if (words.length >= 3) {
+      // Breath-safe word grouping (Autoclip: 0.10s lead, 0.18s tail)
+      const inRange = words.filter((w) => w.end > startBound && w.start < endBound && !w.deleted);
+      if (inRange.length > 0) {
+        let segStart = Math.max(startBound, inRange[0].start - 0.10);
+        let segEnd = Math.min(endBound, inRange[0].end + 0.18);
+        for (let i = 1; i < inRange.length; i++) {
+          const gap = inRange[i].start - inRange[i - 1].end;
+          if (gap >= minGap) {
+            if (segEnd - segStart >= 0.35) speechSpans.push({ start: segStart, end: segEnd });
+            segStart = Math.max(startBound, inRange[i].start - 0.10);
+            segEnd = Math.min(endBound, inRange[i].end + 0.18);
+          } else {
+            segEnd = Math.min(endBound, inRange[i].end + 0.18);
+          }
+        }
+        if (segEnd - segStart >= 0.35) speechSpans.push({ start: segStart, end: segEnd });
+      }
+    } else if (silences.length > 0) {
+      let cursor = startBound;
+      silences.forEach((s) => {
+        if (s.end - s.start < minGap) return;
+        if (s.start > cursor + 0.35 && s.start < endBound) {
+          speechSpans.push({ start: cursor, end: Math.min(endBound, s.start + 0.08) });
+        }
+        cursor = Math.max(cursor, s.end - 0.08);
+      });
+      if (endBound - cursor >= 0.35) speechSpans.push({ start: cursor, end: endBound });
+    }
+
+    if (speechSpans.length <= 1) {
+      // Fallback punchy rhythmic jump-cuts if no pauses > threshold exist
+      const total = Math.max(4, endBound - startBound);
+      const count = Math.min(6, Math.max(2, Math.floor(total / 4.5)));
+      const step = total / count;
+      for (let i = 0; i < count; i++) {
+        const s = startBound + i * step;
+        const e = Math.min(endBound, s + step - 0.22);
+        speechSpans.push({ start: s, end: e });
+      }
+    }
+
+    pushUndoState('Auto Silence Jump-Cuts');
+    // Ripple-pack jump-cuts back-to-back on timeline while preserving exact sourceStart/sourceEnd!
+    let timelineCursor = startBound;
+    const newClips = speechSpans.map((sp, i) => {
+      const dur = Math.max(0.35, Number((sp.end - sp.start).toFixed(2)));
+      const c = {
+        id: `jcut_${Date.now()}_${i}`,
+        title: `Jump Cut #${i + 1}`,
+        start: Number(timelineCursor.toFixed(2)),
+        end: Number((timelineCursor + dur).toFixed(2)),
+        sourceStart: Number(sp.start.toFixed(2)),
+        sourceEnd: Number(sp.end.toFixed(2)),
+        zoom: i % 2 === 1 ? 1.08 : 1.0,
+        panX: 0,
+        panY: 0,
+        volume: 1.0,
+        transition: 'cut'
+      };
+      timelineCursor = c.end;
+      return c;
+    });
+
+    const savedSec = Math.max(0, (endBound - startBound) - (timelineCursor - startBound));
+    state.sequence.videoClips = newClips;
+    state.sequence.selectedClipId = newClips[0].id;
+    state.trimEnd = timelineCursor;
+    lastActiveCutId = null;
+    seekToTime(newClips[0].start);
+    setInspectorMode('video');
+    renderTimelineRuler();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`✂️ Created ${newClips.length} Tight Jump-Cuts! Removed ${savedSec.toFixed(1)}s of dead air.`, '#10b981');
+    return newClips.length;
+  }
+
+  function resetToUncutMasterTrack() {
+    pushUndoState('Restore Uncut Master');
+    const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
+    state.trimStart = 0;
+    state.trimEnd = dur;
+    state.sequence.videoClips = [{
+      id: 'master-clip-1',
+      title: 'Master Video Track',
+      start: 0,
+      end: dur,
+      sourceStart: 0,
+      sourceEnd: dur,
+      zoom: 1.0,
+      panX: 0,
+      panY: 0,
+      volume: 1.0,
+      transition: 'cut'
+    }];
+    state.sequence.selectedClipId = 'master-clip-1';
+    lastActiveCutId = null;
+    seekToTime(0);
+    renderTimelineRuler();
+    renderTimelineTracks();
+    syncContextualInspector();
+    renderCanvasFrame();
+    showToast('🔄 Restored continuous uncut master video!', '#38bdf8');
+  }
+
+  function cutSelectedTranscriptWord() {
+    const w = state.selectedTranscriptWord;
+    if (!w) {
+      showToast('Click a word in the FilmCraft Transcript first!', '#f59e0b');
+      return false;
+    }
+    pushUndoState(`Paper-Edit Cut "${w.word}"`);
+    w.deleted = !w.deleted;
+    if (w.deleted) {
+      // Slice [w.start, w.end] out of videoClips and ripple-close!
+      const cutS = w.start;
+      const cutE = Math.max(cutS + 0.12, w.end);
+      const cutDur = cutE - cutS;
+      const updated = [];
+      (state.sequence?.videoClips || []).forEach((c) => {
+        const srcS = c.sourceStart ?? c.start;
+        const srcE = c.sourceEnd ?? c.end;
+        if (cutE <= srcS || cutS >= srcE) {
+          updated.push(c);
+        } else {
+          if (cutS > srcS + 0.15) {
+            const leftDur = cutS - srcS;
+            updated.push(Object.assign({}, c, {
+              id: `${c.id}_L`,
+              end: Number((c.start + leftDur).toFixed(2)),
+              sourceStart: srcS,
+              sourceEnd: Number(cutS.toFixed(2))
+            }));
+          }
+          if (srcE > cutE + 0.15) {
+            const rightDur = srcE - cutE;
+            const prevEnd = updated.length > 0 ? updated[updated.length - 1].end : c.start;
+            updated.push(Object.assign({}, c, {
+              id: `${c.id}_R`,
+              title: `${c.title} (Cut)`,
+              start: Number(prevEnd.toFixed(2)),
+              end: Number((prevEnd + rightDur).toFixed(2)),
+              sourceStart: Number(cutE.toFixed(2)),
+              sourceEnd: srcE
+            }));
+          }
+        }
+      });
+      if (updated.length > 0) {
+        // Pack ripple positions cleanly if rippleEnabled
+        if (state.rippleEnabled) {
+          let curT = updated[0].start;
+          updated.forEach((u) => {
+            const d = u.end - u.start;
+            u.start = Number(curT.toFixed(2));
+            u.end = Number((curT + d).toFixed(2));
+            curT = u.end;
+          });
+          state.trimEnd = curT;
+        }
+        state.sequence.videoClips = updated;
+        state.sequence.selectedClipId = updated[0].id;
+        lastActiveCutId = null;
+      }
+      showToast(`✂️ Paper-Edit: Cut word "${w.word}" (${cutDur.toFixed(2)}s removed)!`, '#f43f5e');
+    } else {
+      showToast(`↺ Restored word "${w.word}"`, '#10b981');
+    }
+    renderTranscriptCloud();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    return true;
+  }
+
+  // =========================================================================
+  // STUDIO COMMAND PALETTE (CTRL+K — OPENCUT × OPENJARVIS)
+  // =========================================================================
+  function getCommandPaletteCatalog() {
+    return [
+      { label: '✂️ Split Video Clip at Playhead', shortcut: 'Ctrl+B', run: () => splitClipAtPlayhead() },
+      { label: '🔤 Add Bold Impact Text Layer', shortcut: 'T', run: () => addTextLayer('heading') },
+      { label: '🔥 Add Yellow Hormozi Callout Pill', shortcut: 'Text', run: () => addTextLayer('hormozi-badge') },
+      { label: '🖼️ Upload Picture / Clean PIP Overlay', shortcut: 'PIP', run: () => triggerVisualOverlayPicker('image') },
+      { label: '❄️ Freeze Frame (2.0s Hold at Playhead)', shortcut: 'Freeze', run: () => freezeFrameAtPlayhead(2.0) },
+      { label: '⚡ Auto-Cut Silent Pauses (Jump-Cuts)', shortcut: 'AI', run: () => applyAutoSilenceJumpCuts() },
+      { label: '🔄 Restore Uncut Master Video Track', shortcut: 'Reset', run: () => resetToUncutMasterTrack() },
+      { label: '↩️ Undo Last Action', shortcut: 'Ctrl+Z', run: () => undoAction() },
+      { label: '↪️ Redo Action', shortcut: 'Ctrl+Y', run: () => redoAction() },
+      { label: '🏷️ Toggle Creator Watermark ON / OFF', shortcut: 'Tag', run: () => { pushUndoState('Toggle Watermark'); state.watermarkEnabled = !state.watermarkEnabled; if (dom.watermarkEnabledToggle) dom.watermarkEnabledToggle.checked = state.watermarkEnabled; renderTimelineTracks(); renderCanvasFrame(); } },
+      { label: '🔥 Edit Top Hook Banner Inline on Canvas', shortcut: 'Hook', run: () => { state.selectedCanvasLayer = 'hook'; setInspectorMode('text'); openCanvasInlineEditor('hook'); } },
+      { label: '💬 Subtitle Style: Hormozi Pop (Yellow)', shortcut: 'Sub', run: () => { state.captionStyle = 'hormozi-pop'; renderCaptionPresetsGrid(); renderCanvasFrame(); } },
+      { label: '💊 Subtitle Style: CapCut Clean Pill', shortcut: 'Sub', run: () => { state.captionStyle = 'clean-pill'; renderCaptionPresetsGrid(); renderCanvasFrame(); } },
+      { label: '📐 Framing: Fit All Speakers (Unzoomed)', shortcut: 'Fit', run: () => { if (dom.btnFitAllPeople) dom.btnFitAllPeople.click(); } },
+      { label: '📱 Framing: Fill 9:16 Vertical Crop', shortcut: 'Fill', run: () => { if (dom.btnFillVertical) dom.btnFillVertical.click(); } },
+      { label: '🖼️ Canvas Aspect Ratio: 9:16 Vertical', shortcut: '9:16', run: () => setCanvasAspectRatio('9:16') },
+      { label: '🖥️ Canvas Aspect Ratio: 16:9 Landscape', shortcut: '16:9', run: () => setCanvasAspectRatio('16:9') },
+      { label: '⬜ Canvas Aspect Ratio: 1:1 Square', shortcut: '1:1', run: () => setCanvasAspectRatio('1:1') },
+      { label: '🎨 Color Filter: Cinematic Teal & Orange', shortcut: 'LUT', run: () => { state.activeFilter = 'cinematic'; renderCanvasFrame(); } },
+      { label: '🤖 Open J.A.R.V.I.S. AI Voice Command Center', shortcut: 'Ctrl+J', run: () => { if (dom.jarvisHudBtn) dom.jarvisHudBtn.click(); } },
+      { label: '🎬 Export MP4 / WebM Master Video', shortcut: 'Export', run: () => { if (dom.openExportModalBtn) dom.openExportModalBtn.click(); } }
+    ];
+  }
+
+  function setCanvasAspectRatio(ratio) {
+    state.aspectRatio = ratio || '9:16';
+    if (dom.previewCanvas) {
+      if (state.aspectRatio === '16:9') {
+        dom.previewCanvas.width = 1920;
+        dom.previewCanvas.height = 1080;
+      } else if (state.aspectRatio === '1:1') {
+        dom.previewCanvas.width = 1080;
+        dom.previewCanvas.height = 1080;
+      } else {
+        dom.previewCanvas.width = 1080;
+        dom.previewCanvas.height = 1920;
+      }
+    }
+    if (dom.previewCanvasBox) {
+      dom.previewCanvasBox.classList.toggle('aspect-16-9', state.aspectRatio === '16:9');
+      dom.previewCanvasBox.classList.toggle('aspect-1-1', state.aspectRatio === '1:1');
+    }
+    if (dom.aspectRatioSelect) dom.aspectRatioSelect.value = state.aspectRatio;
+    if (dom.projectAspectBadge) {
+      dom.projectAspectBadge.textContent = state.aspectRatio === '16:9' ? '16:9 LANDSCAPE' : (state.aspectRatio === '1:1' ? '1:1 SQUARE' : '9:16 VERTICAL');
+    }
+    renderCanvasFrame();
+    showToast(`📐 Canvas Aspect Ratio set to ${state.aspectRatio}`, '#00f2fe');
+  }
+
+  function openCommandPalette() {
+    if (!dom.commandPaletteModal || !dom.cmdPaletteInput) return;
+    dom.commandPaletteModal.classList.remove('hidden');
+    dom.cmdPaletteInput.value = '';
+    renderCommandPaletteResults('');
+    setTimeout(() => dom.cmdPaletteInput.focus(), 20);
+  }
+
+  function closeCommandPalette() {
+    if (dom.commandPaletteModal) dom.commandPaletteModal.classList.add('hidden');
+  }
+
+  function renderCommandPaletteResults(query) {
+    if (!dom.cmdPaletteResults) return;
+    const q = String(query || '').toLowerCase().trim();
+    const items = getCommandPaletteCatalog().filter((it) => !q || it.label.toLowerCase().includes(q) || it.shortcut.toLowerCase().includes(q));
+    dom.cmdPaletteResults.innerHTML = '';
+    items.forEach((it, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `cmd-item ${idx === 0 ? 'active' : ''}`;
+      btn.innerHTML = `<span>${it.label}</span><span class="cmd-item-shortcut">${it.shortcut}</span>`;
+      btn.addEventListener('click', () => {
+        closeCommandPalette();
+        it.run();
+      });
+      dom.cmdPaletteResults.appendChild(btn);
+    });
   }
 
   function getActiveClip() {
@@ -863,6 +2341,7 @@
 
   function renderTranscriptCloud() {
     const clip = getActiveClip();
+    if (!dom.transcriptWordCloud) return;
     dom.transcriptWordCloud.innerHTML = '';
     const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
       ? clip.transcript
@@ -875,28 +2354,37 @@
 
     words.forEach((item, wIdx) => {
       const chip = document.createElement('span');
-      chip.className = 'transcript-word-chip';
+      const isSelectedWord = state.selectedTranscriptWord === item;
+      chip.className = `transcript-word-chip word-chip ${item.deleted ? 'word-deleted' : ''}`;
       chip.dataset.start = item.start;
       chip.dataset.end = item.end;
       chip.dataset.index = wIdx;
       chip.textContent = item.emoji && state.autoEmoji ? `${item.word} ${item.emoji}` : item.word;
-      chip.title = `Click to jump to ${item.start.toFixed(2)}s • Double-click to edit word`;
+      chip.title = `Click to seek (${item.start.toFixed(2)}s) • Shift+Click to Paper-Edit Cut Word • Double-click to edit text`;
+      if (isSelectedWord) chip.style.outline = '2px solid #00f2fe';
 
-      chip.addEventListener('click', () => {
+      chip.addEventListener('click', (e) => {
         state.selectedTranscriptWord = item;
+        if (e.shiftKey) {
+          e.preventDefault();
+          cutSelectedTranscriptWord();
+          return;
+        }
         seekToTime(item.start);
-        (dom.transcriptWordCloud ? dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip') : []).forEach(c => c.style.outline = 'none');
+        (dom.transcriptWordCloud ? dom.transcriptWordCloud.querySelectorAll('.transcript-word-chip') : []).forEach((c) => { c.style.outline = 'none'; });
         chip.style.outline = '2px solid #00f2fe';
-        showToast(`📍 Selected word: "${item.word}" at ${item.start.toFixed(2)}s. Click Trim In / Out / Snap 30s above!`, '#38bdf8', 2500);
+        showToast(`📍 Word "${item.word}" (${item.start.toFixed(2)}s) • Shift+Click or "✂️ Cut Word" to slice from video!`, '#38bdf8');
       });
 
       chip.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const updated = window.prompt('Edit caption word:', item.word);
         if (updated !== null && updated.trim() !== '') {
+          pushUndoState(`Edit word "${item.word}"`);
           item.word = updated.trim();
           renderTranscriptCloud();
           renderTimelineTracks();
+          renderCanvasFrame();
           showToast(`✏️ Updated caption word to "${item.word}"`);
         }
       });
@@ -1464,8 +2952,10 @@
     const canvas = dom.previewCanvas;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = canvas.width;  // 1080
-    const H = canvas.height; // 1920
+    const W = canvas.width;  // 1080 (or 1920/1080 per aspectRatio)
+    const H = canvas.height; // 1920 (or 1080 per aspectRatio)
+
+    state.canvasHitBoxes = [];
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#05050a';
@@ -1478,13 +2968,25 @@
 
     const hardEffects = getHardEditEffectsAtTime(state.currentTime, state.trimStart, voiceLevel);
 
-    if (state.layoutMode === 'ambient-blur') {
+    if (state.trackVisibility?.main === false) {
+      ctx.fillStyle = '#05050a';
+      ctx.fillRect(0, 0, W, H);
+    } else if (state.layoutMode === 'ambient-blur') {
       const activeCut = getActiveVideoCutAtTime(state.currentTime);
-      if (activeCut && state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
-        // Ambient reflection background
+      let vidSource = (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) ? dom.mainVideoEl : null;
+      if (activeCut && activeCut.freezeDataUrl) {
+        let fImg = freezeImageCache.get(activeCut.id);
+        if (!fImg) {
+          fImg = new Image();
+          fImg.src = activeCut.freezeDataUrl;
+          freezeImageCache.set(activeCut.id, fImg);
+        }
+        if (fImg.complete || fImg.naturalWidth > 0) vidSource = fImg;
+      }
+      if (activeCut && vidSource) {
         ctx.save();
         ctx.filter = 'blur(28px) brightness(0.65)';
-        ctx.drawImage(dom.mainVideoEl, -30, -30, W + 60, H + 60);
+        ctx.drawImage(vidSource, -30, -30, W + 60, H + 60);
         ctx.filter = 'none';
 
         const vig = ctx.createRadialGradient(W / 2, H / 2, 250, W / 2, H / 2, 920);
@@ -1494,23 +2996,23 @@
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
 
-        const vw = dom.mainVideoEl.videoWidth || 1920;
-        const vh = dom.mainVideoEl.videoHeight || 1080;
+        const vw = vidSource.videoWidth || vidSource.naturalWidth || 1920;
+        const vh = vidSource.videoHeight || vidSource.naturalHeight || 1080;
         const drawH = Math.round(W * (vh / vw));
         const drawY = Math.round((H - drawH) / 2);
 
         ctx.save();
+        ctx.globalAlpha = clamp((activeCut.opacity ?? 100) / 100, 0, 1);
         ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
         ctx.shadowBlur = 36;
         ctx.shadowOffsetY = 12;
-        ctx.drawImage(dom.mainVideoEl, 0, drawY, W, drawH);
+        ctx.drawImage(vidSource, 0, drawY, W, drawH);
         ctx.restore();
 
         ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
         ctx.lineWidth = 3;
         ctx.strokeRect(0, drawY, W, drawH);
       } else {
-        // In gap between cuts or no active cut: clean dark backdrop for overlays
         ctx.fillStyle = '#05050a';
         ctx.fillRect(0, 0, W, H);
       }
@@ -1538,7 +3040,7 @@
       renderMainViewport(ctx, mainRect, state.currentTime, voiceLevel, 1.0, 0);
 
       // 2. Render Optional Satisfying B-Roll Viewport (only in split modes)
-      if (brollRect) {
+      if (brollRect && state.trackVisibility?.broll !== false) {
         renderBrollViewport(ctx, brollRect, state.currentTime);
       }
 
@@ -1555,26 +3057,33 @@
       }
     }
 
-    // 4. Draw Visual Media Overlays & Memes Cut-Ins
+    // 4. Draw Visual Media Overlays, Clean Borderless PIP & Stickers
     drawVisualOverlaysOnCanvas(ctx, W, H, state.currentTime);
 
-    // 5. Draw Top Pattern-Interrupt Hook Banner (first 3.5s of clip or Always On)
+    // 4b. Draw Custom CapCut Text Layers ("T" Tool)
+    drawTextLayersOnCanvas(ctx, W, H, state.currentTime);
+
+    // 5. Draw Top Pattern-Interrupt Hook Banner (first 3.5s of clip, Always On, or when selected)
     const clipElapsed = Math.max(0, state.currentTime - state.trimStart);
+    const hookDur = state.hookDuration || 3.5;
+    const hookStr = String(state.hookText || '');
     const showHook =
-      state.hookText.trim() !== '' &&
-      (state.hookMode === 'always' || (state.hookMode === '3s' && clipElapsed <= 3.5));
+      state.trackVisibility?.text !== false &&
+      hookStr.trim() !== '' &&
+      (state.hookMode === 'always' || (state.hookMode === '3s' && clipElapsed <= hookDur) || state.selectedCanvasLayer === 'hook');
 
     if (showHook) {
-      drawHookBannerOnCanvas(ctx, W, H, state.hookText, clipElapsed);
+      drawHookBannerOnCanvas(ctx, W, H, hookStr, clipElapsed);
     }
 
-    // 6. Draw Whop Campaign Verified Bounty Watermark Badge
-    if (state.watermarkEnabled && state.watermarkText.trim() !== '') {
-      drawWatermarkOnCanvas(ctx, W, H, state.watermarkText);
+    // 6. Draw Creator Tag / Watermark Badge (Movable & Toggleable!)
+    const wmStr = String(state.watermarkText || '');
+    if (state.trackVisibility?.text !== false && state.watermarkEnabled && wmStr.trim() !== '') {
+      drawWatermarkOnCanvas(ctx, W, H, wmStr);
     }
 
     // 7. Draw Dynamic Word-by-Word Karaoke Captions
-    if (state.captionsEnabled) {
+    if (state.captionsEnabled && state.trackVisibility?.captions !== false) {
       drawKaraokeCaptionsOnCanvas(ctx, W, H, state.currentTime);
     }
 
@@ -1613,8 +3122,13 @@
     }
 
     // 10. TikTok / Reels / Shorts Safe-Zone Overlay Guide
-    if (state.showSafeZones) {
+    if (state.showSafeZones && !state.isRecordingExport) {
       drawSafeZoneOverlay(ctx, W, H);
+    }
+
+    // 11. CapCut × OpenCut Direct Transform Gizmo & Center Snap Crosshairs (never burned into export!)
+    if (!state.isRecordingExport) {
+      drawCanvasTransformGizmoAndSnapGuides(ctx, W, H);
     }
   }
 
@@ -1642,8 +3156,6 @@
 
     const activeCut = getActiveVideoCutAtTime(timeSec);
     if (!activeCut) {
-      // In a gap between cuts! Do NOT draw main video frames.
-      // Draw sleek dark studio backdrop so pictures/visuals in this gap stand out cleanly!
       ctx.save();
       ctx.fillStyle = '#05050a';
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -1658,28 +3170,52 @@
     const totalPanX = clamp(state.cameraPanX + framingOffset + cutPanX + reframePan, -45, 45);
     const totalPanY = clamp((state.cameraPanY || 0) + cutPanY, -50, 50);
 
-    if (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
+    // Resolve either live video frame or Freeze Frame image
+    let drawSource = (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) ? dom.mainVideoEl : null;
+    if (activeCut.freezeDataUrl) {
+      let fImg = freezeImageCache.get(activeCut.id);
+      if (!fImg) {
+        fImg = new Image();
+        fImg.src = activeCut.freezeDataUrl;
+        freezeImageCache.set(activeCut.id, fImg);
+      }
+      if (fImg.complete || fImg.naturalWidth > 0) {
+        drawSource = fImg;
+      }
+    }
+
+    if (drawSource) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(rect.x, rect.y, rect.w, rect.h);
       ctx.clip();
 
-      // Pro Color Grading Filter
+      ctx.globalAlpha = clamp((activeCut.opacity ?? 100) / 100, 0, 1);
+
+      // Pro Color Grading Filter + Custom Brightness/Contrast/Saturation Adjustments
+      let baseFilter = 'contrast(1.04) saturate(1.05) brightness(1.02)';
       if (state.activeFilter && state.activeFilter !== 'clean') {
         const filterMap = {
           'cinematic': 'contrast(1.16) saturate(1.22) hue-rotate(-8deg) sepia(0.08)',
           'cyberpunk': 'contrast(1.25) saturate(1.45) hue-rotate(24deg)',
           'noir': 'grayscale(1) contrast(1.35) brightness(0.95)',
           'vintage': 'sepia(0.38) contrast(1.12) brightness(1.04) saturate(1.15)',
-          'vivid': 'saturate(1.45) contrast(1.16) brightness(1.02)'
+          'vivid': 'saturate(1.45) contrast(1.16) brightness(1.02)',
+          'moody': 'contrast(1.24) saturate(0.76) brightness(0.90)'
         };
-        ctx.filter = filterMap[state.activeFilter] || 'none';
-      } else {
-        ctx.filter = 'contrast(1.04) saturate(1.05) brightness(1.02)';
+        baseFilter = filterMap[state.activeFilter] || baseFilter;
       }
+      const ca = state.colorAdjust || { brightness: 0, contrast: 0, saturation: 0 };
+      if (ca.brightness || ca.contrast || ca.saturation) {
+        const bFactor = Math.max(0.2, 1 + (ca.brightness || 0) / 100).toFixed(2);
+        const cFactor = Math.max(0.2, 1 + (ca.contrast || 0) / 100).toFixed(2);
+        const sFactor = Math.max(0, 1 + (ca.saturation || 0) / 100).toFixed(2);
+        baseFilter += ` brightness(${bFactor}) contrast(${cFactor}) saturate(${sFactor})`;
+      }
+      ctx.filter = baseFilter;
 
-      const vw = dom.mainVideoEl.videoWidth || 1920;
-      const vh = dom.mainVideoEl.videoHeight || 1080;
+      const vw = drawSource.videoWidth || drawSource.naturalWidth || 1920;
+      const vh = drawSource.videoHeight || drawSource.naturalHeight || 1080;
 
       // UNZOOMED FIT MODE (Default): Fit 100% of video width so all people & speakers are visible!
       const isFit = (state.videoFitMode !== 'fill');
@@ -1693,7 +3229,7 @@
         const bgH = vh * bgScale;
         const bgX = rect.x + (rect.w - bgW) * 0.5;
         const bgY = rect.y + (rect.h - bgH) * 0.5;
-        ctx.drawImage(dom.mainVideoEl, bgX, bgY, bgW, bgH);
+        ctx.drawImage(drawSource, bgX, bgY, bgW, bgH);
         ctx.restore();
 
         // Subtle top and bottom letterbox vignette
@@ -1707,7 +3243,7 @@
       }
 
       const baseScale = isFit ? Math.min(rect.w / vw, rect.h / vh) : Math.max(rect.w / vw, rect.h / vh);
-      const zoom = (state.cameraZoom || 1.0) * cutZoom; // Clean, stable 1.0x scale (adjustable via zoom bar)
+      const zoom = (state.cameraZoom || 1.0) * cutZoom;
       const drawW = vw * baseScale * zoom;
       const drawH = vh * baseScale * zoom;
       const panShiftX = (totalPanX / 100) * (drawW - rect.w) * 0.5;
@@ -1723,14 +3259,14 @@
         ctx.translate(-(rect.x + rect.w * 0.5), -(rect.y + rect.h * 0.5));
       }
 
-      ctx.drawImage(dom.mainVideoEl, drawX, drawY, drawW, drawH);
+      ctx.drawImage(drawSource, drawX, drawY, drawW, drawH);
 
       // Pro VFX: RGB Dispersion / Chromatic Aberration
       if (state.effects && state.effects.rgbSplit) {
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         ctx.globalAlpha = 0.35;
-        ctx.drawImage(dom.mainVideoEl, drawX - 6, drawY, drawW, drawH);
+        ctx.drawImage(drawSource, drawX - 6, drawY, drawW, drawH);
         ctx.fillStyle = 'rgba(255, 0, 80, 0.10)';
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.restore();
@@ -1747,14 +3283,12 @@
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
 
-    // Studio background gradient
     const grad = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.h);
     grad.addColorStop(0, '#0a0b16');
     grad.addColorStop(1, '#131428');
     ctx.fillStyle = grad;
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
 
-    // Subtle neon grid lines
     ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)';
     ctx.lineWidth = 1.5;
     for (let x = rect.x; x < rect.x + rect.w; x += 52) {
@@ -1764,7 +3298,6 @@
       ctx.beginPath(); ctx.moveTo(rect.x, y); ctx.lineTo(rect.x + rect.w, y); ctx.stroke();
     }
 
-    // Modern studio banner card
     const cx = rect.x + rect.w / 2;
     const cy = rect.y + rect.h / 2;
     ctx.fillStyle = 'rgba(19, 19, 38, 0.9)';
@@ -1795,7 +3328,6 @@
   function renderBrollViewport(ctx, rect, timeSec) {
     ctx.save();
     if (rect.isPip) {
-      // Rounded corner box for PiP mode
       const r = 24;
       ctx.beginPath();
       ctx.roundRect(rect.x, rect.y, rect.w, rect.h, r);
@@ -1831,32 +3363,33 @@
 
   function drawHookBannerOnCanvas(ctx, W, H, text, clipElapsed) {
     ctx.save();
-    const popScale = clipElapsed < 0.25 ? 0.92 + (clipElapsed / 0.25) * 0.08 : 1.0;
-    const bannerW = W * 0.88;
-    const bannerX = (W - bannerW) * 0.5;
-    const bannerY = 96;
+    const userScale = state.hookScale || 1.0;
+    const popScale = (clipElapsed < 0.25 ? 0.92 + (clipElapsed / 0.25) * 0.08 : 1.0) * userScale;
+    const baseBannerW = Math.min(960, W * 0.88);
+    const baseBannerH = 148;
+    const cx = ((state.hookPos?.x ?? 50) / 100) * W;
+    const cy = ((state.hookPos?.y ?? 10) / 100) * H;
 
-    ctx.translate(W * 0.5, bannerY + 65);
+    ctx.translate(cx, cy);
     ctx.scale(popScale, popScale);
-    ctx.translate(-W * 0.5, -(bannerY + 65));
 
     // Top red pill tag
     ctx.fillStyle = '#e11d48';
     ctx.beginPath();
-    ctx.roundRect(W * 0.5 - 150, bannerY - 26, 300, 34, 10);
+    ctx.roundRect(-150, -baseBannerH * 0.5, 300, 34, 10);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 20px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('⚡ VIRAL HOOK • WATCH TILL END', W * 0.5, bannerY - 3);
+    ctx.fillText('⚡ VIRAL HOOK • WATCH TILL END', 0, -baseBannerH * 0.5 + 23);
 
     // Main white/dark high-contrast hook card
     ctx.fillStyle = 'rgba(12, 12, 24, 0.92)';
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.roundRect(bannerX, bannerY + 12, bannerW, 118, 20);
+    ctx.roundRect(-baseBannerW * 0.5, -baseBannerH * 0.5 + 36, baseBannerW, 114, 20);
     ctx.fill();
     ctx.stroke();
 
@@ -1868,7 +3401,7 @@
     let line2 = '';
     words.forEach((w) => {
       const test = line1 ? `${line1} ${w}` : w;
-      if (ctx.measureText(test).width < bannerW - 56) {
+      if (ctx.measureText(test).width < baseBannerW - 56) {
         line1 = test;
       } else {
         line2 = line2 ? `${line2} ${w}` : w;
@@ -1876,21 +3409,85 @@
     });
 
     if (line2) {
-      ctx.fillText(line1, W * 0.5, bannerY + 62);
+      ctx.fillText(line1, 0, -baseBannerH * 0.5 + 84);
       ctx.fillStyle = '#facc15';
-      ctx.fillText(line2, W * 0.5, bannerY + 106);
+      ctx.fillText(line2, 0, -baseBannerH * 0.5 + 128);
     } else {
-      ctx.fillText(line1, W * 0.5, bannerY + 84);
+      ctx.fillText(line1, 0, -baseBannerH * 0.5 + 106);
     }
 
     ctx.restore();
+
+    const scaledW = baseBannerW * userScale;
+    const scaledH = baseBannerH * userScale;
+    state.canvasHitBoxes.push({
+      id: 'hook',
+      layerType: 'hook',
+      label: '🔥 Hook Banner',
+      x: cx - scaledW * 0.5,
+      y: cy - scaledH * 0.5,
+      w: scaledW,
+      h: scaledH,
+      cx,
+      cy
+    });
   }
 
   // =========================================================================
-  // VISUAL MEDIA OVERLAYS & VIRAL MEMES CUT-INS SYSTEM
+  // VISUAL MEDIA OVERLAYS, CLEAN BORDERLESS PIP & VIRAL STICKERS SYSTEM
   // =========================================================================
+  function renderCleanBorderlessPip(ctx, mediaEl, isVideo, cx, cy, w, h, radius = 16) {
+    const rx = cx - w * 0.5;
+    const ry = cy - h * 0.5;
+    const r = clamp(Number(radius) || 0, 0, Math.min(w, h) * 0.5);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 8;
+    ctx.fillStyle = 'rgba(8, 10, 20, 0.25)';
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, w, h, r);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, w, h, r);
+    ctx.clip();
+
+    if (isVideo) {
+      if (mediaEl && mediaEl.readyState >= 2) {
+        const vw = mediaEl.videoWidth || 640;
+        const vh = mediaEl.videoHeight || 360;
+        const sc = Math.max(w / vw, h / vh);
+        const dw = vw * sc;
+        const dh = vh * sc;
+        ctx.drawImage(mediaEl, cx - dw * 0.5, cy - dh * 0.5, dw, dh);
+      } else {
+        ctx.fillStyle = '#111629';
+        ctx.fillRect(rx, ry, w, h);
+      }
+    } else {
+      if (mediaEl && (mediaEl.complete || mediaEl.naturalWidth > 0)) {
+        const iw = mediaEl.naturalWidth || 400;
+        const ih = mediaEl.naturalHeight || 300;
+        const sc = Math.min(w / iw, h / ih);
+        const dw = iw * sc;
+        const dh = ih * sc;
+        ctx.drawImage(mediaEl, cx - dw * 0.5, cy - dh * 0.5, dw, dh);
+      } else {
+        ctx.fillStyle = '#111629';
+        ctx.fillRect(rx, ry, w, h);
+      }
+    }
+    ctx.restore();
+  }
+
   function drawVisualOverlaysOnCanvas(ctx, W, H, timeSec) {
-    // Keep topic overlay image synchronized with state
+    if (state.trackVisibility?.overlays === false) return;
+
+    // Keep legacy topic overlay image synchronized with state
     if (state.overlayImage && state.overlayImageEnabled) {
       const legacyId = 'ov_ai_plan_visual';
       let existing = state.visualOverlays.find((o) => o.id === legacyId);
@@ -1899,6 +3496,7 @@
           id: legacyId,
           name: state.overlayImage.title || 'AI Concept Visual',
           type: 'custom_image',
+          displayStyle: 'clean-pip',
           customUrl: state.overlayImage.url || state.overlayImage.path,
           mediaEl: state.overlayImgEl,
           startTime: typeof state.overlayImage.start === 'number' ? (state.overlayImage.start - state.trimStart) : 2.5,
@@ -1906,8 +3504,11 @@
           position: 'center-pop',
           animation: 'spring-pop',
           scale: state.overlayImageScale || 1.0,
-          x: 0,
-          y: 0,
+          xPct: (state.overlayImagePos?.x ?? 0.5) * 100,
+          yPct: (state.overlayImagePos?.y ?? 0.38) * 100,
+          cornerRadius: 16,
+          opacity: 100,
+          rotation: 0
         };
         state.visualOverlays.unshift(existing);
       }
@@ -1923,8 +3524,8 @@
       existing.startTime = typeof state.overlayImage.start === 'number' ? (state.overlayImage.start - state.trimStart) : (state.overlayImageStartOffset || 2.5);
       existing.duration = state.overlayImage.duration || 4.5;
       existing.scale = state.overlayImageScale || 1.0;
-      existing.x = ((state.overlayImagePos?.x ?? 0.5) - 0.5) * W;
-      existing.y = ((state.overlayImagePos?.y ?? 0.38) - 0.38) * H;
+      existing.xPct = (state.overlayImagePos?.x ?? 0.5) * 100;
+      existing.yPct = (state.overlayImagePos?.y ?? 0.38) * 100;
     } else if (state.visualOverlays && state.visualOverlays.length > 0) {
       state.visualOverlays = state.visualOverlays.filter((o) => o.id !== 'ov_ai_plan_visual');
     }
@@ -1933,145 +3534,139 @@
 
     state.visualOverlays.forEach((ov) => {
       const start = state.trimStart + (ov.startTime || 0);
-      const dur = Math.max(0.8, ov.duration || 3.5);
+      const dur = Math.max(0.4, ov.duration || 3.5);
       const end = start + dur;
 
-      const isSelected = (state.selectedCanvasLayer === 'image' || state.selectedTimelineItem === 'overlay-image');
+      const isSelected = (
+        state.selectedCanvasLayer === `overlay:${ov.id}` ||
+        (ov.id === 'ov_ai_plan_visual' && state.selectedCanvasLayer === 'image')
+      );
       const isVisibleInTime = (timeSec >= start && timeSec <= end);
-      if (!isVisibleInTime && !isSelected && !state.canvasDragMode) return;
+      if (!isVisibleInTime && !isSelected) return;
 
       const elapsed = Math.max(0, timeSec - start);
       const remaining = Math.max(0, end - timeSec);
 
-      // Animation calculations
       let scale = ov.scale || 1.0;
-      let alpha = 1.0;
+      let alpha = (ov.opacity !== undefined ? ov.opacity : 100) / 100;
       let shiftY = 0;
 
-      if (!isVisibleInTime && (isSelected || state.canvasDragMode)) {
-        alpha = 0.65; // Ghosted editor preview when paused outside active interval
+      if (!isVisibleInTime && isSelected) {
+        alpha *= 0.65;
       } else if (ov.animation === 'spring-pop') {
-        if (elapsed < 0.35) {
-          const t = elapsed / 0.35;
-          scale *= 0.75 + Math.sin(t * Math.PI * 0.5) * 0.25 + Math.sin(t * Math.PI) * 0.12;
-          alpha = Math.min(1.0, elapsed / 0.12);
-        } else if (remaining < 0.25) {
-          alpha = Math.max(0, remaining / 0.25);
+        if (elapsed < 0.32) {
+          const t = elapsed / 0.32;
+          scale *= 0.78 + Math.sin(t * Math.PI * 0.5) * 0.22 + Math.sin(t * Math.PI) * 0.08;
+          alpha *= Math.min(1.0, elapsed / 0.12);
+        } else if (remaining < 0.22) {
+          alpha *= Math.max(0, remaining / 0.22);
         }
       } else if (ov.animation === 'slide-up') {
-        if (elapsed < 0.3) {
-          const t = elapsed / 0.3;
-          shiftY = (1.0 - t) * 90;
-          alpha = t;
+        if (elapsed < 0.28) {
+          const t = elapsed / 0.28;
+          shiftY = (1.0 - t) * 80;
+          alpha *= t;
         } else if (remaining < 0.2) {
-          alpha = Math.max(0, remaining / 0.2);
+          alpha *= Math.max(0, remaining / 0.2);
         }
       } else if (ov.animation === 'glitch-pop') {
         if (elapsed < 0.2) {
-          alpha = Math.random() > 0.2 ? 1.0 : 0.4;
+          alpha *= Math.random() > 0.2 ? 1.0 : 0.45;
           shiftY = (Math.random() - 0.5) * 10;
         }
-      } else {
-        // Smooth dissolve fade
-        if (elapsed < 0.3) alpha = elapsed / 0.3;
-        else if (remaining < 0.3) alpha = Math.max(0, remaining / 0.3);
+      } else if (ov.animation === 'dissolve') {
+        if (elapsed < 0.28) alpha *= elapsed / 0.28;
+        else if (remaining < 0.28) alpha *= Math.max(0, remaining / 0.28);
       }
 
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+      if (ov.type === 'custom_image' && !ov.mediaEl && ov.customUrl) {
+        ov.mediaEl = new Image();
+        ov.mediaEl.crossOrigin = 'anonymous';
+        ov.mediaEl.src = ov.customUrl;
+      }
 
-      // Positioning presets
-      let cx = W * 0.5 + (ov.x || 0);
-      let cy = H * 0.38 + (ov.y || 0) + shiftY;
+      const useCleanPip = (ov.displayStyle !== 'card' && ov.type !== 'preset');
+
+      let cx = ov.xPct !== undefined ? (ov.xPct / 100) * W : (W * 0.5 + (ov.x || 0));
+      let cy = (ov.yPct !== undefined ? (ov.yPct / 100) * H : (H * 0.38 + (ov.y || 0))) + shiftY;
       let boxW = 520 * scale;
       let boxH = 340 * scale;
 
-      if (ov.position === 'top-right') {
-        cx = W * 0.74 + (ov.x || 0);
-        cy = H * 0.20 + (ov.y || 0) + shiftY;
-        boxW = 320 * scale;
-        boxH = 200 * scale;
-      } else if (ov.position === 'lower-third') {
-        cx = W * 0.5 + (ov.x || 0);
-        cy = H * 0.72 + (ov.y || 0) + shiftY;
-        boxW = 680 * scale;
-        boxH = 150 * scale;
-      } else if (ov.position === 'full-screen') {
-        cx = W * 0.5;
-        cy = H * 0.5 + shiftY;
-        boxW = W * 0.94;
-        boxH = H * 0.70;
+      if (ov.xPct === undefined) {
+        if (ov.position === 'top-right') {
+          cx = W * 0.74 + (ov.x || 0);
+          cy = H * 0.20 + (ov.y || 0) + shiftY;
+          boxW = 320 * scale;
+          boxH = 200 * scale;
+        } else if (ov.position === 'lower-third') {
+          cx = W * 0.5 + (ov.x || 0);
+          cy = H * 0.72 + (ov.y || 0) + shiftY;
+          boxW = 680 * scale;
+          boxH = 150 * scale;
+        } else if (ov.position === 'full-screen') {
+          cx = W * 0.5;
+          cy = H * 0.5 + shiftY;
+          boxW = W * 0.94 * scale;
+          boxH = H * 0.70 * scale;
+        }
       }
 
-      // Record exact interactive bounding box on canvas
+      if (useCleanPip) {
+        let natW = 540;
+        let natH = 400;
+        if (ov.type === 'custom_image' && ov.mediaEl && ov.mediaEl.naturalWidth > 0) {
+          natW = ov.mediaEl.naturalWidth;
+          natH = ov.mediaEl.naturalHeight;
+        } else if (ov.type === 'custom_video' && ov.mediaEl && ov.mediaEl.videoWidth > 0) {
+          natW = ov.mediaEl.videoWidth;
+          natH = ov.mediaEl.videoHeight;
+        }
+        const maxDim = (ov.position === 'full-screen' ? W * 0.90 : 540) * scale;
+        const aspect = natW / Math.max(1, natH);
+        if (aspect >= 1) {
+          boxW = maxDim;
+          boxH = maxDim / aspect;
+        } else {
+          boxH = maxDim;
+          boxW = maxDim * aspect;
+        }
+      }
+
+      ctx.save();
+      ctx.globalAlpha = clamp(alpha, 0, 1);
+      if (ov.rotation) {
+        ctx.translate(cx, cy);
+        ctx.rotate((ov.rotation * Math.PI) / 180);
+        ctx.translate(-cx, -cy);
+      }
+
+      if (ov.type === 'preset') {
+        renderPresetMemeCard(ctx, ov.presetId || 'stonks', cx, cy, boxW, boxH);
+      } else if (useCleanPip) {
+        renderCleanBorderlessPip(ctx, ov.mediaEl, ov.type === 'custom_video', cx, cy, boxW, boxH, ov.cornerRadius ?? 16);
+      } else if (ov.type === 'custom_video') {
+        renderOverlayVideoFrame(ctx, ov.mediaEl, cx, cy, boxW, boxH, ov.name);
+      } else {
+        renderOverlayImageFrame(ctx, ov.mediaEl, cx, cy, boxW, boxH, ov.name);
+      }
+
+      ctx.restore();
+
       const rx = cx - boxW * 0.5;
       const ry = cy - boxH * 0.5;
-      state.lastImageBounds = {
+      state.lastImageBounds = { x: rx, y: ry, w: boxW, h: boxH, cx, cy, overlayId: ov.id };
+      state.canvasHitBoxes.push({
+        id: `overlay:${ov.id}`,
+        layerType: 'overlay',
+        refId: ov.id,
+        label: `🖼️ ${ov.name || 'PIP Overlay'}`,
         x: rx,
         y: ry,
         w: boxW,
         h: boxH,
-        cx: cx,
-        cy: cy,
-        overlayId: ov.id
-      };
-
-      // Render based on overlay type
-      if (ov.type === 'custom_image') {
-        if (!ov.mediaEl && ov.customUrl) {
-          ov.mediaEl = new Image();
-          ov.mediaEl.crossOrigin = 'anonymous';
-          ov.mediaEl.src = ov.customUrl;
-        }
-        renderOverlayImageFrame(ctx, ov.mediaEl, cx, cy, boxW, boxH, ov.name);
-      } else if (ov.type === 'custom_video') {
-        renderOverlayVideoFrame(ctx, ov.mediaEl, cx, cy, boxW, boxH, ov.name);
-      } else {
-        renderPresetMemeCard(ctx, ov.presetId || 'stonks', cx, cy, boxW, boxH);
-      }
-
-      // CapCut Direct Canvas Selection Frame & Resize Handles
-      if (isSelected || state.canvasDragMode) {
-        ctx.save();
-        ctx.strokeStyle = '#00f2fe';
-        ctx.lineWidth = 3.5;
-        ctx.shadowColor = '#00f2fe';
-        ctx.shadowBlur = 10;
-        ctx.setLineDash([8, 6]);
-        ctx.strokeRect(rx, ry, boxW, boxH);
-        ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
-
-        // 4 Circular Corner Resize Handles
-        const cornerHandles = [
-          { x: rx, y: ry },
-          { x: rx + boxW, y: ry },
-          { x: rx + boxW, y: ry + boxH },
-          { x: rx, y: ry + boxH }
-        ];
-        cornerHandles.forEach(h => {
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = '#00f2fe';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(h.x, h.y, 9, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-        });
-
-        // Top Tooltip Badge
-        ctx.fillStyle = 'rgba(0, 242, 254, 0.95)';
-        ctx.beginPath();
-        ctx.roundRect(cx - 150, ry - 36, 300, 28, 6);
-        ctx.fill();
-        ctx.fillStyle = '#05060f';
-        ctx.font = '800 13px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('✥ DRAG TO MOVE • CORNER TO RESIZE', cx, ry - 18);
-        ctx.restore();
-      }
-
-      ctx.restore();
+        cx,
+        cy
+      });
     });
   }
 
@@ -2433,6 +4028,7 @@
 
   function addCustomVisualOverlay(file) {
     if (!file) return;
+    pushUndoState('Add PIP Overlay');
     const isVideo = file.type.startsWith('video');
     const url = URL.createObjectURL(file);
 
@@ -2446,33 +4042,44 @@
       mediaEl.play().catch(() => {});
     } else {
       mediaEl = new Image();
+      mediaEl.onload = () => renderCanvasFrame();
       mediaEl.src = url;
     }
 
-    const ovDuration = state.pendingOverlayDuration || (isVideo ? 5.0 : 3.5);
+    const ovDuration = state.pendingOverlayDuration || (isVideo ? 5.0 : 4.0);
     state.pendingOverlayDuration = null;
 
     const newOv = {
       id: `ov_${Date.now()}`,
       name: file.name.length > 22 ? file.name.substring(0, 19) + '...' : file.name,
       type: isVideo ? 'custom_video' : 'custom_image',
+      displayStyle: 'clean-pip',
       customUrl: url,
       mediaEl,
-      startTime: Math.max(0, state.currentTime - state.trimStart),
+      startTime: Math.max(0, Number((state.currentTime - state.trimStart).toFixed(2))),
       duration: ovDuration,
-      position: isVideo ? 'full-screen' : 'center-pop',
+      position: isVideo ? 'center-pop' : 'center-pop',
       animation: 'spring-pop',
       scale: 1.0,
+      xPct: 50,
+      yPct: 38,
+      cornerRadius: 16,
+      opacity: 100,
+      rotation: 0,
       x: 0,
-      y: 0,
+      y: 0
     };
 
+    mediaElementRegistry.set(newOv.id, mediaEl);
     state.visualOverlays.push(newOv);
     state.selectedTimelineItem = `visual-overlay-${newOv.id}`;
     state.selectedVisualOverlayId = newOv.id;
+    state.selectedCanvasLayer = `overlay:${newOv.id}`;
+    setInspectorMode('overlay');
     renderVisualOverlaysList();
     renderTimelineTracks();
-    showToast(`🎉 Added ${isVideo ? 'Cut-In Video' : 'Visual Image'}: "${newOv.name}" (${ovDuration.toFixed(1)}s) at ${(state.currentTime).toFixed(1)}s!`, '#10b981');
+    renderCanvasFrame();
+    showToast(`🖼️ Added Clean PIP ${isVideo ? 'Video' : 'Image'}: "${newOv.name}" (Drag/resize directly on canvas!)`, '#10b981');
   }
 
   function triggerVisualOverlayPicker(preferType = 'image') {
@@ -2491,11 +4098,14 @@
 
     if (dom.visualOverlayFileInput) {
       dom.visualOverlayFileInput.accept = preferType === 'video' ? 'video/*' : 'image/*,video/*';
+      dom.visualOverlayFileInput.value = '';
       dom.visualOverlayFileInput.click();
     }
+    return true;
   }
 
   function addPresetMemeOverlay(presetId) {
+    pushUndoState('Add Sticker');
     const titles = {
       'stonks': 'Stonks Growth Graph 📈',
       'money-rain': 'Money Rain 💸',
@@ -2509,12 +4119,18 @@
       id: `ov_${Date.now()}`,
       name: titles[presetId] || 'Viral Sticker',
       type: 'preset',
+      displayStyle: 'card',
       presetId,
-      startTime: Math.max(0, state.currentTime - state.trimStart),
+      startTime: Math.max(0, Number((state.currentTime - state.trimStart).toFixed(2))),
       duration: 3.5,
       position: 'center-pop',
       animation: 'spring-pop',
       scale: 1.0,
+      xPct: 50,
+      yPct: 38,
+      cornerRadius: 20,
+      opacity: 100,
+      rotation: 0,
       x: 0,
       y: 0,
       customUrl: null,
@@ -2522,37 +4138,62 @@
     };
 
     state.visualOverlays.push(newOv);
+    state.selectedVisualOverlayId = newOv.id;
+    state.selectedTimelineItem = `visual-overlay-${newOv.id}`;
+    state.selectedCanvasLayer = `overlay:${newOv.id}`;
+    setInspectorMode('overlay');
     renderVisualOverlaysList();
     renderTimelineTracks();
-    showToast(`🔥 Inserted "${newOv.name}" sticker!`, '#6366f1');
+    renderCanvasFrame();
+    showToast(`🔥 Inserted "${newOv.name}" sticker! Drag on canvas to position.`, '#6366f1');
   }
 
   function drawWatermarkOnCanvas(ctx, W, H, text) {
     ctx.save();
-    const pillW = Math.min(W - 80, Math.max(320, text.length * 16 + 60));
+    const wmScale = state.watermarkScale || 1.0;
+    const pillW = Math.min(W - 60, Math.max(300, text.length * 15.5 + 64));
     const pillH = 48;
-    const x = 42;
-    const y = H - 110;
+    const rawCx = ((state.watermarkPos?.x ?? 26) / 100) * W;
+    const rawCy = ((state.watermarkPos?.y ?? 92) / 100) * H;
+    const halfW = (pillW * wmScale) * 0.5;
+    const halfH = (pillH * wmScale) * 0.5;
+    const cx = clamp(rawCx, halfW + 16, W - halfW - 16);
+    const cy = clamp(rawCy, halfH + 16, H - halfH - 16);
 
-    ctx.fillStyle = 'rgba(11, 11, 24, 0.82)';
-    ctx.strokeStyle = 'rgba(225, 29, 72, 0.75)';
+    ctx.translate(cx, cy);
+    ctx.scale(wmScale, wmScale);
+
+    ctx.fillStyle = 'rgba(11, 11, 24, 0.84)';
+    ctx.strokeStyle = 'rgba(225, 29, 72, 0.78)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(x, y, pillW, pillH, 24);
+    ctx.roundRect(-pillW * 0.5, -pillH * 0.5, pillW, pillH, 24);
     ctx.fill();
     ctx.stroke();
 
-    // Verified Whop Flame dot
     ctx.fillStyle = '#e11d48';
     ctx.beginPath();
-    ctx.arc(x + 26, y + pillH * 0.5, 10, 0, Math.PI * 2);
+    ctx.arc(-pillW * 0.5 + 26, 0, 10, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 22px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(text, x + 46, y + 31);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, -pillW * 0.5 + 46, 1);
     ctx.restore();
+
+    state.canvasHitBoxes.push({
+      id: 'watermark',
+      layerType: 'watermark',
+      label: '🏷️ Creator Watermark',
+      x: cx - halfW,
+      y: cy - halfH,
+      w: halfW * 2,
+      h: halfH * 2,
+      cx,
+      cy
+    });
   }
 
   function drawKaraokeCaptionsOnCanvas(ctx, W, H, timeSec) {
@@ -2562,36 +4203,44 @@
     const capState = window.WhopAudioEngine.getCaptionStateAtTime(clip || state.analysis, timeSec, 4);
     if (!capState || !capState.chunkWords || capState.chunkWords.length === 0) return;
 
-    ctx.save();
-    const scaleFactor = (state.captionSize || 100) / 100;
-    const baseFontPx = Math.round(64 * scaleFactor);
-    const centerY = Math.round((state.captionPosY / 100) * H);
+    const visibleWords = capState.chunkWords.filter((w) => !w.deleted);
+    if (visibleWords.length === 0) return;
 
-    ctx.font = `900 ${baseFontPx}px "Plus Jakarta Sans", sans-serif`;
+    ctx.save();
+    const baseFontPx = clamp(Number(state.captionFontPx) || Math.round(64 * ((state.captionSize || 100) / 100)), 28, 130);
+    const scaleFactor = baseFontPx / 64;
+    const centerX = Math.round(((state.captionPosX ?? 50) / 100) * W);
+    const centerY = Math.round(((state.captionPosY ?? 72) / 100) * H);
+    const fontFam = state.captionFontFamily || 'Plus Jakarta Sans';
+    const baseColor = state.captionColor || '#ffffff';
+    const hiColor = state.captionHighlightColor || '#facc15';
+    const strokeW = Math.round((state.captionStrokeWidth ?? 14) * scaleFactor);
+
+    ctx.font = `900 ${baseFontPx}px "${fontFam}", sans-serif`;
     ctx.textBaseline = 'middle';
 
-    // Measure chunk total width
     const wordGap = 22 * scaleFactor;
-    const items = capState.chunkWords.map((wObj, idx) => {
-      const text = String(wObj.word || '').toUpperCase();
+    const items = visibleWords.map((wObj) => {
+      const text = state.captionStyle === 'minimal-white' ? String(wObj.word || '') : String(wObj.word || '').toUpperCase();
       const width = ctx.measureText(text).width;
       return {
         text,
         width,
         emoji: wObj.emoji || '',
-        isActive: idx === capState.activeIndexInChunk
+        isActive: wObj === capState.activeWord
       };
     });
 
     const totalW =
       items.reduce((acc, it) => acc + it.width, 0) + Math.max(0, items.length - 1) * wordGap;
+    const boxW = Math.max(180, totalW + 68);
+    const boxH = baseFontPx * 1.55;
 
-    // Optional dark backdrop plate for 'clean-pill' or readability
     if (state.captionStyle === 'clean-pill') {
       ctx.fillStyle = 'rgba(9, 9, 18, 0.88)';
       ctx.beginPath();
       ctx.roundRect(
-        (W - totalW) * 0.5 - 34,
+        centerX - totalW * 0.5 - 34,
         centerY - baseFontPx * 0.72,
         totalW + 68,
         baseFontPx * 1.44,
@@ -2600,23 +4249,21 @@
       ctx.fill();
     }
 
-    let cursorX = (W - totalW) * 0.5;
+    let cursorX = centerX - totalW * 0.5;
 
     items.forEach((it) => {
       const wordCenterX = cursorX + it.width * 0.5;
       ctx.save();
 
-      // Pop scale on active word
-      const pop = it.isActive ? 1.14 : 1.0;
+      const pop = it.isActive ? (state.captionStyle === 'minimal-white' ? 1.04 : 1.14) : 1.0;
       ctx.translate(wordCenterX, centerY);
       ctx.scale(pop, pop);
 
-      // Style-specific colors & pill highlights
-      let fillColor = '#ffffff';
+      let fillColor = baseColor;
       if (state.captionStyle === 'hormozi-pop') {
-        fillColor = it.isActive ? '#facc15' : '#ffffff';
+        fillColor = it.isActive ? hiColor : baseColor;
       } else if (state.captionStyle === 'mrbeast-bold') {
-        fillColor = it.isActive ? '#38bdf8' : '#ffffff';
+        fillColor = it.isActive ? (hiColor || '#38bdf8') : baseColor;
       } else if (state.captionStyle === 'whop-fire') {
         if (it.isActive) {
           ctx.fillStyle = '#e11d48';
@@ -2624,28 +4271,30 @@
           ctx.roundRect(-it.width * 0.5 - 14, -baseFontPx * 0.58, it.width + 28, baseFontPx * 1.16, 16);
           ctx.fill();
         }
-        fillColor = '#ffffff';
+        fillColor = baseColor;
       } else if (state.captionStyle === 'neon-cyber') {
-        fillColor = it.isActive ? '#e879f9' : '#e2e8f0';
+        fillColor = it.isActive ? (hiColor || '#e879f9') : baseColor;
         ctx.shadowColor = it.isActive ? '#d946ef' : '#6366f1';
         ctx.shadowBlur = it.isActive ? 28 : 10;
       } else if (state.captionStyle === 'clean-pill') {
-        fillColor = it.isActive ? '#34d399' : '#f8fafc';
+        fillColor = it.isActive ? (hiColor || '#34d399') : baseColor;
+      } else if (state.captionStyle === 'minimal-white') {
+        fillColor = it.isActive ? hiColor : baseColor;
       }
 
-      // Heavy black outline stroke for short-form legibility
       ctx.textAlign = 'center';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = Math.round(14 * scaleFactor);
-      ctx.strokeStyle = '#000000';
-      ctx.strokeText(it.text, 0, 0);
+      if (strokeW > 0) {
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = strokeW;
+        ctx.strokeStyle = '#000000';
+        ctx.strokeText(it.text, 0, 0);
+      }
 
       ctx.fillStyle = fillColor;
       ctx.fillText(it.text, 0, 0);
 
-      // Floating contextual emoji above active word
       if (it.isActive && state.autoEmoji && it.emoji) {
-        ctx.font = `${Math.round(56 * scaleFactor)}px sans-serif`;
+        ctx.font = `${Math.round(54 * scaleFactor)}px sans-serif`;
         ctx.fillText(it.emoji, 0, -baseFontPx * 0.95);
       }
 
@@ -2653,6 +4302,87 @@
       cursorX += it.width + wordGap;
     });
 
+    ctx.restore();
+
+    state.canvasHitBoxes.push({
+      id: 'caption',
+      layerType: 'caption',
+      label: '💬 Subtitles',
+      x: centerX - boxW * 0.5,
+      y: centerY - boxH * 0.5,
+      w: boxW,
+      h: boxH,
+      cx: centerX,
+      cy: centerY
+    });
+  }
+
+  function drawCanvasTransformGizmoAndSnapGuides(ctx, W, H) {
+    // 1. OpenCut-classic Magnetic Center Crosshair Snap Guides during active drag
+    if (state.canvasDragMode && state.canvasSnapGuides) {
+      ctx.save();
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([10, 8]);
+      if (state.canvasSnapGuides.vCenter) {
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, 0);
+        ctx.lineTo(W * 0.5, H);
+        ctx.stroke();
+      }
+      if (state.canvasSnapGuides.hCenter) {
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.5);
+        ctx.lineTo(W, H * 0.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 2. CapCut × OpenCut Bounding Box & 4 White Corner Resize Handles on Selected Layer
+    if (!state.selectedCanvasLayer) return;
+    const hb = (state.canvasHitBoxes || []).find((b) => b.id === state.selectedCanvasLayer);
+    if (!hb) return;
+
+    ctx.save();
+    ctx.strokeStyle = '#00f2fe';
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = 'rgba(0, 242, 254, 0.55)';
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(hb.x - 6, hb.y - 6, hb.w + 12, hb.h + 12);
+    ctx.shadowBlur = 0;
+
+    // 4 Crisp White Square/Rounded Handles (OpenCut-classic 18x18 canvas-space gizmos)
+    const corners = [
+      { x: hb.x - 6, y: hb.y - 6 },
+      { x: hb.x + hb.w + 6, y: hb.y - 6 },
+      { x: hb.x + hb.w + 6, y: hb.y + hb.h + 6 },
+      { x: hb.x - 6, y: hb.y + hb.h + 6 }
+    ];
+    corners.forEach((pt) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#009dff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(pt.x - 10, pt.y - 10, 20, 20, 5);
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    // Top Contextual Hint Pill
+    const isEditableText = hb.layerType === 'text' || hb.layerType === 'hook' || hb.layerType === 'watermark' || hb.layerType === 'caption';
+    const hintText = isEditableText ? `${hb.label} • Double-Click to Edit` : `${hb.label} • Drag / Corner Scale`;
+    ctx.font = '800 18px "Plus Jakarta Sans", sans-serif';
+    const pillW = Math.max(240, ctx.measureText(hintText).width + 34);
+    const pillY = hb.y > 60 ? hb.y - 44 : hb.y + hb.h + 18;
+    ctx.fillStyle = 'rgba(0, 157, 255, 0.94)';
+    ctx.beginPath();
+    ctx.roundRect(hb.cx - pillW * 0.5, pillY, pillW, 32, 8);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(hintText, hb.cx, pillY + 16);
     ctx.restore();
   }
 
@@ -2719,12 +4449,27 @@
     const { viewStart, viewEnd, span } = getTimelineBounds();
 
     const stageW = dom.timelineStage.clientWidth || 1000;
-    // Mathematically prevent overlapping labels: minimum 85px per tick label
-    const maxTicks = Math.max(3, Math.floor(stageW / 85));
+    const maxTicks = Math.max(3, Math.floor(stageW / 82));
     const rawInterval = span / maxTicks;
     const niceIntervals = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-    let interval = niceIntervals.find((i) => i >= rawInterval) || 60;
+    const interval = niceIntervals.find((i) => i >= rawInterval) || 60;
 
+    // Minor sub-ticks
+    const subStep = interval / 2;
+    const firstSub = Math.ceil(viewStart / subStep) * subStep;
+    for (let t = firstSub; t <= viewEnd + 0.001; t += subStep) {
+      const pct = timeToTimelinePct(t);
+      if (pct < 0.5 || pct > 99.5) continue;
+      const isMajor = Math.abs((t / interval) - Math.round(t / interval)) < 0.02;
+      if (isMajor) continue;
+      const minor = document.createElement('div');
+      minor.className = 'ruler-tick';
+      minor.style.left = `${pct}%`;
+      minor.innerHTML = '<div class="tick-line" style="height:4px; opacity:0.35;"></div>';
+      dom.timelineRuler.appendChild(minor);
+    }
+
+    // Major ticks with clean MM:SS labels
     const firstTick = Math.ceil(viewStart / interval) * interval;
     for (let t = firstTick; t <= viewEnd + 0.001; t += interval) {
       const pct = timeToTimelinePct(t);
@@ -2732,17 +4477,58 @@
       const tick = document.createElement('div');
       tick.className = 'ruler-tick';
       tick.style.left = `${pct}%`;
+      const mins = Math.floor(t / 60);
+      const secs = t % 60;
+      const lbl = interval < 1
+        ? `${String(mins).padStart(2, '0')}:${secs.toFixed(1).padStart(4, '0')}`
+        : `${String(mins).padStart(2, '0')}:${String(Math.floor(secs)).padStart(2, '0')}`;
       tick.innerHTML = `
         <div class="tick-line"></div>
-        <span class="tick-label">${formatTimecode(t)}</span>
+        <span class="tick-label">${lbl}</span>
       `;
       dom.timelineRuler.appendChild(tick);
     }
+
+    // Bookmark markers (#009dff CapCut/OpenCut flags)
+    (state.bookmarks || []).forEach((bmTime, bIdx) => {
+      if (bmTime < viewStart || bmTime > viewEnd) return;
+      const pct = timeToTimelinePct(bmTime);
+      const flag = document.createElement('div');
+      flag.title = `Bookmark ${formatShortTimecode(bmTime)} (Click to jump • Shift+Click to remove)`;
+      flag.style.cssText = `position:absolute; left:${pct}%; top:2px; transform:translateX(-50%); color:#00f2fe; font-size:11px; cursor:pointer; z-index:12; user-select:none; filter:drop-shadow(0 1px 3px #000);`;
+      flag.textContent = '🔖';
+      flag.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.shiftKey) {
+          state.bookmarks.splice(bIdx, 1);
+          renderTimelineRuler();
+          showToast('🗑️ Removed bookmark', '#64748b');
+        } else {
+          seekToTime(bmTime);
+        }
+      });
+      dom.timelineRuler.appendChild(flag);
+    });
   }
 
   function switchInspectorTab(targetTab) {
     let cleanTarget = (targetTab || '').replace('tabPanel-', '');
-    if (cleanTarget === 'hard-cuts' || cleanTarget === 'hardcuts') cleanTarget = 'hardfx';
+    if (cleanTarget === 'hard-cuts' || cleanTarget === 'hardcuts') {
+      setInspectorMode('video');
+      return;
+    }
+    if (cleanTarget === 'captions') {
+      setInspectorMode('caption');
+      return;
+    }
+    if (cleanTarget === 'visuals') {
+      setInspectorMode('overlay');
+      return;
+    }
+    if (cleanTarget === 'audio') {
+      setInspectorMode('audio');
+      return;
+    }
     document.querySelectorAll('.inspector-tab').forEach((b) => {
       const isMatch = b.dataset.tab === cleanTarget;
       b.classList.toggle('active', isMatch);
@@ -2755,11 +4541,33 @@
   }
 
   function renderTimelineTracks() {
+    if (dom.videoTrackLane) {
+      dom.videoTrackLane.classList.toggle('track-locked', !!state.trackLocks?.video);
+      dom.videoTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.main === false);
+    }
+    if (dom.captionTrackLane) {
+      dom.captionTrackLane.classList.toggle('track-locked', !!state.trackLocks?.captions);
+      dom.captionTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.captions === false);
+    }
+    if (dom.textTrackLane) {
+      dom.textTrackLane.classList.toggle('track-locked', !!state.trackLocks?.text);
+      dom.textTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.text === false);
+    }
+    if (dom.overlayTrackLane) {
+      dom.overlayTrackLane.classList.toggle('track-locked', !!state.trackLocks?.overlays);
+      dom.overlayTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.overlays === false);
+    }
+    if (dom.audioTrackLane) {
+      dom.audioTrackLane.classList.toggle('track-locked', !!state.trackLocks?.audio);
+    }
+
     renderVideoCutsTrack();
     renderCaptionTrack();
+    renderTextTrack();
     renderOverlayTrack();
     renderAudioTrack();
     updateTrimUI();
+    updateSelectionBadgeUI();
   }
 
   function renderVideoCutsTrack() {
@@ -2767,59 +4575,124 @@
     dom.videoTrackLane.innerHTML = '';
     const { viewStart, viewEnd } = getTimelineBounds();
     const clips = state.sequence?.videoClips || [];
+    const frames = state.filmstripFrames || [];
 
     clips.forEach((clip, idx) => {
       if (clip.end < viewStart || clip.start > viewEnd) return;
       const leftPct = timeToTimelinePct(clip.start);
       const rightPct = timeToTimelinePct(clip.end);
-      const isSel = state.sequence?.selectedClipId === clip.id;
+      const widthPct = Math.max(1.8, rightPct - leftPct);
+      const isSel = state.sequence?.selectedClipId === clip.id && !state.selectedCanvasLayer;
 
       const block = document.createElement('div');
       block.className = `timeline-clip-block clip-video ${isSel ? 'selected' : ''}`;
       block.style.left = `${leftPct}%`;
-      block.style.width = `${Math.max(1.8, rightPct - leftPct)}%`;
+      block.style.width = `${widthPct}%`;
       block.dataset.clipId = clip.id;
 
+      // Build filmstrip thumbnail tiles mapped to clip's sourceStart..sourceEnd
+      let filmHtml = '';
+      if (clip.freezeDataUrl) {
+        filmHtml = `<div class="clip-filmstrip-row"><img src="${clip.freezeDataUrl}" class="clip-filmstrip-thumb" alt="" /></div>`;
+      } else if (frames.length > 0) {
+        const srcS = clip.sourceStart ?? clip.start;
+        const srcE = Math.max(srcS + 0.2, clip.sourceEnd ?? clip.end);
+        const tileCount = clamp(Math.round(widthPct / 7), 1, 10);
+        const imgs = [];
+        for (let ti = 0; ti < tileCount; ti++) {
+          const sampleSec = srcS + ((ti + 0.5) / tileCount) * (srcE - srcS);
+          let best = frames[0];
+          let minD = Infinity;
+          frames.forEach((f) => {
+            const d = Math.abs(f.time - sampleSec);
+            if (d < minD) { minD = d; best = f; }
+          });
+          if (best && best.url) {
+            imgs.push(`<img src="${best.url}" class="clip-filmstrip-thumb" alt="" />`);
+          }
+        }
+        if (imgs.length > 0) {
+          filmHtml = `<div class="clip-filmstrip-row">${imgs.join('')}</div>`;
+        }
+      }
+
+      const icon = clip.freezeDataUrl ? '❄️' : '🎬';
       block.innerHTML = `
+        ${filmHtml}
         <div class="clip-handle clip-handle-left" data-action="trim-in" data-clip-id="${clip.id}" title="Trim In (Left Edge)"></div>
-        <div class="clip-content">
-          <span class="clip-title">🎬 ${clip.title}</span>
-          <span class="clip-tag">${clip.zoom}× • ${(clip.end - clip.start).toFixed(1)}s</span>
+        <div class="clip-content" style="position:relative; z-index:2;">
+          <span class="clip-title">${icon} ${clip.title}</span>
+          <span class="clip-tag">${clip.zoom && clip.zoom !== 1 ? clip.zoom.toFixed(2) + '× • ' : ''}${(clip.end - clip.start).toFixed(1)}s</span>
         </div>
         <div class="clip-handle clip-handle-right" data-action="trim-out" data-clip-id="${clip.id}" title="Trim Out (Right Edge)"></div>
       `;
 
       block.addEventListener('dblclick', (e) => {
         e.stopPropagation();
+        if (state.trackLocks?.video) return;
         const updated = window.prompt('Rename video cut:', clip.title);
         if (updated !== null && updated.trim() !== '') {
+          pushUndoState('Rename Video Cut');
           clip.title = updated.trim();
           renderTimelineTracks();
-          syncSelectedCutInspector();
+          syncContextualInspector();
           showToast(`✏️ Renamed cut to "${clip.title}"`);
         }
       });
 
       block.addEventListener('mousedown', (e) => {
+        if (e.button === 2) return;
         e.stopPropagation();
         const action = e.target.dataset.action || 'move';
         state.sequence.selectedClipId = clip.id;
         state.sequence.selectedTrackType = 'video';
-        syncSelectedCutInspector();
+        state.selectedCanvasLayer = null;
+        state.selectedTimelineItem = null;
+        setInspectorMode('video');
         renderTimelineTracks();
-        switchInspectorTab('hard-cuts');
+        renderCanvasFrame();
 
+        if (state.trackLocks?.video) return;
+        pushUndoState(action === 'move' ? 'Move Video Cut' : 'Trim Video Cut');
         state.activeClipDrag = {
           clipId: clip.id,
-          action: action,
+          action,
           startX: e.clientX,
           initStart: clip.start,
           initEnd: clip.end,
-          idx: idx
+          initSourceStart: clip.sourceStart ?? clip.start,
+          initSourceEnd: clip.sourceEnd ?? clip.end,
+          idx
         };
       });
 
       dom.videoTrackLane.appendChild(block);
+
+      // Clickable CapCut Transition Junction Badge [⧉] between adjacent cuts
+      if (idx > 0) {
+        const prev = clips[idx - 1];
+        if (Math.abs(clip.start - prev.end) < 0.6) {
+          const jBadge = document.createElement('button');
+          jBadge.type = 'button';
+          const tr = clip.transition || 'cut';
+          jBadge.className = `transition-junction-badge ${tr !== 'cut' && tr !== 'none' ? 'has-trans' : ''}`;
+          jBadge.style.left = `${leftPct}%`;
+          jBadge.title = `Transition: ${tr.toUpperCase()} (Click to cycle transition)`;
+          jBadge.textContent = tr === 'flash' ? '⚡' : (tr === 'dissolve' ? '🌅' : (tr === 'zoom' ? '🔍' : (tr === 'glitch' ? '📺' : '⧉')));
+          jBadge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            pushUndoState('Cycle Cut Transition');
+            const order = ['cut', 'flash', 'dissolve', 'zoom', 'glitch'];
+            const next = order[(order.indexOf(tr) + 1) % order.length];
+            clip.transition = next;
+            state.sequence.selectedClipId = clip.id;
+            setInspectorMode('video');
+            renderVideoCutsTrack();
+            showToast(`🪄 Cut Transition: ${next.toUpperCase()}`, '#00f2fe');
+          });
+          dom.videoTrackLane.appendChild(jBadge);
+        }
+      }
     });
 
     renderSequenceCutsList();
@@ -2833,16 +4706,18 @@
 
     const clip = getActiveClip();
     let segments = [];
-    const capWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+    const rawWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
       ? clip.transcript
       : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
+    const capWords = rawWords.filter((w) => !w.deleted);
 
     if (capWords.length > 0) {
       for (let i = 0; i < capWords.length; i += 3) {
         const chunk = capWords.slice(i, i + 3);
+        const origIdx = rawWords.indexOf(chunk[0]);
         segments.push({
           id: `cap-chunk-${i}`,
-          chunkStartIdx: i,
+          chunkStartIdx: origIdx !== -1 ? origIdx : i,
           chunkCount: chunk.length,
           start: chunk[0].start,
           end: chunk[chunk.length - 1].end,
@@ -2873,50 +4748,35 @@
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;">💬 ${seg.text || 'Caption'}</span>
         <div class="clip-handle clip-handle-right" data-action="trim-cap-right" data-cap-id="${seg.id}" title="Trim Caption Out"></div>
       `;
-      block.title = `${seg.text} (${(seg.end - seg.start).toFixed(1)}s) • Click to select / Del to delete`;
+      block.title = `${seg.text} (${(seg.end - seg.start).toFixed(1)}s) • Double-click to edit inline`;
 
       block.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        const updated = window.prompt('Edit subtitle text:', seg.text);
-        if (updated !== null && updated.trim() !== '') {
-          seg.text = updated.trim();
-          const clip = getActiveClip();
-          if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
-            const newWords = updated.trim().split(/\s+/);
-            const chunkDur = Math.max(0.3, seg.end - seg.start);
-            const wDur = chunkDur / newWords.length;
-            const updatedWords = newWords.map((nw, idx) => ({
-              word: nw,
-              start: Number((seg.start + idx * wDur).toFixed(2)),
-              end: Number((seg.start + (idx + 1) * wDur).toFixed(2)),
-              relStart: Number((seg.start + idx * wDur).toFixed(2)),
-              relEnd: Number((seg.start + (idx + 1) * wDur).toFixed(2)),
-              emoji: '',
-              emphasis: false
-            }));
-            clip.transcript.splice(seg.chunkStartIdx, seg.chunkCount || 3, ...updatedWords);
-            seg.chunkCount = newWords.length;
-          }
-          renderCaptionTrack();
-          renderTranscriptCloud();
-          renderCanvasFrame();
-          showToast(`✏️ Updated subtitle: "${seg.text}"`);
-          if (window.jarvis) window.jarvis.speak("Subtitle updated, sir.");
-        }
+        if (state.trackLocks?.captions) return;
+        state.selectedTimelineItem = seg.id;
+        state.selectedCaptionSegment = seg;
+        state.selectedCanvasLayer = 'caption';
+        setInspectorMode('caption');
+        openCanvasInlineEditor('caption');
       });
 
       block.addEventListener('mousedown', (e) => {
+        if (e.button === 2) return;
         e.stopPropagation();
         const action = e.target.dataset.action || 'move-cap';
         state.selectedTimelineItem = seg.id;
         state.selectedCaptionSegment = seg;
+        state.selectedCanvasLayer = 'caption';
         state.sequence.selectedTrackType = 'caption';
-        seekToTime(seg.start);
+        seekToTime(seg.start + 0.02);
+        setInspectorMode('caption');
         renderTimelineTracks();
 
+        if (state.trackLocks?.captions) return;
+        pushUndoState('Adjust Subtitle Timing');
         state.activeCaptionDrag = {
-          seg: seg,
-          action: action,
+          seg,
+          action,
           startX: e.clientX,
           initStart: seg.start,
           initEnd: seg.end
@@ -2927,33 +4787,48 @@
     });
   }
 
-  function renderOverlayTrack() {
-    if (!dom.overlayTrackLane) return;
-    dom.overlayTrackLane.innerHTML = '';
-    if (state.trackVisibility?.overlays === false) return;
+  function renderTextTrack() {
+    if (!dom.textTrackLane) return;
+    dom.textTrackLane.innerHTML = '';
+    if (state.trackVisibility?.text === false) return;
     const { viewStart, viewEnd } = getTimelineBounds();
 
-    // Hook Banner
-    if (state.hookMode !== 'off') {
-      const hookDur = state.hookMode === 'always' ? state.trimEnd - state.trimStart : (state.hookDuration || Math.min(3.5, state.trimEnd - state.trimStart));
-      const hookEnd = state.trimStart + hookDur;
-      if (hookEnd >= viewStart && state.trimStart <= viewEnd) {
-        const leftPct = timeToTimelinePct(state.trimStart);
+    // 1. Top Hook Banner Block
+    const hookTrackStr = String(state.hookText || '');
+    if (state.hookMode !== 'off' && hookTrackStr.trim() !== '') {
+      const hookDur = state.hookMode === 'always'
+        ? Math.max(1.0, state.trimEnd - state.trimStart)
+        : (state.hookDuration || Math.min(3.5, Math.max(1.0, state.trimEnd - state.trimStart)));
+      const hookStart = state.trimStart;
+      const hookEnd = hookStart + hookDur;
+      if (hookEnd >= viewStart && hookStart <= viewEnd) {
+        const leftPct = timeToTimelinePct(hookStart);
         const rightPct = timeToTimelinePct(hookEnd);
-        const isSel = state.selectedTimelineItem === 'hook-banner';
+        const isSel = state.selectedTimelineItem === 'hook-banner' || state.selectedCanvasLayer === 'hook';
         const hookBlock = document.createElement('div');
         hookBlock.className = `timeline-block block-hook ${isSel ? 'selected' : ''}`;
         hookBlock.style.left = `${leftPct}%`;
         hookBlock.style.width = `${Math.max(3, rightPct - leftPct)}%`;
         hookBlock.innerHTML = `
-          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;">🔥 Hook (${hookDur.toFixed(1)}s)</span>
+          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔥 Hook: ${hookTrackStr.slice(0, 18)}</span>
           <div class="block-resize-handle block-resize-right" data-action="resize-hook-right" title="Drag to adjust Hook duration"></div>
         `;
+        hookBlock.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          state.selectedCanvasLayer = 'hook';
+          state.activeTextTarget = 'hook';
+          setInspectorMode('text');
+          openCanvasInlineEditor('hook');
+        });
         hookBlock.addEventListener('mousedown', (e) => {
+          if (e.button === 2) return;
           e.stopPropagation();
           state.selectedTimelineItem = 'hook-banner';
           state.selectedCanvasLayer = 'hook';
-          if (e.target.dataset.action === 'resize-hook-right') {
+          state.activeTextTarget = 'hook';
+          setInspectorMode('text');
+          if (!state.trackLocks?.text && e.target.dataset.action === 'resize-hook-right') {
+            pushUndoState('Resize Hook Duration');
             state.timelineBlockDrag = {
               item: 'hook-banner',
               action: 'resize-right',
@@ -2962,12 +4837,116 @@
             };
           }
           renderTimelineTracks();
+          renderCanvasFrame();
         });
-        dom.overlayTrackLane.appendChild(hookBlock);
+        dom.textTrackLane.appendChild(hookBlock);
       }
     }
 
-    // Topic Visual Image Overlay
+    // 2. Creator Watermark Block (when enabled)
+    if (state.watermarkEnabled && state.watermarkText.trim() !== '') {
+      const wmStart = state.trimStart;
+      const wmEnd = state.trimEnd;
+      if (wmEnd >= viewStart && wmStart <= viewEnd) {
+        const leftPct = timeToTimelinePct(wmStart);
+        const rightPct = timeToTimelinePct(wmEnd);
+        const isSel = state.selectedTimelineItem === 'watermark-block' || state.selectedCanvasLayer === 'watermark';
+        const wmBlock = document.createElement('div');
+        wmBlock.className = `timeline-block block-text-layer ${isSel ? 'selected' : ''}`;
+        wmBlock.style.left = `${leftPct}%`;
+        wmBlock.style.width = `${Math.max(4, Math.min(22, rightPct - leftPct))}%`;
+        wmBlock.style.opacity = '0.88';
+        wmBlock.title = 'Creator Watermark (Click to move/style or toggle OFF in Inspector)';
+        wmBlock.innerHTML = `<span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🏷️ ${state.watermarkText}</span>`;
+        wmBlock.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          state.selectedCanvasLayer = 'watermark';
+          state.activeTextTarget = 'watermark';
+          setInspectorMode('text');
+          openCanvasInlineEditor('watermark');
+        });
+        wmBlock.addEventListener('mousedown', (e) => {
+          if (e.button === 2) return;
+          e.stopPropagation();
+          state.selectedTimelineItem = 'watermark-block';
+          state.selectedCanvasLayer = 'watermark';
+          state.activeTextTarget = 'watermark';
+          setInspectorMode('text');
+          renderTimelineTracks();
+          renderCanvasFrame();
+        });
+        dom.textTrackLane.appendChild(wmBlock);
+      }
+    }
+
+    // 3. Custom CapCut Text Layers ("T" Tool)
+    (state.textLayers || []).forEach((layer) => {
+      if (layer.visible === false) return;
+      const tStart = Number(layer.start) || 0;
+      const tDur = Math.max(0.4, Number(layer.duration) || 4.0);
+      const tEnd = tStart + tDur;
+      if (tEnd < viewStart || tStart > viewEnd) return;
+
+      const leftPct = timeToTimelinePct(tStart);
+      const rightPct = timeToTimelinePct(tEnd);
+      const isSel = state.selectedTextLayerId === layer.id || state.selectedCanvasLayer === `text:${layer.id}`;
+
+      const tBlock = document.createElement('div');
+      tBlock.className = `timeline-block block-text-layer ${isSel ? 'selected' : ''}`;
+      tBlock.style.left = `${leftPct}%`;
+      tBlock.style.width = `${Math.max(3, rightPct - leftPct)}%`;
+      tBlock.innerHTML = `
+        <div class="block-resize-handle block-resize-left" data-action="resize-txt-left" title="Trim Text Start"></div>
+        <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔤 ${layer.text}</span>
+        <div class="block-resize-handle block-resize-right" data-action="resize-txt-right" title="Trim Text Duration"></div>
+      `;
+
+      tBlock.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        state.selectedTextLayerId = layer.id;
+        state.activeTextTarget = 'layer';
+        state.selectedCanvasLayer = `text:${layer.id}`;
+        setInspectorMode('text');
+        openCanvasInlineEditor(`text:${layer.id}`);
+      });
+
+      tBlock.addEventListener('mousedown', (e) => {
+        if (e.button === 2) return;
+        e.stopPropagation();
+        const act = e.target.dataset.action || 'move-txt';
+        state.selectedTextLayerId = layer.id;
+        state.activeTextTarget = 'layer';
+        state.selectedCanvasLayer = `text:${layer.id}`;
+        state.selectedTimelineItem = `text-layer-${layer.id}`;
+        seekToTime(tStart + 0.04);
+        setInspectorMode('text');
+        renderTextLayersList();
+        renderTimelineTracks();
+        renderCanvasFrame();
+
+        if (state.trackLocks?.text) return;
+        pushUndoState('Adjust Text Layer Timing');
+        state.timelineBlockDrag = {
+          item: `text-layer-${layer.id}`,
+          layerId: layer.id,
+          action: act,
+          startX: e.clientX,
+          initStart: tStart,
+          initDuration: tDur
+        };
+      });
+
+      dom.textTrackLane.appendChild(tBlock);
+    });
+  }
+
+  function renderOverlayTrack() {
+    if (!dom.overlayTrackLane) return;
+    dom.overlayTrackLane.innerHTML = '';
+    if (state.trackVisibility?.overlays === false) return;
+    const { viewStart, viewEnd } = getTimelineBounds();
+
+    // Legacy Topic Visual Image Overlay (if enabled separately)
     if (state.overlayImage && state.overlayImage.enabled) {
       const imgStart = state.overlayImage.start;
       const imgEnd = imgStart + state.overlayImage.duration;
@@ -2979,25 +4958,29 @@
         imgBlock.className = `timeline-block block-image-overlay ${isSel ? 'selected' : ''}`;
         imgBlock.style.left = `${leftPct}%`;
         imgBlock.style.width = `${Math.max(3.5, rightPct - leftPct)}%`;
-        imgBlock.style.top = '4px';
         imgBlock.innerHTML = `
           <div class="block-resize-handle block-resize-left" data-action="resize-left" title="Drag to adjust Start Time"></div>
-          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;">🖼️ ${state.overlayImage.title || 'Visual Cue'} (${state.overlayImage.duration.toFixed(1)}s)</span>
+          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🖼️ ${state.overlayImage.title || 'Visual Cue'} (${state.overlayImage.duration.toFixed(1)}s)</span>
           <div class="block-resize-handle block-resize-right" data-action="resize-right" title="Drag to adjust Duration"></div>
         `;
         imgBlock.addEventListener('mousedown', (e) => {
+          if (e.button === 2) return;
           e.stopPropagation();
           const action = e.target.dataset.action || 'move';
           state.selectedTimelineItem = 'overlay-image';
-          state.selectedCanvasLayer = 'image';
-          state.timelineBlockDrag = {
-            item: 'overlay-image',
-            action: action,
-            startX: e.clientX,
-            initStart: state.overlayImage.start,
-            initDuration: state.overlayImage.duration
-          };
-          seekToTime(state.overlayImage.start);
+          state.selectedCanvasLayer = 'overlay:ov_ai_plan_visual';
+          setInspectorMode('overlay');
+          if (!state.trackLocks?.overlays) {
+            pushUndoState('Adjust PIP Timing');
+            state.timelineBlockDrag = {
+              item: 'overlay-image',
+              action,
+              startX: e.clientX,
+              initStart: state.overlayImage.start,
+              initDuration: state.overlayImage.duration
+            };
+          }
+          seekToTime(state.overlayImage.start + 0.04);
           syncImageInspectorControls();
           renderTimelineTracks();
         });
@@ -3005,7 +4988,7 @@
       }
     }
 
-    // Multiple Visual & Picture Overlays (CapCut Overlays)
+    // Multiple Clean PIP & Sticker Overlays
     if (Array.isArray(state.visualOverlays)) {
       state.visualOverlays.forEach((ov) => {
         if (ov.id === 'ov_ai_plan_visual' && state.overlayImage && state.overlayImage.enabled) return;
@@ -3017,38 +5000,47 @@
         if (ovEnd >= viewStart && ovStart <= viewEnd) {
           const leftPct = timeToTimelinePct(ovStart);
           const rightPct = timeToTimelinePct(ovEnd);
-          const isSel = (state.selectedTimelineItem === `visual-overlay-${ov.id}` || state.selectedVisualOverlayId === ov.id);
+          const isSel = (
+            state.selectedTimelineItem === `visual-overlay-${ov.id}` ||
+            state.selectedVisualOverlayId === ov.id ||
+            state.selectedCanvasLayer === `overlay:${ov.id}`
+          );
 
           const ovBlock = document.createElement('div');
           ovBlock.className = `timeline-block block-image-overlay ${isSel ? 'selected' : ''}`;
           ovBlock.style.left = `${leftPct}%`;
           ovBlock.style.width = `${Math.max(3.5, rightPct - leftPct)}%`;
-          ovBlock.style.top = '4px';
 
           const icon = ov.type === 'custom_video' ? '🎬' : (ov.type === 'custom_image' ? '🖼️' : '🔥');
           ovBlock.innerHTML = `
             <div class="block-resize-handle block-resize-left" data-action="resize-ov-left" title="Drag to adjust Start Time"></div>
-            <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;">${icon} ${ov.name || 'Overlay'} (${ovDur.toFixed(1)}s)</span>
+            <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${icon} ${ov.name || 'Overlay'} (${ovDur.toFixed(1)}s)</span>
             <div class="block-resize-handle block-resize-right" data-action="resize-ov-right" title="Drag to adjust Duration"></div>
           `;
 
           ovBlock.addEventListener('mousedown', (e) => {
+            if (e.button === 2) return;
             e.stopPropagation();
             const action = e.target.dataset.action || 'move-ov';
             state.selectedTimelineItem = `visual-overlay-${ov.id}`;
             state.selectedVisualOverlayId = ov.id;
-            state.selectedCanvasLayer = 'image';
-            state.timelineBlockDrag = {
-              item: `visual-overlay-${ov.id}`,
-              overlayId: ov.id,
-              action: action,
-              startX: e.clientX,
-              initStart: ovStart,
-              initDuration: ovDur
-            };
-            seekToTime(ovStart);
+            state.selectedCanvasLayer = `overlay:${ov.id}`;
+            setInspectorMode('overlay');
+            if (!state.trackLocks?.overlays) {
+              pushUndoState('Adjust PIP Overlay Timing');
+              state.timelineBlockDrag = {
+                item: `visual-overlay-${ov.id}`,
+                overlayId: ov.id,
+                action,
+                startX: e.clientX,
+                initStart: ovStart,
+                initDuration: ovDur
+              };
+            }
+            seekToTime(ovStart + 0.04);
             renderTimelineTracks();
             renderVisualOverlaysList();
+            renderCanvasFrame();
           });
 
           dom.overlayTrackLane.appendChild(ovBlock);
@@ -3110,14 +5102,14 @@
       card.className = `sequence-cut-card ${isSel ? 'active' : ''}`;
       card.innerHTML = `
         <div class="cut-card-left">
-          <span class="cut-card-icon">🎬</span>
+          <span class="cut-card-icon">${clip.freezeDataUrl ? '❄️' : '🎬'}</span>
           <div class="cut-card-info">
             <span class="cut-card-title">${clip.title}</span>
             <span class="cut-card-meta">${formatTimecode(clip.start)} - ${formatTimecode(clip.end)} (${(clip.end - clip.start).toFixed(1)}s)</span>
           </div>
         </div>
         <div class="cut-card-right">
-          <span class="cut-zoom-badge">${clip.zoom}× • ${clip.transition || 'cut'}</span>
+          <span class="cut-zoom-badge">${clip.zoom || 1}× • ${clip.transition || 'cut'}</span>
           <button type="button" class="cut-del-btn" title="Delete cut" data-del-id="${clip.id}">✕</button>
         </div>
       `;
@@ -3126,14 +5118,15 @@
         if (e.target.dataset.delId) {
           e.stopPropagation();
           state.sequence.selectedClipId = clip.id;
+          state.selectedCanvasLayer = null;
           deleteSelectedCapCutItem();
           return;
         }
         state.sequence.selectedClipId = clip.id;
         state.sequence.selectedTrackType = 'video';
+        state.selectedCanvasLayer = null;
         seekToTime(clip.start);
-        syncSelectedCutInspector();
-        switchInspectorTab('hard-cuts');
+        setInspectorMode('video');
         renderTimelineTracks();
       });
 
@@ -3142,32 +5135,7 @@
   }
 
   function syncSelectedCutInspector() {
-    const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
-
-    if (dom.inspectorEmptyState && dom.inspectorPropertiesPanel) {
-      if (!clip) {
-        dom.inspectorEmptyState.classList.remove('hidden');
-        dom.inspectorPropertiesPanel.classList.add('hidden');
-        return;
-      }
-      dom.inspectorEmptyState.classList.add('hidden');
-      dom.inspectorPropertiesPanel.classList.remove('hidden');
-    }
-
-    if (!clip) return;
-    if (dom.selectedCutBadge) dom.selectedCutBadge.textContent = clip.title || 'Cut';
-    if (dom.selectedCutZoomSlider) dom.selectedCutZoomSlider.value = String(clip.zoom || 1.0);
-    if (dom.selectedCutZoomLabel) dom.selectedCutZoomLabel.textContent = `${Number(clip.zoom || 1.0).toFixed(2)}×`;
-    if (dom.selectedCutPanXSlider) dom.selectedCutPanXSlider.value = String(clip.panX || 0);
-    if (dom.selectedCutPanXLabel) dom.selectedCutPanXLabel.textContent = `${clip.panX || 0}%`;
-    if (dom.selectedCutPanYSlider) dom.selectedCutPanYSlider.value = String(clip.panY || 0);
-    if (dom.selectedCutPanYLabel) dom.selectedCutPanYLabel.textContent = `${clip.panY || 0}%`;
-    if (dom.selectedCutVolSlider) {
-      const vol = Math.round((clip.volume !== undefined ? clip.volume : 1.0) * 100);
-      dom.selectedCutVolSlider.value = String(vol);
-      if (dom.selectedCutVolLabel) dom.selectedCutVolLabel.textContent = `${vol}%`;
-    }
-    if (dom.selectedCutTransitionSelect) dom.selectedCutTransitionSelect.value = clip.transition || 'cut';
+    syncContextualInspector();
   }
 
   function getActiveVideoCutAtTime(time) {
@@ -3591,9 +5559,14 @@
     state.isRecordingExport = true;
     dom.exportProgressSection.classList.remove('hidden');
     dom.recordingOverlayBadge.classList.remove('hidden');
+    if (dom.stopVideoRenderBtn) dom.stopVideoRenderBtn.classList.remove('hidden');
 
-    // Prepare playback from trimStart
-    seekToTime(state.trimStart);
+    const clips = state.sequence?.videoClips || [];
+    const exportStart = clips.length > 0 ? clips[0].start : state.trimStart;
+    const exportEnd = clips.length > 0 ? clips[clips.length - 1].end : state.trimEnd;
+
+    // Prepare playback from sequence start
+    seekToTime(exportStart);
     state.isPlaying = true;
     updatePlayPauseButtonUI();
 
@@ -3616,29 +5589,34 @@
     const recorder = selectedMime
       ? new MediaRecorder(canvasStream, { mimeType: selectedMime, videoBitsPerSecond: 6000000 })
       : new MediaRecorder(canvasStream);
+    state.activeMediaRecorder = recorder;
 
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
 
-    // Record up to 4.5 seconds of real-time 9:16 playback (or full clip if shorter) so export finishes briskly
-    const clipDuration = Math.max(1.5, state.trimEnd - state.trimStart);
-    const recordDurationMs = Math.min(clipDuration * 1000, 4500);
+    // Record the FULL sequence duration (no 4.5s cap!) with manual Stop & Save button available anytime
+    const clipDuration = Math.max(1.5, exportEnd - exportStart);
+    const speed = state.playbackSpeed || 1.0;
+    const recordDurationMs = Math.max(1500, (clipDuration / speed) * 1000);
     const startWall = performance.now();
+    const ratioLabel = state.aspectRatio || '9:16';
 
     const progInterval = setInterval(() => {
       const elapsed = performance.now() - startWall;
       const pct = clamp(Math.round((elapsed / recordDurationMs) * 100), 0, 100);
       dom.exportProgressPercent.textContent = `${pct}%`;
       dom.exportProgressBar.style.width = `${pct}%`;
-      dom.recordingStatusText.textContent = `REC 9:16 • ${pct}%`;
+      dom.recordingStatusText.textContent = `REC ${ratioLabel} • ${pct}%`;
     }, 80);
 
     recorder.onstop = () => {
       clearInterval(progInterval);
+      state.activeMediaRecorder = null;
       state.isRecordingExport = false;
       state.isPlaying = false;
       updatePlayPauseButtonUI();
+      if (dom.stopVideoRenderBtn) dom.stopVideoRenderBtn.classList.add('hidden');
       if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
 
       dom.exportProgressPercent.textContent = '100%';
@@ -3647,12 +5625,12 @@
 
       const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
       const blob = new Blob(chunks, { type: selectedMime || 'video/webm' });
-      const filename = `${slugify(state.clipTitle)}-9x16.${ext}`;
+      const filename = `${slugify(state.clipTitle)}-${ratioLabel.replace(':', 'x')}.${ext}`;
       triggerBlobDownload(blob, filename);
 
       // Also save a copy into the Studio Vault automatically
       saveCurrentClipToVault(false);
-      showToast(`🎬 Exported 9:16 Video (${filename}) & Saved to Vault!`);
+      showToast(`🎬 Exported Full ${ratioLabel} Video (${filename}) & Saved to Vault!`);
     };
 
     recorder.start(150);
@@ -3950,6 +5928,7 @@
           state.streamDuration = dom.mainVideoEl.duration;
         }
         dom.mainVideoEl.currentTime = state.trimStart;
+        ensureFilmstripCacheForVideo(dom.mainVideoEl.src, state.streamDuration);
         renderCanvasFrame();
         updatePlayheadUI();
       };
@@ -4006,6 +5985,7 @@
               state.streamDuration = dom.mainVideoEl.duration;
             }
             dom.mainVideoEl.currentTime = state.trimStart;
+            ensureFilmstripCacheForVideo(dom.mainVideoEl.src, state.streamDuration);
             renderCanvasFrame();
             updatePlayheadUI();
           };
@@ -4622,10 +6602,20 @@
 
     // Export Modal open/close & actions
     const openExportModal = () => {
-      const dur = Math.max(0.5, state.trimEnd - state.trimStart).toFixed(1);
-      if (dom.exportSpecDuration) dom.exportSpecDuration.textContent = `${dur} Seconds`;
+      const clips = state.sequence?.videoClips || [];
+      const durVal = clips.length > 0
+        ? Math.max(0.5, clips[clips.length - 1].end - clips[0].start)
+        : Math.max(0.5, state.trimEnd - state.trimStart);
+      if (dom.exportSpecDuration) dom.exportSpecDuration.textContent = `${durVal.toFixed(1)}s Full Sequence`;
+      if (dom.exportSpecResolution) {
+        const resMap = { '9:16': '1080×1920 (9:16) @ 30fps', '16:9': '1920×1080 (16:9) @ 30fps', '1:1': '1080×1080 (1:1) @ 30fps' };
+        dom.exportSpecResolution.textContent = resMap[state.aspectRatio] || resMap['9:16'];
+      }
       if (dom.exportSpecLayout) {
-        dom.exportSpecLayout.textContent = `${state.layoutMode} • ${state.brollPreset}`;
+        dom.exportSpecLayout.textContent = `${state.layoutMode} • ${(state.videoFitMode || 'fit').toUpperCase()}`;
+      }
+      if (dom.exportSpecLayers) {
+        dom.exportSpecLayers.textContent = `${clips.length} Cuts • ${(state.textLayers || []).length} Text • ${(state.visualOverlays || []).length} PIP`;
       }
       dom.exportProgressSection.classList.add('hidden');
       dom.exportModal.classList.remove('hidden');
@@ -4640,11 +6630,21 @@
       safeOn(dom.startFfmpegRenderBtn, 'click', startFastFfmpegRender);
     }
     safeOn(dom.startVideoRenderBtn, 'click', startRealTimeVideoExport);
+    if (dom.stopVideoRenderBtn) {
+      safeOn(dom.stopVideoRenderBtn, 'click', () => {
+        if (state.activeMediaRecorder && state.activeMediaRecorder.state === 'recording') {
+          state.activeMediaRecorder.stop();
+        }
+      });
+    }
     safeOn(dom.exportSrtBtn, 'click', () => downloadSrtSubtitles());
     safeOn(dom.inspectorDownloadSrtBtn, 'click', () => downloadSrtSubtitles());
     safeOn(dom.exportJsonProjectBtn, 'click', () => downloadProjectJson());
     safeOn(dom.inspectorDownloadJsonBtn, 'click', () => downloadProjectJson());
     safeOn(dom.snapshotPngBtn, 'click', downloadCurrentCanvasPng);
+    if (dom.exportPngModalBtn) {
+      safeOn(dom.exportPngModalBtn, 'click', downloadCurrentCanvasPng);
+    }
 
     // 2. Left Sidebar: Project Videos Library, Local Upload & URL Extract
     if (dom.refreshVideosBtn) {
@@ -4808,7 +6808,7 @@
       safeOn(dom.mainVideoEl, 'timeupdate', () => {
         if (state.isPlaying && state.useCustomMainVideo) {
           const activeClip = getActiveVideoCutAtTime(state.currentTime);
-          if (activeClip) {
+          if (activeClip && !activeClip.freezeDataUrl) {
             const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
             const cutOffset = Math.max(0, dom.mainVideoEl.currentTime - srcStart);
             state.currentTime = activeClip.start + cutOffset;
@@ -5544,8 +7544,13 @@
         }
       });
     }
-    // CapCut Direct Timeline Tools & Multi-Clip Slicing
+    // CapCut Direct Timeline Tools & Multi-Clip Slicing (Undoable)
     splitClipAtPlayhead = function splitClipAtPlayhead(splitTime = null) {
+      if (state.trackLocks?.video) {
+        showToast('🔒 Video track is locked', '#f59e0b');
+        return false;
+      }
+      pushUndoState('Split Clip at Playhead');
       if (!state.sequence) state.sequence = {};
       if (!Array.isArray(state.sequence.videoClips) || state.sequence.videoClips.length === 0) {
         const fullDur = Math.max(10, state.streamDuration || 30.0);
@@ -5583,7 +7588,9 @@
       const oldEnd = orig.end;
       const oldSourceEnd = orig.sourceEnd !== undefined ? orig.sourceEnd : oldEnd;
       const offset = cur - orig.start;
-      const splitSourceTime = Number(((orig.sourceStart !== undefined ? orig.sourceStart : orig.start) + offset).toFixed(2));
+      const splitSourceTime = orig.freezeDataUrl
+        ? (orig.sourceStart ?? cur)
+        : Number(((orig.sourceStart !== undefined ? orig.sourceStart : orig.start) + offset).toFixed(2));
 
       orig.end = cur;
       orig.sourceEnd = splitSourceTime;
@@ -5595,10 +7602,12 @@
         end: oldEnd,
         sourceStart: splitSourceTime,
         sourceEnd: oldSourceEnd,
+        freezeDataUrl: orig.freezeDataUrl || null,
         zoom: orig.zoom || 1.0,
         panX: orig.panX || 0,
         panY: orig.panY || 0,
-        volume: orig.volume || 1.0,
+        volume: orig.volume !== undefined ? orig.volume : 1.0,
+        opacity: orig.opacity !== undefined ? orig.opacity : 100,
         effect: 'punch-in',
         transition: 'flash'
       };
@@ -5606,29 +7615,33 @@
       clips.splice(targetIdx + 1, 0, newClip);
       state.sequence.selectedClipId = newClip.id;
       state.sequence.selectedTrackType = 'video';
+      state.selectedCanvasLayer = null;
       state.currentTime = cur;
-      if (dom.mainVideoEl) dom.mainVideoEl.currentTime = cur;
+      lastActiveCutId = null;
+      if (dom.mainVideoEl && !newClip.freezeDataUrl) dom.mainVideoEl.currentTime = splitSourceTime;
 
+      setInspectorMode('video');
       renderTimelineRuler();
       renderTimelineTracks();
       syncSelectedCutInspector();
-      switchInspectorTab('hard-cuts');
       showToast(`✂️ Split cut at ${formatTimecode(cur)}! Created "${newClip.title}"`, '#00f2fe');
       if (window.jarvis) window.jarvis.notify('split-done');
       return true;
     };
 
     rippleTrimIn = function rippleTrimIn() {
+      pushUndoState('Trim In (Q)');
       const cur = Number(state.currentTime.toFixed(2));
       const clips = state.sequence?.videoClips || [];
-      const selectedClip = clips.find(c => c.id === state.sequence?.selectedClipId);
+      const selectedClip = clips.find((c) => c.id === state.sequence?.selectedClipId);
 
       if (selectedClip && cur > selectedClip.start && cur < selectedClip.end - 0.15) {
         const offset = cur - selectedClip.start;
         selectedClip.start = cur;
-        if (selectedClip.sourceStart !== undefined) {
+        if (selectedClip.sourceStart !== undefined && !selectedClip.freezeDataUrl) {
           selectedClip.sourceStart = Number((selectedClip.sourceStart + offset).toFixed(2));
         }
+        lastActiveCutId = null;
         renderTimelineTracks();
         syncSelectedCutInspector();
         showToast(`⏪ Trimmed cut start to ${formatTimecode(cur)} (Q)`, '#00f2fe');
@@ -5648,16 +7661,18 @@
     };
 
     rippleTrimOut = function rippleTrimOut() {
+      pushUndoState('Trim Out (W)');
       const cur = Number(state.currentTime.toFixed(2));
       const clips = state.sequence?.videoClips || [];
-      const selectedClip = clips.find(c => c.id === state.sequence?.selectedClipId);
+      const selectedClip = clips.find((c) => c.id === state.sequence?.selectedClipId);
 
       if (selectedClip && cur < selectedClip.end && cur > selectedClip.start + 0.15) {
         const dur = cur - selectedClip.start;
         selectedClip.end = cur;
-        if (selectedClip.sourceStart !== undefined) {
+        if (selectedClip.sourceStart !== undefined && !selectedClip.freezeDataUrl) {
           selectedClip.sourceEnd = Number((selectedClip.sourceStart + dur).toFixed(2));
         }
+        lastActiveCutId = null;
         renderTimelineTracks();
         syncSelectedCutInspector();
         showToast(`⏩ Trimmed cut end to ${formatTimecode(cur)} (W)`, '#00f2fe');
@@ -5674,108 +7689,159 @@
     };
 
     deleteSelectedCapCutItem = function deleteSelectedCapCutItem() {
-      // 0. Delete selected Visual Overlay
-      if (state.selectedVisualOverlayId || (state.selectedTimelineItem && state.selectedTimelineItem.startsWith('visual-overlay-'))) {
-        const ovId = state.selectedVisualOverlayId || state.selectedTimelineItem.replace('visual-overlay-', '');
+      // 0a. Delete selected Custom Text Layer ("T" Tool)
+      if ((state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('text:')) ||
+          (state.selectedTimelineItem && state.selectedTimelineItem.startsWith('text-layer-')) ||
+          (state.inspectorMode === 'text' && state.activeTextTarget === 'layer' && state.selectedTextLayerId)) {
+        const txtId = (state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('text:'))
+          ? state.selectedCanvasLayer.slice(5)
+          : (state.selectedTextLayerId || state.selectedTimelineItem.replace('text-layer-', ''));
+        const tIdx = (state.textLayers || []).findIndex((l) => l.id === txtId);
+        if (tIdx !== -1) {
+          pushUndoState('Delete Text Layer');
+          const removedTxt = state.textLayers.splice(tIdx, 1)[0];
+          state.selectedTextLayerId = state.textLayers[0]?.id || null;
+          state.selectedCanvasLayer = null;
+          state.selectedTimelineItem = null;
+          renderTextLayersList();
+          renderTimelineTracks();
+          syncContextualInspector();
+          updateCanvasFloatingToolbar();
+          renderCanvasFrame();
+          showToast(`🗑️ Deleted text layer "${removedTxt.text.slice(0, 20)}"`, '#ef4444');
+          return;
+        }
+      }
+
+      // 0b. Hide selected Watermark or Hook Banner directly
+      if (state.selectedCanvasLayer === 'watermark' || state.selectedTimelineItem === 'watermark-block') {
+        pushUndoState('Hide Watermark');
+        state.watermarkEnabled = false;
+        if (dom.watermarkEnabledToggle) dom.watermarkEnabledToggle.checked = false;
+        state.selectedCanvasLayer = null;
+        state.selectedTimelineItem = null;
+        renderTimelineTracks();
+        syncContextualInspector();
+        updateCanvasFloatingToolbar();
+        updateComplianceAndPayout();
+        renderCanvasFrame();
+        showToast('🙈 Hidden Creator Watermark (re-enable anytime in Text/Bounty)', '#ef4444');
+        return;
+      }
+      if (state.selectedCanvasLayer === 'hook' || state.selectedTimelineItem === 'hook-banner') {
+        pushUndoState('Hide Hook Banner');
+        state.hookMode = 'off';
+        syncAllInspectorControlsFromState();
+        state.selectedCanvasLayer = null;
+        state.selectedTimelineItem = null;
+        renderTimelineTracks();
+        syncContextualInspector();
+        updateCanvasFloatingToolbar();
+        updateComplianceAndPayout();
+        renderCanvasFrame();
+        showToast('🙈 Removed Top Hook Banner', '#ef4444');
+        return;
+      }
+
+      // 0c. Delete selected Visual PIP Overlay
+      if ((state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('overlay:')) ||
+          state.selectedVisualOverlayId ||
+          (state.selectedTimelineItem && state.selectedTimelineItem.startsWith('visual-overlay-'))) {
+        const ovId = (state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('overlay:'))
+          ? state.selectedCanvasLayer.slice(8)
+          : (state.selectedVisualOverlayId || state.selectedTimelineItem.replace('visual-overlay-', ''));
         const idx = (state.visualOverlays || []).findIndex((o) => o.id === ovId);
         if (idx !== -1) {
+          pushUndoState('Delete PIP Overlay');
           const removed = state.visualOverlays.splice(idx, 1)[0];
-          state.selectedVisualOverlayId = null;
+          state.selectedVisualOverlayId = state.visualOverlays[0]?.id || null;
           state.selectedTimelineItem = null;
+          state.selectedCanvasLayer = null;
           renderVisualOverlaysList();
           renderTimelineTracks();
-          showToast(`🗑️ Deleted visual overlay "${removed.name || 'item'}"`, '#ef4444');
+          syncContextualInspector();
+          updateCanvasFloatingToolbar();
+          renderCanvasFrame();
+          showToast(`🗑️ Deleted PIP overlay "${removed.name || 'item'}"`, '#ef4444');
           return;
         }
       }
       if (state.selectedTimelineItem === 'overlay-image' && state.overlayImage) {
+        pushUndoState('Remove Image Overlay');
         state.overlayImage.enabled = false;
+        state.overlayImageEnabled = false;
         state.selectedTimelineItem = null;
+        state.selectedCanvasLayer = null;
         renderTimelineTracks();
+        updateCanvasFloatingToolbar();
+        renderCanvasFrame();
         showToast('🗑️ Removed image overlay', '#ef4444');
         return;
       }
 
       // 1. Delete selected Subtitle Phrase
-      if (state.selectedCaptionSegment) {
+      if (state.selectedCaptionSegment && (state.selectedCanvasLayer === 'caption' || state.inspectorMode === 'caption')) {
+        pushUndoState('Delete Subtitle Phrase');
         const seg = state.selectedCaptionSegment;
         const clip = getActiveClip();
-        let deleted = false;
-        if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
-          clip.transcript.splice(seg.chunkStartIdx, seg.chunkCount || 3);
-          deleted = true;
+        const wordsArr = (clip && Array.isArray(clip.transcript)) ? clip.transcript : state.analysis?.transcript;
+        if (Array.isArray(wordsArr) && seg.chunkStartIdx !== undefined) {
+          wordsArr.splice(seg.chunkStartIdx, seg.chunkCount || 3);
         } else if (state.analysis?.viralMoments) {
-          const idx = state.analysis.viralMoments.findIndex(m => m.start === seg.start || m.id === seg.id);
-          if (idx !== -1) {
-            state.analysis.viralMoments.splice(idx, 1);
-            deleted = true;
-          }
+          const idx = state.analysis.viralMoments.findIndex((m) => m.start === seg.start || m.id === seg.id);
+          if (idx !== -1) state.analysis.viralMoments.splice(idx, 1);
         }
         state.selectedCaptionSegment = null;
         state.selectedTimelineItem = null;
+        state.selectedCanvasLayer = null;
         renderTimelineTracks();
         renderTranscriptCloud();
+        syncContextualInspector();
+        updateCanvasFloatingToolbar();
+        renderCanvasFrame();
         showToast('🗑️ Deleted subtitle phrase', '#ef4444');
         return;
       }
 
+      // 2. Delete selected Video Cut
       const clips = state.sequence?.videoClips || [];
       if (!state.sequence?.selectedClipId && clips.length > 1) {
         const cur = Number(state.currentTime.toFixed(2));
         const currentClip = clips.find((c) => cur >= c.start && cur <= c.end);
-        if (currentClip) {
-          state.sequence.selectedClipId = currentClip.id;
-        } else {
-          state.sequence.selectedClipId = clips[clips.length - 1].id;
-        }
+        state.sequence.selectedClipId = currentClip ? currentClip.id : clips[clips.length - 1].id;
       }
       if (state.sequence?.selectedClipId) {
         if (clips.length <= 1) {
-          showToast('⚠️ Cannot delete the only remaining cut in sequence', '#f59e0b');
+          showToast('⚠️ Split the video first (B) before deleting a cut', '#f59e0b');
           return;
         }
         const idx = clips.findIndex((c) => c.id === state.sequence.selectedClipId);
         if (idx !== -1) {
+          pushUndoState('Delete Video Cut');
           const removed = clips.splice(idx, 1)[0];
-          if (idx > 0) {
-            clips[idx - 1].end = removed.end;
-            if (clips[idx - 1].sourceEnd !== undefined && removed.sourceEnd !== undefined) {
-              clips[idx - 1].sourceEnd = removed.sourceEnd;
+          if (state.rippleEnabled !== false) {
+            const shift = removed.end - removed.start;
+            for (let k = idx; k < clips.length; k++) {
+              clips[k].start = Number(Math.max(0, clips[k].start - shift).toFixed(2));
+              clips[k].end = Number(Math.max(0.2, clips[k].end - shift).toFixed(2));
             }
-          } else if (clips.length > 0) {
-            clips[0].start = removed.start;
-            if (clips[0].sourceStart !== undefined && removed.sourceStart !== undefined) {
-              clips[0].sourceStart = removed.sourceStart;
+            if (clips.length > 0) {
+              state.trimEnd = clips[clips.length - 1].end;
             }
           }
+          lastActiveCutId = null;
           state.sequence.selectedClipId = clips[Math.max(0, idx - 1)].id;
           renderTimelineTracks();
           syncSelectedCutInspector();
-          showToast(`🗑️ Deleted ${removed.title}`, '#ef4444');
+          renderCanvasFrame();
+          showToast(`🗑️ Deleted "${removed.title}"`, '#ef4444');
           if (window.jarvis) window.jarvis.notify('cut-deleted');
           return;
         }
       }
 
-      if (state.selectedTimelineItem === 'overlay-image' || state.selectedCanvasLayer === 'image') {
-        state.overlayImageEnabled = false;
-        if (state.overlayImage) state.overlayImage.enabled = false;
-        if (dom.imageOverlayToggle) dom.imageOverlayToggle.checked = false;
-        state.selectedTimelineItem = null;
-        state.selectedCanvasLayer = null;
-        renderTimelineTracks();
-        showToast('🗑️ Deleted Topic Image Overlay layer');
-      } else if (state.selectedTimelineItem === 'hook-banner' || state.selectedCanvasLayer === 'hook') {
-        state.hookMode = 'off';
-        syncAllInspectorControlsFromState();
-        state.selectedTimelineItem = null;
-        state.selectedCanvasLayer = null;
-        renderTimelineTracks();
-        showToast('🗑️ Removed Hook Banner');
-      } else {
-        showToast('Select a video cut or overlay block to delete (Del)', '#94a3b8');
-      }
-    }
+      showToast('Select any text, subtitle, PIP, or video cut to delete (Del)', '#94a3b8');
+    };
 
     function toggleBackgroundSound() {
       state.bgSoundMuted = !state.bgSoundMuted;
@@ -5873,7 +7939,9 @@
       });
     }
 
-    // Direct Preview Canvas Hit-Testing & Interactive Drag/Resize (CapCut Style)
+    // =====================================================================
+    // UNIVERSAL CAPCUT × OPENCUT-CLASSIC DIRECT CANVAS HIT-TESTING & GIZMOS
+    // =====================================================================
     function getCanvasCoords(e) {
       if (!dom.previewCanvas) return { x: 0, y: 0 };
       const rect = dom.previewCanvas.getBoundingClientRect();
@@ -5885,94 +7953,310 @@
       };
     }
 
+    function getLayerPositionPct(hb) {
+      if (!hb) return { xPct: 50, yPct: 50, scale: 1.0, fontSize: 52 };
+      if (hb.layerType === 'text') {
+        const l = (state.textLayers || []).find((x) => x.id === hb.refId);
+        return { xPct: l?.xPct ?? 50, yPct: l?.yPct ?? 26, scale: 1.0, fontSize: l?.fontSize || 52 };
+      }
+      if (hb.layerType === 'overlay') {
+        const o = (state.visualOverlays || []).find((x) => x.id === hb.refId);
+        if (o) {
+          const xPct = o.xPct !== undefined ? o.xPct : (50 + ((o.x || 0) / 1080) * 100);
+          const yPct = o.yPct !== undefined ? o.yPct : (38 + ((o.y || 0) / 1920) * 100);
+          return { xPct, yPct, scale: o.scale || 1.0, fontSize: 52 };
+        }
+        return {
+          xPct: (state.overlayImagePos?.x ?? 0.5) * 100,
+          yPct: (state.overlayImagePos?.y ?? 0.38) * 100,
+          scale: state.overlayImageScale || 1.0,
+          fontSize: 52
+        };
+      }
+      if (hb.layerType === 'caption') {
+        return { xPct: state.captionPosX ?? 50, yPct: state.captionPosY ?? 72, scale: 1.0, fontSize: state.captionFontPx || 68 };
+      }
+      if (hb.layerType === 'hook') {
+        return { xPct: state.hookPos?.x ?? 50, yPct: state.hookPos?.y ?? 10, scale: state.hookScale || 1.0, fontSize: 34 };
+      }
+      if (hb.layerType === 'watermark') {
+        return { xPct: state.watermarkPos?.x ?? 24, yPct: state.watermarkPos?.y ?? 92, scale: state.watermarkScale || 1.0, fontSize: 22 };
+      }
+      return { xPct: 50, yPct: 50, scale: 1.0, fontSize: 52 };
+    }
+
+    function selectCanvasHitBox(hb) {
+      if (!hb) return;
+      state.selectedCanvasLayer = hb.id;
+      if (hb.layerType === 'text') {
+        state.selectedTextLayerId = hb.refId;
+        state.activeTextTarget = 'layer';
+        state.selectedTimelineItem = `text-layer-${hb.refId}`;
+        setInspectorMode('text');
+        renderTextLayersList();
+      } else if (hb.layerType === 'hook') {
+        state.activeTextTarget = 'hook';
+        state.selectedTimelineItem = 'hook-banner';
+        setInspectorMode('text');
+      } else if (hb.layerType === 'watermark') {
+        state.activeTextTarget = 'watermark';
+        state.selectedTimelineItem = 'watermark-block';
+        setInspectorMode('text');
+      } else if (hb.layerType === 'caption') {
+        setInspectorMode('caption');
+      } else if (hb.layerType === 'overlay') {
+        state.selectedVisualOverlayId = hb.refId;
+        state.selectedTimelineItem = `visual-overlay-${hb.refId}`;
+        setInspectorMode('overlay');
+        renderVisualOverlaysList();
+      }
+      updateCanvasFloatingToolbar();
+      renderTimelineTracks();
+      renderCanvasFrame();
+    }
+
+    function duplicateSelectedLayerOrClip() {
+      const sel = state.selectedCanvasLayer;
+      if (sel && sel.startsWith('text:')) {
+        const orig = (state.textLayers || []).find((l) => l.id === sel.slice(5));
+        if (orig) {
+          pushUndoState('Duplicate Text Layer');
+          const copy = Object.assign({}, JSON.parse(JSON.stringify(orig)), {
+            id: `txt_${Date.now()}_${Math.floor(Math.random() * 999)}`,
+            yPct: clamp((orig.yPct ?? 26) + 7, 8, 92),
+            start: Number((orig.start + 0.25).toFixed(2))
+          });
+          state.textLayers.push(copy);
+          state.selectedTextLayerId = copy.id;
+          state.selectedCanvasLayer = `text:${copy.id}`;
+          renderTextLayersList();
+          renderTimelineTracks();
+          syncContextualInspector();
+          renderCanvasFrame();
+          showToast(`📄 Duplicated text layer "${copy.text.slice(0, 18)}"`, '#00f2fe');
+          return;
+        }
+      }
+      if ((sel && sel.startsWith('overlay:')) || (state.inspectorMode === 'overlay' && state.selectedVisualOverlayId)) {
+        const ovId = (sel && sel.startsWith('overlay:')) ? sel.slice(8) : state.selectedVisualOverlayId;
+        const orig = (state.visualOverlays || []).find((o) => o.id === ovId);
+        if (orig) {
+          pushUndoState('Duplicate PIP Overlay');
+          const copy = Object.assign({}, orig, {
+            id: `ov_${Date.now()}_${Math.floor(Math.random() * 999)}`,
+            name: `${orig.name || 'PIP'} (Copy)`,
+            xPct: clamp((orig.xPct ?? 50) + 5, 10, 90),
+            yPct: clamp((orig.yPct ?? 38) + 5, 10, 90),
+            startTime: Number(((orig.startTime || 0) + 0.4).toFixed(2)),
+            mediaEl: orig.mediaEl || null
+          });
+          if (copy.mediaEl) mediaElementRegistry.set(copy.id, copy.mediaEl);
+          state.visualOverlays.push(copy);
+          state.selectedVisualOverlayId = copy.id;
+          state.selectedCanvasLayer = `overlay:${copy.id}`;
+          renderVisualOverlaysList();
+          renderTimelineTracks();
+          syncContextualInspector();
+          renderCanvasFrame();
+          showToast(`📄 Duplicated PIP "${copy.name}"`, '#00f2fe');
+          return;
+        }
+      }
+      const clips = state.sequence?.videoClips || [];
+      const selClip = clips.find((c) => c.id === state.sequence?.selectedClipId) || clips[0];
+      if (selClip) {
+        pushUndoState('Duplicate Video Cut');
+        const dur = selClip.end - selClip.start;
+        const insertStart = clips[clips.length - 1].end;
+        const copy = Object.assign({}, JSON.parse(JSON.stringify(selClip)), {
+          id: 'cut-' + Date.now(),
+          title: `${selClip.title} (Copy)`,
+          start: Number(insertStart.toFixed(2)),
+          end: Number((insertStart + dur).toFixed(2))
+        });
+        clips.push(copy);
+        state.trimEnd = Math.max(state.trimEnd, copy.end);
+        state.sequence.selectedClipId = copy.id;
+        renderTimelineRuler();
+        renderTimelineTracks();
+        syncContextualInspector();
+        showToast(`📄 Duplicated "${selClip.title}"`, '#00f2fe');
+      }
+    }
+
     if (dom.previewCanvas) {
       safeOn(dom.previewCanvas, 'mousedown', (e) => {
+        if (e.button === 2) return;
+        if (state.inlineEditTargetKey) commitCanvasInlineEdit();
+
         const pt = getCanvasCoords(e);
-        const b = state.lastImageBounds;
-        const W = dom.previewCanvas.width;
-        const H = dom.previewCanvas.height;
+        const hitBoxes = [...(state.canvasHitBoxes || [])].reverse();
+        const handleRadius = 30;
 
-        if (b && state.overlayImage && state.overlayImageEnabled !== false) {
-          const handleRadius = 36;
-          const handles = [
-            { x: b.x, y: b.y, id: 'tl' },
-            { x: b.x + b.w, y: b.y, id: 'tr' },
-            { x: b.x + b.w, y: b.y + b.h, id: 'br' },
-            { x: b.x, y: b.y + b.h, id: 'bl' }
+        // 1. Check 4 corner gizmo handles first (prioritize currently selected layer)
+        const orderedForHandles = state.selectedCanvasLayer
+          ? [
+              ...hitBoxes.filter((b) => b.id === state.selectedCanvasLayer),
+              ...hitBoxes.filter((b) => b.id !== state.selectedCanvasLayer)
+            ]
+          : hitBoxes;
+
+        for (const hb of orderedForHandles) {
+          const corners = [
+            { x: hb.x - 6, y: hb.y - 6, id: 'tl' },
+            { x: hb.x + hb.w + 6, y: hb.y - 6, id: 'tr' },
+            { x: hb.x + hb.w + 6, y: hb.y + hb.h + 6, id: 'br' },
+            { x: hb.x - 6, y: hb.y + hb.h + 6, id: 'bl' }
           ];
-
-          const clickedHandle = handles.find(h => Math.hypot(pt.x - h.x, pt.y - h.y) <= handleRadius);
-          if (clickedHandle) {
-            state.selectedCanvasLayer = 'image';
-            state.selectedTimelineItem = 'overlay-image';
-            state.canvasDragMode = 'resize-image';
+          const hitCorner = corners.find((c) => Math.hypot(pt.x - c.x, pt.y - c.y) <= handleRadius);
+          if (hitCorner) {
+            selectCanvasHitBox(hb);
+            const init = getLayerPositionPct(hb);
+            pushUndoState('Scale Canvas Layer');
+            state.canvasDragMode = 'scale-layer';
             state.canvasDragStart = {
+              targetId: hb.id,
+              layerType: hb.layerType,
+              refId: hb.refId,
               mouseX: pt.x,
               mouseY: pt.y,
-              cx: b.cx,
-              cy: b.cy,
-              handleId: clickedHandle.id,
-              initScale: state.overlayImageScale || 1.0,
-              initW: b.w,
-              initH: b.h
+              cx: hb.cx,
+              cy: hb.cy,
+              initScale: init.scale,
+              initFontSize: init.fontSize
             };
-            syncImageInspectorControls();
-            renderTimelineTracks();
-            return;
-          }
-
-          if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
-            state.selectedCanvasLayer = 'image';
-            state.selectedTimelineItem = 'overlay-image';
-            state.canvasDragMode = 'move-image';
-            state.canvasDragStart = {
-              mouseX: pt.x,
-              mouseY: pt.y,
-              initPosX: state.overlayImagePos?.x ?? 0.5,
-              initPosY: state.overlayImagePos?.y ?? 0.38,
-              initScale: state.overlayImageScale || 1.0
-            };
-            syncImageInspectorControls();
-            renderTimelineTracks();
             return;
           }
         }
 
-        if (pt.y >= 70 && pt.y <= 240) {
-          state.selectedCanvasLayer = 'hook';
-          state.selectedTimelineItem = 'hook-banner';
-          renderTimelineTracks();
+        // 2. Check body bounding box of topmost drawn layer
+        const hitBody = hitBoxes.find(
+          (hb) => pt.x >= hb.x - 6 && pt.x <= hb.x + hb.w + 6 && pt.y >= hb.y - 6 && pt.y <= hb.y + hb.h + 6
+        );
+        if (hitBody) {
+          selectCanvasHitBox(hitBody);
+          const init = getLayerPositionPct(hitBody);
+          pushUndoState('Move Canvas Layer');
+          state.canvasDragMode = 'move-layer';
+          state.canvasDragStart = {
+            targetId: hitBody.id,
+            layerType: hitBody.layerType,
+            refId: hitBody.refId,
+            mouseX: pt.x,
+            mouseY: pt.y,
+            initXPct: init.xPct,
+            initYPct: init.yPct
+          };
           return;
         }
 
+        // 3. Clicked main video viewport: select active video cut & allow direct pan
         state.selectedCanvasLayer = null;
         state.selectedTimelineItem = null;
+        const activeCut = getActiveVideoCutAtTime(state.currentTime) || (state.sequence?.videoClips || [])[0];
+        if (activeCut) {
+          state.sequence.selectedClipId = activeCut.id;
+        }
+        setInspectorMode('video');
+        updateCanvasFloatingToolbar();
         renderTimelineTracks();
+        renderCanvasFrame();
+
+        state.canvasDragMode = 'pan-video';
+        state.canvasDragStart = {
+          mouseX: pt.x,
+          mouseY: pt.y,
+          initPanX: activeCut ? (activeCut.panX || 0) : (state.cameraPanX || 0),
+          initPanY: activeCut ? (activeCut.panY || 0) : (state.cameraPanY || 0),
+          clipId: activeCut ? activeCut.id : null,
+          undoRecorded: false
+        };
+      });
+
+      safeOn(dom.previewCanvas, 'dblclick', (e) => {
+        const pt = getCanvasCoords(e);
+        const hitBoxes = [...(state.canvasHitBoxes || [])].reverse();
+        const hit = hitBoxes.find(
+          (hb) => pt.x >= hb.x - 8 && pt.x <= hb.x + hb.w + 8 && pt.y >= hb.y - 8 && pt.y <= hb.y + hb.h + 8
+        );
+        if (hit) {
+          selectCanvasHitBox(hit);
+          if (hit.layerType === 'text' || hit.layerType === 'hook' || hit.layerType === 'watermark' || hit.layerType === 'caption') {
+            openCanvasInlineEditor(hit.id);
+            return;
+          }
+          if (hit.layerType === 'overlay') {
+            const ov = (state.visualOverlays || []).find((o) => o.id === hit.refId);
+            if (ov) {
+              pushUndoState('Toggle PIP Frame Style');
+              ov.displayStyle = ov.displayStyle === 'card' ? 'clean-pip' : 'card';
+              syncContextualInspector();
+              renderCanvasFrame();
+              showToast(ov.displayStyle === 'card' ? '🃏 Switched PIP to Framed Card' : '✨ Switched PIP to Clean Borderless', '#00f2fe');
+              return;
+            }
+          }
+        }
+        // Double-click empty video canvas toggles Fit vs Fill 9:16
+        pushUndoState('Toggle Fit/Fill');
+        state.videoFitMode = state.videoFitMode === 'fill' ? 'fit' : 'fill';
+        state.wholeScreenFit = state.videoFitMode === 'fit';
+        syncContextualInspector();
+        renderCanvasFrame();
+        showToast(state.videoFitMode === 'fit' ? '📐 Fit Whole Screen (All Hosts Visible)' : '📱 Fill Vertical Crop', '#00f2fe');
+      });
+
+      safeOn(dom.previewCanvas, 'wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1.06 : 0.94;
+        const sel = state.selectedCanvasLayer;
+        if (sel && sel.startsWith('text:')) {
+          const l = (state.textLayers || []).find((x) => x.id === sel.slice(5));
+          if (l) l.fontSize = Math.round(clamp((l.fontSize || 52) * delta, 18, 130));
+        } else if (sel && sel.startsWith('overlay:')) {
+          const o = (state.visualOverlays || []).find((x) => x.id === sel.slice(8));
+          if (o) o.scale = Number(clamp((o.scale || 1.0) * delta, 0.2, 2.8).toFixed(2));
+        } else if (sel === 'caption') {
+          state.captionFontPx = Math.round(clamp((state.captionFontPx || 68) * delta, 28, 120));
+        } else if (sel === 'hook') {
+          state.hookScale = Number(clamp((state.hookScale || 1.0) * delta, 0.45, 2.2).toFixed(2));
+        } else if (sel === 'watermark') {
+          state.watermarkScale = Number(clamp((state.watermarkScale || 1.0) * delta, 0.45, 2.4).toFixed(2));
+        } else {
+          const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+          if (clip) {
+            clip.zoom = Number(clamp((clip.zoom || 1.0) * delta, 0.4, 3.0).toFixed(2));
+          } else {
+            state.cameraZoom = Number(clamp((state.cameraZoom || 1.0) * delta, 0.4, 3.0).toFixed(2));
+          }
+        }
+        syncContextualInspector();
+        renderCanvasFrame();
       });
 
       safeOn(dom.previewCanvas, 'mousemove', (e) => {
         if (state.canvasDragMode) return;
         const pt = getCanvasCoords(e);
-        const b = state.lastImageBounds;
-        if (b && state.overlayImage && state.overlayImageEnabled !== false) {
-          const handleR = 26;
-          const handles = [
-            { x: b.x, y: b.y, cur: 'nwse-resize' },
-            { x: b.x + b.w, y: b.y, cur: 'nesw-resize' },
-            { x: b.x + b.w, y: b.y + b.h, cur: 'nwse-resize' },
-            { x: b.x, y: b.y + b.h, cur: 'nesw-resize' }
+        const hitBoxes = [...(state.canvasHitBoxes || [])].reverse();
+        const handleR = 26;
+        for (const hb of hitBoxes) {
+          const corners = [
+            { x: hb.x - 6, y: hb.y - 6, cur: 'nwse-resize' },
+            { x: hb.x + hb.w + 6, y: hb.y - 6, cur: 'nesw-resize' },
+            { x: hb.x + hb.w + 6, y: hb.y + hb.h + 6, cur: 'nwse-resize' },
+            { x: hb.x - 6, y: hb.y + hb.h + 6, cur: 'nesw-resize' }
           ];
-          const h = handles.find(item => Math.hypot(pt.x - item.x, pt.y - item.y) <= handleR);
-          if (h) {
-            dom.previewCanvas.style.cursor = h.cur;
+          const c = corners.find((item) => Math.hypot(pt.x - item.x, pt.y - item.y) <= handleR);
+          if (c) {
+            dom.previewCanvas.style.cursor = c.cur;
             return;
           }
-          if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
+          if (pt.x >= hb.x - 6 && pt.x <= hb.x + hb.w + 6 && pt.y >= hb.y - 6 && pt.y <= hb.y + hb.h + 6) {
             dom.previewCanvas.style.cursor = 'move';
             return;
           }
         }
-        dom.previewCanvas.style.cursor = 'default';
+        dom.previewCanvas.style.cursor = 'grab';
       });
     }
 
@@ -5990,6 +8274,7 @@
     }
 
     safeOn(dom.resetTrimBtn, 'click', () => {
+      pushUndoState('Reset Trim');
       const clip = getActiveClip();
       if (clip) {
         state.trimStart = clip.start;
@@ -6003,31 +8288,55 @@
       }
     });
 
-    // OpenCut-inspired Magnetic Timeline Snapping
-    const resolveTimelineSnap = (rawTime, maxSnapDistSec = 0.35) => {
+    // OpenCut-classic Magnetic Timeline Snapping + Visual Cyan Snap Indicator
+    const resolveTimelineSnap = (rawTime, excludeClipId = null, maxSnapDistSec = 0.28) => {
+      if (state.snappingEnabled === false) {
+        if (dom.timelineSnapLine) dom.timelineSnapLine.classList.add('hidden');
+        return rawTime;
+      }
+      const cutEdges = [];
+      (state.sequence?.videoClips || []).forEach((c) => {
+        if (c.id !== excludeClipId) cutEdges.push(c.start, c.end);
+      });
+      (state.textLayers || []).forEach((l) => {
+        cutEdges.push(l.start, (l.start || 0) + (l.duration || 4));
+      });
+      (state.visualOverlays || []).forEach((o) => {
+        const s = state.trimStart + (o.startTime || 0);
+        cutEdges.push(s, s + (o.duration || 3.5));
+      });
       const snapPoints = [
         0,
         state.trimStart,
         state.trimEnd,
         state.currentTime,
         state.streamDuration,
-        ...(state.overlayImage ? [state.overlayImage.start, state.overlayImage.start + state.overlayImage.duration] : []),
-        ...((state.cuts || []).map(c => typeof c === 'number' ? c : c.time))
+        ...(state.bookmarks || []),
+        ...cutEdges
       ];
       let closest = rawTime;
       let minDiff = Infinity;
+      let snapped = false;
       for (const pt of snapPoints) {
         if (typeof pt !== 'number' || isNaN(pt)) continue;
         const diff = Math.abs(rawTime - pt);
         if (diff <= maxSnapDistSec && diff < minDiff) {
           minDiff = diff;
           closest = pt;
+          snapped = true;
+        }
+      }
+      if (dom.timelineSnapLine) {
+        if (snapped) {
+          dom.timelineSnapLine.style.left = `${timeToTimelinePct(closest)}%`;
+          dom.timelineSnapLine.classList.remove('hidden');
+        } else {
+          dom.timelineSnapLine.classList.add('hidden');
         }
       }
       return closest;
     };
 
-    // Timeline stage mouse scrubbing + In/Out trim handle dragging
     const getTimelineSecFromMouseEvent = (e, applySnap = false) => {
       const rect = dom.timelineStage.getBoundingClientRect();
       const norm = clamp((e.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
@@ -6038,52 +8347,133 @@
     if (dom.trimHandleIn) {
       safeOn(dom.trimHandleIn, 'mousedown', (e) => {
         e.stopPropagation();
+        pushUndoState('Drag Trim In');
         state.activeDragMode = 'trim-in';
       });
     }
     if (dom.trimHandleOut) {
       safeOn(dom.trimHandleOut, 'mousedown', (e) => {
         e.stopPropagation();
+        pushUndoState('Drag Trim Out');
         state.activeDragMode = 'trim-out';
       });
     }
     safeOn(dom.timelineStage, 'mousedown', (e) => {
+      if (e.button === 2) return;
       if (e.target.closest('.trim-handle') ||
           e.target.closest('.timeline-block') ||
           e.target.closest('.timeline-clip-block') ||
+          e.target.closest('.transition-junction-badge') ||
           e.target.closest('.clip-handle') ||
           e.target.closest('.block-resize-handle')) return;
       state.activeDragMode = 'playhead';
-      seekToTime(getTimelineSecFromMouseEvent(e, false));
+      const newSec = getTimelineSecFromMouseEvent(e, false);
+      seekToTime(newSec);
+      const cutAtPlayhead = getActiveVideoCutAtTime(newSec);
+      if (cutAtPlayhead) {
+        state.sequence.selectedClipId = cutAtPlayhead.id;
+        syncContextualInspector();
+      }
     });
 
     window.addEventListener('mousemove', (e) => {
-      // 1. Direct Canvas Layer Dragging & Resizing (CapCut)
-      if (state.canvasDragMode && dom.previewCanvas) {
+      // 1. Universal Direct Canvas Layer Dragging, Scaling & Center Magnetic Snapping
+      if (state.canvasDragMode && dom.previewCanvas && state.canvasDragStart) {
         const pt = getCanvasCoords(e);
         const W = dom.previewCanvas.width;
         const H = dom.previewCanvas.height;
-        const start = state.canvasDragStart;
-        if (state.canvasDragMode === 'move-image') {
-          const dx = (pt.x - start.mouseX) / W;
-          const dy = (pt.y - start.mouseY) / H;
-          state.overlayImagePos = state.overlayImagePos || { x: 0.5, y: 0.38 };
-          state.overlayImagePos.x = clamp(start.initPosX + dx, 0.08, 0.92);
-          state.overlayImagePos.y = clamp(start.initPosY + dy, 0.08, 0.92);
-          syncImageInspectorControls();
-        } else if (state.canvasDragMode === 'resize-image') {
-          const dist = Math.hypot(pt.x - start.cx, pt.y - start.cy);
-          const initDist = Math.hypot(start.mouseX - start.cx, start.mouseY - start.cy);
-          const factor = dist / Math.max(15, initDist);
-          state.overlayImageScale = clamp(start.initScale * factor, 0.25, 2.5);
-          syncImageInspectorControls();
+        const st = state.canvasDragStart;
+
+        if (state.canvasDragMode === 'move-layer') {
+          const dxPct = ((pt.x - st.mouseX) / W) * 100;
+          const dyPct = ((pt.y - st.mouseY) / H) * 100;
+          let nx = clamp(st.initXPct + dxPct, 4, 96);
+          let ny = clamp(st.initYPct + dyPct, 4, 96);
+
+          const snapV = Math.abs(nx - 50) <= 1.8;
+          const snapH = Math.abs(ny - 50) <= 1.8;
+          if (snapV) nx = 50;
+          if (snapH) ny = 50;
+          state.canvasSnapGuides = { vCenter: snapV, hCenter: snapH };
+
+          if (st.layerType === 'text') {
+            const l = (state.textLayers || []).find((x) => x.id === st.refId);
+            if (l) { l.xPct = Number(nx.toFixed(1)); l.yPct = Number(ny.toFixed(1)); }
+          } else if (st.layerType === 'overlay') {
+            const o = (state.visualOverlays || []).find((x) => x.id === st.refId);
+            if (o) {
+              o.xPct = Number(nx.toFixed(1));
+              o.yPct = Number(ny.toFixed(1));
+              o.x = Math.round(((nx - 50) / 100) * 1080);
+              o.y = Math.round(((ny - 38) / 100) * 1920);
+            } else {
+              state.overlayImagePos = { x: nx / 100, y: ny / 100 };
+              syncImageInspectorControls();
+            }
+          } else if (st.layerType === 'caption') {
+            state.captionPosX = Number(nx.toFixed(1));
+            state.captionPosY = Number(ny.toFixed(1));
+          } else if (st.layerType === 'hook') {
+            state.hookPos = { x: Number(nx.toFixed(1)), y: Number(ny.toFixed(1)) };
+          } else if (st.layerType === 'watermark') {
+            state.watermarkPos = { x: Number(nx.toFixed(1)), y: Number(ny.toFixed(1)) };
+          }
+          syncContextualInspector();
+          renderCanvasFrame();
+          return;
         }
-        return;
+
+        if (state.canvasDragMode === 'scale-layer') {
+          const dist = Math.hypot(pt.x - st.cx, pt.y - st.cy);
+          const initDist = Math.max(24, Math.hypot(st.mouseX - st.cx, st.mouseY - st.cy));
+          const factor = dist / initDist;
+
+          if (st.layerType === 'text') {
+            const l = (state.textLayers || []).find((x) => x.id === st.refId);
+            if (l) l.fontSize = Math.round(clamp(st.initFontSize * factor, 18, 130));
+          } else if (st.layerType === 'overlay') {
+            const o = (state.visualOverlays || []).find((x) => x.id === st.refId);
+            if (o) o.scale = Number(clamp(st.initScale * factor, 0.2, 2.8).toFixed(2));
+            else state.overlayImageScale = Number(clamp(st.initScale * factor, 0.25, 2.5).toFixed(2));
+          } else if (st.layerType === 'caption') {
+            state.captionFontPx = Math.round(clamp(st.initFontSize * factor, 28, 120));
+          } else if (st.layerType === 'hook') {
+            state.hookScale = Number(clamp(st.initScale * factor, 0.45, 2.2).toFixed(2));
+          } else if (st.layerType === 'watermark') {
+            state.watermarkScale = Number(clamp(st.initScale * factor, 0.45, 2.4).toFixed(2));
+          }
+          syncContextualInspector();
+          renderCanvasFrame();
+          return;
+        }
+
+        if (state.canvasDragMode === 'pan-video') {
+          const dxPx = pt.x - st.mouseX;
+          const dyPx = pt.y - st.mouseY;
+          if (Math.hypot(dxPx, dyPx) > 6) {
+            if (!st.undoRecorded) {
+              pushUndoState('Pan Video Viewport');
+              st.undoRecorded = true;
+            }
+            const nextPanX = clamp(Math.round(st.initPanX + (dxPx / W) * 100), -50, 50);
+            const nextPanY = clamp(Math.round(st.initPanY + (dyPx / H) * 100), -50, 50);
+            const clip = (state.sequence?.videoClips || []).find((c) => c.id === st.clipId);
+            if (clip) {
+              clip.panX = nextPanX;
+              clip.panY = nextPanY;
+            }
+            state.cameraPanX = nextPanX;
+            state.cameraPanY = nextPanY;
+            syncContextualInspector();
+            renderCanvasFrame();
+          }
+          return;
+        }
       }
 
-      // 2. Interactive Video Cut Dragging & Trimming (CapCut / OpenCut)
+      // 2. Interactive Video Cut Dragging & Source-Preserving Trimming (CapCut / OpenCut)
       if (state.activeClipDrag && dom.timelineStage) {
-        const { clipId, action, startX, initStart, initEnd, idx } = state.activeClipDrag;
+        const { clipId, action, startX, initStart, initEnd, initSourceStart, initSourceEnd, idx } = state.activeClipDrag;
         const dx = e.clientX - startX;
         const { span } = getTimelineBounds();
         const stageW = dom.timelineStage.getBoundingClientRect().width || 1000;
@@ -6093,32 +8483,51 @@
 
         if (clip) {
           if (action === 'trim-in') {
-            const minStart = idx > 0 ? clips[idx - 1].start + 0.3 : 0;
-            const newStart = clamp(initStart + dt, minStart, clip.end - 0.4);
-            clip.start = Number(newStart.toFixed(2));
-            if (idx > 0) {
+            const minStart = (idx > 0 && !state.rippleEnabled) ? clips[idx - 1].end : 0;
+            const rawNewStart = clamp(initStart + dt, minStart, initEnd - 0.35);
+            const snappedStart = resolveTimelineSnap(rawNewStart, clipId);
+            const finalStart = clamp(snappedStart, 0, initEnd - 0.35);
+            const trimDelta = finalStart - initStart;
+            clip.start = Number(finalStart.toFixed(2));
+            if (!clip.freezeDataUrl && initSourceStart !== undefined) {
+              clip.sourceStart = Number(Math.max(0, initSourceStart + trimDelta).toFixed(2));
+            }
+            if (state.rippleEnabled && idx > 0) {
               clips[idx - 1].end = clip.start;
             }
           } else if (action === 'trim-out') {
-            const maxEnd = idx < clips.length - 1 ? clips[idx + 1].end - 0.3 : (state.streamDuration || 60);
-            const newEnd = clamp(initEnd + dt, clip.start + 0.4, maxEnd);
-            clip.end = Number(newEnd.toFixed(2));
-            if (idx < clips.length - 1) {
-              clips[idx + 1].start = clip.end;
+            const maxEnd = (!state.rippleEnabled && idx < clips.length - 1) ? clips[idx + 1].start : (state.streamDuration || 120);
+            const rawNewEnd = clamp(initEnd + dt, initStart + 0.35, Math.max(initStart + 0.5, maxEnd));
+            const snappedEnd = resolveTimelineSnap(rawNewEnd, clipId);
+            const finalEnd = Math.max(initStart + 0.35, snappedEnd);
+            const newDur = finalEnd - clip.start;
+            const oldEnd = clip.end;
+            clip.end = Number(finalEnd.toFixed(2));
+            if (!clip.freezeDataUrl && clip.sourceStart !== undefined) {
+              clip.sourceEnd = Number((clip.sourceStart + newDur).toFixed(2));
+            }
+            if (state.rippleEnabled && idx < clips.length - 1) {
+              const shift = clip.end - oldEnd;
+              for (let k = idx + 1; k < clips.length; k++) {
+                clips[k].start = Number(Math.max(0, clips[k].start + shift).toFixed(2));
+                clips[k].end = Number(Math.max(0.35, clips[k].end + shift).toFixed(2));
+              }
             }
           } else if (action === 'move') {
             const dur = initEnd - initStart;
-            const newStart = Math.max(0, initStart + dt);
-            clip.start = Number(newStart.toFixed(2));
-            clip.end = Number((newStart + dur).toFixed(2));
+            const rawStart = Math.max(0, initStart + dt);
+            const snappedStart = Math.max(0, resolveTimelineSnap(rawStart, clipId));
+            clip.start = Number(snappedStart.toFixed(2));
+            clip.end = Number((snappedStart + dur).toFixed(2));
           }
+          lastActiveCutId = null;
           renderTimelineTracks();
           syncSelectedCutInspector();
           return;
         }
       }
 
-      // 2b. Interactive Caption / Subtitle Dragging & Trimming (CapCut / OpenCut)
+      // 2b. Interactive Caption / Subtitle Dragging & Trimming
       if (state.activeCaptionDrag && dom.timelineStage) {
         const { seg, action, startX, initStart, initEnd } = state.activeCaptionDrag;
         const dx = e.clientX - startX;
@@ -6127,54 +8536,80 @@
         const dt = (dx / stageW) * span;
 
         const clip = getActiveClip();
-        if (clip && Array.isArray(clip.transcript) && seg.chunkStartIdx !== undefined) {
-          const words = clip.transcript.slice(seg.chunkStartIdx, seg.chunkStartIdx + (seg.chunkCount || 3));
+        const wordsArr = (clip && Array.isArray(clip.transcript)) ? clip.transcript : state.analysis?.transcript;
+        if (Array.isArray(wordsArr) && seg.chunkStartIdx !== undefined) {
+          const words = wordsArr.slice(seg.chunkStartIdx, seg.chunkStartIdx + (seg.chunkCount || 3));
           if (action === 'trim-cap-left') {
-            const newStart = clamp(initStart + dt, 0, seg.end - 0.2);
+            const newStart = clamp(resolveTimelineSnap(initStart + dt), 0, seg.end - 0.2);
             seg.start = Number(newStart.toFixed(2));
             if (words[0]) words[0].start = seg.start;
           } else if (action === 'trim-cap-right') {
-            const newEnd = Math.max(seg.start + 0.2, initEnd + dt);
+            const newEnd = Math.max(seg.start + 0.2, resolveTimelineSnap(initEnd + dt));
             seg.end = Number(newEnd.toFixed(2));
             if (words[words.length - 1]) words[words.length - 1].end = seg.end;
           } else if (action === 'move-cap') {
             const dur = initEnd - initStart;
-            const newStart = Math.max(0, initStart + dt);
-            const delta = newStart - initStart;
+            const newStart = Math.max(0, resolveTimelineSnap(initStart + dt));
+            const delta = newStart - seg.start;
             seg.start = Number(newStart.toFixed(2));
             seg.end = Number((newStart + dur).toFixed(2));
-            words.forEach(w => {
+            words.forEach((w) => {
               w.start = Math.max(0, Number((w.start + delta).toFixed(2)));
               w.end = Math.max(0.1, Number((w.end + delta).toFixed(2)));
             });
           }
+          syncContextualInspector();
           renderTimelineTracks();
+          renderCanvasFrame();
           return;
         }
       }
 
-      // 3. Interactive Timeline Block Dragging & Timing Adjustment (CapCut)
+      // 3. Interactive Timeline Block Dragging (Text Layers, Hook, PIP Overlays)
       if (state.timelineBlockDrag && dom.timelineStage) {
         const dx = e.clientX - state.timelineBlockDrag.startX;
         const { span } = getTimelineBounds();
         const stageWidth = dom.timelineStage.getBoundingClientRect().width || 1000;
         const dt = (dx / stageWidth) * span;
 
+        if (state.timelineBlockDrag.item.startsWith('text-layer-')) {
+          const layer = (state.textLayers || []).find((l) => l.id === state.timelineBlockDrag.layerId);
+          if (layer) {
+            const act = state.timelineBlockDrag.action;
+            if (act === 'move-txt') {
+              layer.start = Number(Math.max(0, resolveTimelineSnap(state.timelineBlockDrag.initStart + dt)).toFixed(2));
+            } else if (act === 'resize-txt-right') {
+              const newEnd = Math.max(layer.start + 0.4, resolveTimelineSnap(state.timelineBlockDrag.initStart + state.timelineBlockDrag.initDuration + dt));
+              layer.duration = Number((newEnd - layer.start).toFixed(2));
+            } else if (act === 'resize-txt-left') {
+              const newStart = clamp(resolveTimelineSnap(state.timelineBlockDrag.initStart + dt), 0, state.timelineBlockDrag.initStart + state.timelineBlockDrag.initDuration - 0.4);
+              const deltaS = newStart - state.timelineBlockDrag.initStart;
+              layer.start = Number(newStart.toFixed(2));
+              layer.duration = Number(Math.max(0.4, state.timelineBlockDrag.initDuration - deltaS).toFixed(2));
+            }
+            syncContextualInspector();
+            renderTextLayersList();
+            renderTimelineTracks();
+            renderCanvasFrame();
+          }
+          return;
+        }
+
         if (state.timelineBlockDrag.item === 'overlay-image' && state.overlayImage) {
           if (state.timelineBlockDrag.action === 'move') {
-            const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
+            const newStart = Math.max(0, resolveTimelineSnap(state.timelineBlockDrag.initStart + dt));
             state.overlayImage.start = Number(newStart.toFixed(2));
             state.overlayImageStartOffset = Math.max(0, Number((state.overlayImage.start - state.trimStart).toFixed(2)));
             syncImageInspectorControls();
           } else if (state.timelineBlockDrag.action === 'resize-right') {
-            const newDur = Math.max(1.0, state.timelineBlockDrag.initDuration + dt);
+            const newDur = Math.max(0.6, state.timelineBlockDrag.initDuration + dt);
             state.overlayImage.duration = Number(newDur.toFixed(2));
             state.overlayImageDuration = state.overlayImage.duration;
             syncImageInspectorControls();
           } else if (state.timelineBlockDrag.action === 'resize-left') {
             const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
             const deltaStart = newStart - state.timelineBlockDrag.initStart;
-            const newDur = Math.max(1.0, state.timelineBlockDrag.initDuration - deltaStart);
+            const newDur = Math.max(0.6, state.timelineBlockDrag.initDuration - deltaStart);
             state.overlayImage.start = Number(newStart.toFixed(2));
             state.overlayImage.duration = Number(newDur.toFixed(2));
             state.overlayImageStartOffset = Math.max(0, Number((state.overlayImage.start - state.trimStart).toFixed(2)));
@@ -6183,31 +8618,37 @@
           }
           renderTimelineTracks();
           return;
-        } else if (state.timelineBlockDrag.item === 'hook-banner') {
+        }
+
+        if (state.timelineBlockDrag.item === 'hook-banner') {
           if (state.timelineBlockDrag.action === 'resize-right') {
-            const newDur = Math.max(1.0, state.timelineBlockDrag.initDuration + dt);
+            const newDur = Math.max(0.8, state.timelineBlockDrag.initDuration + dt);
             state.hookDuration = Number(newDur.toFixed(1));
+            syncContextualInspector();
             renderTimelineTracks();
           }
           return;
-        } else if (state.timelineBlockDrag.item.startsWith('visual-overlay-')) {
+        }
+
+        if (state.timelineBlockDrag.item.startsWith('visual-overlay-')) {
           const ovId = state.timelineBlockDrag.overlayId;
           const ov = (state.visualOverlays || []).find((o) => o.id === ovId);
           if (ov) {
             const act = state.timelineBlockDrag.action;
             if (act === 'move' || act === 'move-ov') {
-              const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
+              const newStart = Math.max(0, resolveTimelineSnap(state.timelineBlockDrag.initStart + dt));
               ov.startTime = Math.max(0, Number((newStart - state.trimStart).toFixed(2)));
             } else if (act === 'resize-right' || act === 'resize-ov-right') {
               const newDur = Math.max(0.5, state.timelineBlockDrag.initDuration + dt);
               ov.duration = Number(newDur.toFixed(2));
             } else if (act === 'resize-left' || act === 'resize-ov-left') {
-              const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
+              const newStart = Math.max(0, resolveTimelineSnap(state.timelineBlockDrag.initStart + dt));
               const deltaStart = newStart - state.timelineBlockDrag.initStart;
               const newDur = Math.max(0.5, state.timelineBlockDrag.initDuration - deltaStart);
               ov.startTime = Math.max(0, Number((newStart - state.trimStart).toFixed(2)));
               ov.duration = Number(newDur.toFixed(2));
             }
+            syncContextualInspector();
             renderVisualOverlaysList();
             renderTimelineTracks();
           }
@@ -6215,14 +8656,14 @@
         }
       }
 
-      // 4. Playhead & Trim Handles Dragging (with OpenCut Magnetic Snapping)
+      // 4. Playhead & Trim Handles Dragging
       if (!state.activeDragMode) return;
       const applySnap = state.activeDragMode === 'trim-in' || state.activeDragMode === 'trim-out';
       const t = getTimelineSecFromMouseEvent(e, applySnap);
       if (state.activeDragMode === 'playhead') {
         seekToTime(t);
       } else if (state.activeDragMode === 'trim-in') {
-        state.trimStart = clamp(t, 0, state.trimEnd - 1.5);
+        state.trimStart = clamp(t, 0, state.trimEnd - 1.0);
         if (state.overlayImage) {
           state.overlayImage.start = state.trimStart + (state.overlayImageStartOffset || 2.5);
         }
@@ -6231,7 +8672,7 @@
         renderTimelineTracks();
         updateComplianceAndPayout();
       } else if (state.activeDragMode === 'trim-out') {
-        state.trimEnd = clamp(t, state.trimStart + 1.5, state.streamDuration || 60);
+        state.trimEnd = clamp(t, state.trimStart + 1.0, state.streamDuration || 60);
         renderTimelineRuler();
         renderTimelineTracks();
         updateComplianceAndPayout();
@@ -6245,38 +8686,70 @@
       state.canvasDragMode = null;
       state.canvasDragStart = null;
       state.timelineBlockDrag = null;
+      state.canvasSnapGuides = { vCenter: false, hCenter: false };
+      if (dom.timelineSnapLine) dom.timelineSnapLine.classList.add('hidden');
     });
 
-    // Global Keyboard Shortcuts (CapCut-compatible shortcuts)
+    // =====================================================================
+    // GLOBAL CAPCUT PRO KEYBOARD SHORTCUTS (Undo/Redo, Cmd+K, Split, Text)
+    // =====================================================================
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (dom.capcutContextMenu) dom.capcutContextMenu.classList.add('hidden');
+        if (dom.commandPaletteModal && !dom.commandPaletteModal.classList.contains('hidden')) {
+          closeCommandPalette();
+          return;
+        }
+        if (state.inlineEditTargetKey) {
+          cancelCanvasInlineEdit();
+          return;
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openCommandPalette();
+        return;
+      }
+
+      const tag = (e.target && e.target.tagName) || '';
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable;
+
+      if (!inInput && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redoAction();
+        else undoAction();
+        return;
+      }
+      if (!inInput && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redoAction();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         saveCurrentClipToVault(false);
         return;
       }
-      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') || e.key.toLowerCase() === 'c') {
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          splitClipAtPlayhead();
-          return;
-        }
+      if (!inInput && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        duplicateSelectedLayerOrClip();
+        return;
       }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          deleteSelectedCapCutItem();
-          return;
-        }
-      }
-      const tag = (e.target && e.target.tagName) || '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (inInput) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
         togglePlayPause();
-      } else if (e.key.toLowerCase() === 'b') {
+      } else if (e.key.toLowerCase() === 'b' || e.key.toLowerCase() === 'c') {
         e.preventDefault();
         splitClipAtPlayhead();
+      } else if (e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        addTextLayer('heading');
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        freezeFrameAtPlayhead(2.0);
       } else if (e.key.toLowerCase() === 'q') {
         e.preventDefault();
         rippleTrimIn();
@@ -6289,20 +8762,751 @@
       } else if (e.key.toLowerCase() === 'm') {
         e.preventDefault();
         toggleBackgroundSound();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const step = e.shiftKey ? 1.0 : (1 / 30);
+        seekToTime(Math.max(0, state.currentTime - step));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const step = e.shiftKey ? 1.0 : (1 / 30);
+        seekToTime(Math.min(state.streamDuration || 60, state.currentTime + step));
       }
     });
 
+    // =====================================================================
+    // CAPCUT PRO RIGHT-CLICK CONTEXT MENU (Canvas + 5-Track Timeline)
+    // =====================================================================
+    const openCapCutContextMenu = (e) => {
+      if (!dom.capcutContextMenu) return;
+      e.preventDefault();
+      if (e.currentTarget === dom.previewCanvas) {
+        const pt = getCanvasCoords(e);
+        const hitBoxes = [...(state.canvasHitBoxes || [])].reverse();
+        const hit = hitBoxes.find(
+          (hb) => pt.x >= hb.x - 6 && pt.x <= hb.x + hb.w + 6 && pt.y >= hb.y - 6 && pt.y <= hb.y + hb.h + 6
+        );
+        if (hit) selectCanvasHitBox(hit);
+      }
+      const x = clamp(e.clientX, 12, window.innerWidth - 220);
+      const y = clamp(e.clientY, 12, window.innerHeight - 280);
+      dom.capcutContextMenu.style.left = `${x}px`;
+      dom.capcutContextMenu.style.top = `${y}px`;
+      dom.capcutContextMenu.classList.remove('hidden');
+    };
+
+    if (dom.previewCanvas) safeOn(dom.previewCanvas, 'contextmenu', openCapCutContextMenu);
+    if (dom.timelineStage) safeOn(dom.timelineStage, 'contextmenu', openCapCutContextMenu);
+
+    window.addEventListener('click', (e) => {
+      if (dom.capcutContextMenu && !dom.capcutContextMenu.classList.contains('hidden')) {
+        if (!e.target.closest('#capcutContextMenu')) {
+          dom.capcutContextMenu.classList.add('hidden');
+        }
+      }
+    });
+
+    if (dom.capcutContextMenu) {
+      dom.capcutContextMenu.querySelectorAll('[data-ctx-action]').forEach((item) => {
+        item.addEventListener('click', () => {
+          const act = item.dataset.ctxAction;
+          dom.capcutContextMenu.classList.add('hidden');
+          if (act === 'split') splitClipAtPlayhead();
+          else if (act === 'duplicate') duplicateSelectedLayerOrClip();
+          else if (act === 'freeze') freezeFrameAtPlayhead(2.0);
+          else if (act === 'edit-text') {
+            if (state.selectedCanvasLayer) openCanvasInlineEditor(state.selectedCanvasLayer);
+            else addTextLayer('heading');
+          } else if (act === 'center-canvas') {
+            pushUndoState('Center Layer on Canvas');
+            const sel = state.selectedCanvasLayer;
+            if (sel && sel.startsWith('text:')) {
+              const l = (state.textLayers || []).find((x) => x.id === sel.slice(5));
+              if (l) { l.xPct = 50; l.yPct = 50; }
+            } else if (sel && sel.startsWith('overlay:')) {
+              const o = (state.visualOverlays || []).find((x) => x.id === sel.slice(8));
+              if (o) { o.xPct = 50; o.yPct = 38; o.x = 0; o.y = 0; }
+            } else if (sel === 'caption') {
+              state.captionPosX = 50; state.captionPosY = 72;
+            } else if (sel === 'hook') {
+              state.hookPos = { x: 50, y: 10 };
+            } else if (sel === 'watermark') {
+              state.watermarkPos = { x: 50, y: 92 };
+            }
+            syncContextualInspector();
+            renderCanvasFrame();
+            showToast('🎯 Centered on Canvas', '#00f2fe');
+          } else if (act === 'toggle-pip-style') {
+            const ovId = (state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('overlay:'))
+              ? state.selectedCanvasLayer.slice(8)
+              : state.selectedVisualOverlayId;
+            const ov = (state.visualOverlays || []).find((o) => o.id === ovId);
+            if (ov) {
+              pushUndoState('Toggle PIP Style');
+              ov.displayStyle = ov.displayStyle === 'card' ? 'clean-pip' : 'card';
+              syncContextualInspector();
+              renderCanvasFrame();
+              showToast(ov.displayStyle === 'card' ? '🃏 Framed Card Mode' : '✨ Clean Borderless PIP Mode', '#00f2fe');
+            }
+          } else if (act === 'reset-transform') {
+            pushUndoState('Reset Transform');
+            const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+            if (clip) { clip.zoom = 1.0; clip.panX = 0; clip.panY = 0; }
+            state.cameraZoom = 1.0; state.cameraPanX = 0; state.cameraPanY = 0;
+            syncContextualInspector();
+            renderCanvasFrame();
+            showToast('🔄 Reset Transform to 1:1');
+          } else if (act === 'delete') {
+            deleteSelectedCapCutItem();
+          }
+        });
+      });
+    }
+
+    // =====================================================================
+    // ALL NEW CAPCUT PRO × OPENCUT × FILMCRAFT UI CONTROLS WIRING
+    // =====================================================================
+    // Undo / Redo & Command Palette
+    safeOn(dom.undoBtn, 'click', undoAction);
+    safeOn(dom.redoBtn, 'click', redoAction);
+    safeOn(dom.timelineUndoBtn, 'click', undoAction);
+    safeOn(dom.timelineRedoBtn, 'click', redoAction);
+    safeOn(dom.openCmdPaletteBtn, 'click', openCommandPalette);
+    if (dom.commandPaletteModal) {
+      safeOn(dom.commandPaletteModal, 'click', (e) => {
+        if (e.target === dom.commandPaletteModal) closeCommandPalette();
+      });
+    }
+    if (dom.cmdPaletteInput) {
+      safeOn(dom.cmdPaletteInput, 'input', () => renderCommandPaletteResults(dom.cmdPaletteInput.value));
+      safeOn(dom.cmdPaletteInput, 'keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const firstItem = dom.cmdPaletteList?.querySelector('.cmd-palette-item');
+          if (firstItem) firstItem.click();
+        } else if (e.key === 'Escape') {
+          closeCommandPalette();
+        }
+      });
+    }
+
     // OpenCut Left Rail Tab Switcher
+    const activateRailTab = (tab) => {
+      document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('active', b.dataset.railTab === tab));
+      document.querySelectorAll('.drawer-content').forEach((c) => c.classList.toggle('active', c.id === `drawerTab-${tab}`));
+    };
     document.querySelectorAll('.rail-btn[data-rail-tab]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.railTab;
-        document.querySelectorAll('.rail-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.drawer-content').forEach((c) => c.classList.remove('active'));
-        const target = document.getElementById(`drawerTab-${tab}`);
-        if (target) target.classList.add('active');
+        activateRailTab(tab);
+        if (tab === 'text') setInspectorMode('text');
+        else if (tab === 'captions') setInspectorMode('caption');
+        else if (tab === 'overlays') setInspectorMode('overlay');
+        else if (tab === 'audio') setInspectorMode('audio');
       });
     });
+
+    // Multi-Mode Contextual Inspector Tab Switcher
+    if (dom.inspectorModeBar) {
+      dom.inspectorModeBar.querySelectorAll('.insp-mode-tab').forEach((btn) => {
+        btn.addEventListener('click', () => setInspectorMode(btn.dataset.inspMode));
+      });
+    }
+    document.querySelectorAll('[data-quick-insp]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.quickInsp;
+        if (target === 'text') { addTextLayer('heading'); }
+        else if (target === 'caption') { setInspectorMode('caption'); activateRailTab('captions'); }
+        else if (target === 'overlay') { triggerVisualOverlayPicker('image'); }
+        else setInspectorMode('video');
+      });
+    });
+
+    // Center Canvas Floating Toolbar & Inline Editor
+    safeOn(dom.cftEditTextBtn, 'click', () => openCanvasInlineEditor(state.selectedCanvasLayer));
+    safeOn(dom.cftToggleStyleBtn, 'click', () => {
+      const ovId = (state.selectedCanvasLayer && state.selectedCanvasLayer.startsWith('overlay:'))
+        ? state.selectedCanvasLayer.slice(8)
+        : state.selectedVisualOverlayId;
+      const ov = (state.visualOverlays || []).find((o) => o.id === ovId);
+      if (ov) {
+        pushUndoState('Toggle PIP Frame');
+        ov.displayStyle = ov.displayStyle === 'card' ? 'clean-pip' : 'card';
+        syncContextualInspector();
+        renderCanvasFrame();
+        showToast(ov.displayStyle === 'card' ? '🃏 Framed Card Mode' : '✨ Clean Borderless PIP');
+      }
+    });
+    safeOn(dom.cftCenterBtn, 'click', () => {
+      const centerItem = dom.capcutContextMenu?.querySelector('[data-ctx-action="center-canvas"]');
+      if (centerItem) centerItem.click();
+    });
+    safeOn(dom.cftDuplicateBtn, 'click', duplicateSelectedLayerOrClip);
+    safeOn(dom.cftDeleteBtn, 'click', deleteSelectedCapCutItem);
+
+    if (dom.canvasInlineInput) {
+      safeOn(dom.canvasInlineInput, 'keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          commitCanvasInlineEdit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelCanvasInlineEdit();
+        }
+      });
+      safeOn(dom.canvasInlineInput, 'blur', () => {
+        setTimeout(() => commitCanvasInlineEdit(), 80);
+      });
+    }
+
+    // Text Drawer ("T" Tool) & Text/Hook/Watermark Inspector Controls
+    document.querySelectorAll('.text-preset-card[data-text-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => addTextLayer(btn.dataset.textPreset));
+    });
+    if (dom.hookBannerTextDrawerInput) {
+      safeOn(dom.hookBannerTextDrawerInput, 'input', () => {
+        state.hookText = dom.hookBannerTextDrawerInput.value;
+        if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookText;
+        syncContextualInspector();
+        renderTimelineTracks();
+        renderCanvasFrame();
+      });
+    }
+    safeOn(dom.selectHookOnCanvasBtn, 'click', () => {
+      state.selectedCanvasLayer = 'hook';
+      state.activeTextTarget = 'hook';
+      setInspectorMode('text');
+      renderCanvasFrame();
+    });
+
+    safeOn(dom.inspTextVisibleToggle, 'change', () => {
+      pushUndoState('Toggle Text Visibility');
+      const on = dom.inspTextVisibleToggle.checked;
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.visible = on;
+        renderTextLayersList();
+      } else if (state.activeTextTarget === 'watermark') {
+        state.watermarkEnabled = on;
+        if (dom.watermarkEnabledToggle) dom.watermarkEnabledToggle.checked = on;
+      } else {
+        state.hookMode = on ? '3s' : 'off';
+        syncAllInspectorControlsFromState();
+      }
+      renderTimelineTracks();
+      renderCanvasFrame();
+    });
+
+    safeOn(dom.inspTextContentInput, 'input', () => {
+      const val = dom.inspTextContentInput.value;
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.text = val;
+        renderTextLayersList();
+      } else if (state.activeTextTarget === 'watermark') {
+        state.watermarkText = val;
+        if (dom.watermarkTextInput) dom.watermarkTextInput.value = val;
+      } else {
+        state.hookText = val;
+        if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = val;
+        if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = val;
+      }
+      updateSelectionBadgeUI();
+      renderTimelineTracks();
+      renderCanvasFrame();
+    });
+
+    safeOn(dom.inspTextStartInput, 'change', () => {
+      const v = Math.max(0, parseFloat(dom.inspTextStartInput.value) || 0);
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) { pushUndoState('Text Start Time'); l.start = v; }
+      }
+      renderTextLayersList();
+      renderTimelineTracks();
+      renderCanvasFrame();
+    });
+
+    safeOn(dom.inspTextDurInput, 'change', () => {
+      const v = Math.max(0.4, parseFloat(dom.inspTextDurInput.value) || 3.5);
+      pushUndoState('Text Duration');
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.duration = v;
+      } else if (state.activeTextTarget === 'hook') {
+        state.hookDuration = v;
+      }
+      renderTextLayersList();
+      renderTimelineTracks();
+      renderCanvasFrame();
+    });
+
+    safeOn(dom.inspTextFontSelect, 'change', () => {
+      const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+      if (l) { l.fontFamily = dom.inspTextFontSelect.value; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspTextColorInput, 'input', () => {
+      const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+      if (l) { l.color = dom.inspTextColorInput.value; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspTextBgColorInput, 'input', () => {
+      const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+      if (l) { l.bgColor = dom.inspTextBgColorInput.value; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspTextBgToggle, 'change', () => {
+      const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+      if (l) { l.bgEnabled = dom.inspTextBgToggle.checked; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspTextSizeSlider, 'input', () => {
+      const v = parseInt(dom.inspTextSizeSlider.value, 10) || 52;
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.fontSize = v;
+        if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${v}px`;
+      } else if (state.activeTextTarget === 'watermark') {
+        state.watermarkScale = Number((v / 44).toFixed(2));
+        if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${Math.round(state.watermarkScale * 100)}%`;
+      } else {
+        state.hookScale = Number((v / 48).toFixed(2));
+        if (dom.inspTextSizeLabel) dom.inspTextSizeLabel.textContent = `${Math.round(state.hookScale * 100)}%`;
+      }
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspTextPosXSlider, 'input', () => {
+      const v = parseInt(dom.inspTextPosXSlider.value, 10) || 50;
+      if (dom.inspTextPosXLabel) dom.inspTextPosXLabel.textContent = `${v}%`;
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.xPct = v;
+      } else if (state.activeTextTarget === 'watermark') {
+        state.watermarkPos = { x: v, y: state.watermarkPos?.y ?? 92 };
+      } else {
+        state.hookPos = { x: v, y: state.hookPos?.y ?? 10 };
+      }
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspTextPosYSlider, 'input', () => {
+      const v = parseInt(dom.inspTextPosYSlider.value, 10) || 26;
+      if (dom.inspTextPosYLabel) dom.inspTextPosYLabel.textContent = `${v}%`;
+      if (state.activeTextTarget === 'layer') {
+        const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+        if (l) l.yPct = v;
+      } else if (state.activeTextTarget === 'watermark') {
+        state.watermarkPos = { x: state.watermarkPos?.x ?? 24, y: v };
+      } else {
+        state.hookPos = { x: state.hookPos?.x ?? 50, y: v };
+      }
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspTextAnimSelect, 'change', () => {
+      const l = (state.textLayers || []).find((x) => x.id === state.selectedTextLayerId);
+      if (l) { l.animation = dom.inspTextAnimSelect.value; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspTextDuplicateBtn, 'click', duplicateSelectedLayerOrClip);
+    safeOn(dom.inspTextDeleteBtn, 'click', deleteSelectedCapCutItem);
+
+    // Caption Inspector & Paper-Edit Controls
+    safeOn(dom.inspCaptionTextInput, 'change', () => {
+      pushUndoState('Edit Subtitle Phrase');
+      updateActiveCaptionPhraseText(dom.inspCaptionTextInput.value);
+    });
+    safeOn(dom.inspCapStartInput, 'change', () => {
+      if (state.selectedCaptionSegment) {
+        pushUndoState('Subtitle Start');
+        state.selectedCaptionSegment.start = Math.max(0, parseFloat(dom.inspCapStartInput.value) || 0);
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspCapEndInput, 'change', () => {
+      if (state.selectedCaptionSegment) {
+        pushUndoState('Subtitle End');
+        state.selectedCaptionSegment.end = Math.max(state.selectedCaptionSegment.start + 0.2, parseFloat(dom.inspCapEndInput.value) || 1);
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspCapStyleSelect, 'change', () => {
+      state.captionStyle = dom.inspCapStyleSelect.value;
+      renderCaptionPresetsGrid();
+      renderCanvasFrame();
+    });
+    const onCapFontChange = (val) => {
+      state.captionFontFamily = val;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspCapFontSelect, 'change', (e) => onCapFontChange(e.target.value));
+    safeOn(dom.captionFontFamilySelect, 'change', (e) => onCapFontChange(e.target.value));
+
+    const onCapColorChange = (val) => {
+      state.captionColor = val;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspCapColorInput, 'input', (e) => onCapColorChange(e.target.value));
+    safeOn(dom.captionColorInput, 'input', (e) => onCapColorChange(e.target.value));
+
+    const onCapHiChange = (val) => {
+      state.captionHighlightColor = val;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspCapHighlightInput, 'input', (e) => onCapHiChange(e.target.value));
+    safeOn(dom.captionHighlightColorInput, 'input', (e) => onCapHiChange(e.target.value));
+
+    const onCapPxChange = (val) => {
+      state.captionFontPx = parseInt(val, 10) || 68;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspCapSizeSlider, 'input', (e) => onCapPxChange(e.target.value));
+    safeOn(dom.captionFontSizeSlider, 'input', (e) => onCapPxChange(e.target.value));
+
+    safeOn(dom.inspCapStrokeSlider, 'input', () => {
+      state.captionStrokeWidth = parseInt(dom.inspCapStrokeSlider.value, 10) || 0;
+      if (dom.inspCapStrokeLabel) dom.inspCapStrokeLabel.textContent = `${state.captionStrokeWidth}px`;
+      renderCanvasFrame();
+    });
+
+    const onCapPosXChange = (val) => {
+      state.captionPosX = parseInt(val, 10) || 50;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspCapPosXSlider, 'input', (e) => onCapPosXChange(e.target.value));
+    safeOn(dom.captionPosXSlider, 'input', (e) => onCapPosXChange(e.target.value));
+
+    safeOn(dom.inspCapPosYSlider, 'input', () => {
+      state.captionPosY = parseInt(dom.inspCapPosYSlider.value, 10) || 72;
+      syncContextualInspector();
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspAddCaptionBtn, 'click', () => addCustomCaptionPhraseAtPlayhead());
+    safeOn(dom.addCaptionPhraseBtn, 'click', () => addCustomCaptionPhraseAtPlayhead());
+    safeOn(dom.inspDeleteCaptionBtn, 'click', deleteSelectedCapCutItem);
+    safeOn(dom.transcriptCutWordBtn, 'click', cutSelectedTranscriptWord);
+
+    // PIP / Sticker Overlay Inspector Controls
+    const getEditableOv = () => (state.visualOverlays || []).find((o) => o.id === state.selectedVisualOverlayId) || (state.visualOverlays || [])[0];
+    safeOn(dom.inspOverlayNameInput, 'input', () => {
+      const ov = getEditableOv();
+      if (ov) { ov.name = dom.inspOverlayNameInput.value; renderVisualOverlaysList(); renderTimelineTracks(); }
+    });
+    safeOn(dom.inspOverlayStyleSelect, 'change', () => {
+      const ov = getEditableOv();
+      if (ov) {
+        pushUndoState('Change PIP Display Style');
+        ov.displayStyle = dom.inspOverlayStyleSelect.value;
+        syncContextualInspector();
+        renderCanvasFrame();
+      }
+    });
+    safeOn(dom.inspReplaceOverlayBtn, 'click', () => {
+      if (dom.replaceOverlayFileInput) dom.replaceOverlayFileInput.click();
+    });
+    if (dom.replaceOverlayFileInput) {
+      safeOn(dom.replaceOverlayFileInput, 'change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        const ov = getEditableOv();
+        if (!file) return;
+        if (!ov) {
+          addCustomVisualOverlay(file);
+          return;
+        }
+        pushUndoState('Replace PIP Media');
+        const url = URL.createObjectURL(file);
+        const isVid = file.type.startsWith('video/');
+        ov.name = file.name.replace(/\.[^/.]+$/, '');
+        ov.type = isVid ? 'custom_video' : 'custom_image';
+        ov.customUrl = url;
+        if (isVid) {
+          const v = document.createElement('video');
+          v.src = url; v.muted = true; v.loop = true; v.playsInline = true;
+          v.play().catch(() => {});
+          ov.mediaEl = v;
+        } else {
+          const img = new Image();
+          img.src = url;
+          img.onload = () => renderCanvasFrame();
+          ov.mediaEl = img;
+        }
+        mediaElementRegistry.set(ov.id, ov.mediaEl);
+        renderVisualOverlaysList();
+        renderTimelineTracks();
+        syncContextualInspector();
+        renderCanvasFrame();
+        showToast(`🔄 Replaced PIP media with "${ov.name}"`, '#10b981');
+      });
+    }
+    safeOn(dom.inspOverlayStartInput, 'change', () => {
+      const ov = getEditableOv();
+      if (ov) {
+        pushUndoState('PIP Start Time');
+        ov.startTime = Math.max(0, parseFloat(dom.inspOverlayStartInput.value) || 0);
+        renderVisualOverlaysList();
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspOverlayDurInput, 'change', () => {
+      const ov = getEditableOv();
+      if (ov) {
+        pushUndoState('PIP Duration');
+        ov.duration = Math.max(0.5, parseFloat(dom.inspOverlayDurInput.value) || 3.5);
+        renderVisualOverlaysList();
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspOverlayCenterBtn, 'click', () => {
+      const ov = getEditableOv();
+      if (ov) {
+        pushUndoState('Center PIP');
+        ov.xPct = 50; ov.yPct = 38; ov.x = 0; ov.y = 0;
+        syncContextualInspector();
+        renderCanvasFrame();
+      }
+    });
+    safeOn(dom.inspOverlayScaleSlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayScaleSlider.value, 10) || 100;
+      if (ov) ov.scale = v / 100;
+      if (dom.inspOverlayScaleLabel) dom.inspOverlayScaleLabel.textContent = `${v}%`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayPosXSlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayPosXSlider.value, 10) || 50;
+      if (ov) { ov.xPct = v; ov.x = Math.round(((v - 50) / 100) * 1080); }
+      if (dom.inspOverlayPosXLabel) dom.inspOverlayPosXLabel.textContent = `${v}%`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayPosYSlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayPosYSlider.value, 10) || 38;
+      if (ov) { ov.yPct = v; ov.y = Math.round(((v - 38) / 100) * 1920); }
+      if (dom.inspOverlayPosYLabel) dom.inspOverlayPosYLabel.textContent = `${v}%`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayRadiusSlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayRadiusSlider.value, 10) || 0;
+      if (ov) ov.cornerRadius = v;
+      if (dom.inspOverlayRadiusLabel) dom.inspOverlayRadiusLabel.textContent = `${v}px`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayOpacitySlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayOpacitySlider.value, 10) || 100;
+      if (ov) ov.opacity = v;
+      if (dom.inspOverlayOpacityLabel) dom.inspOverlayOpacityLabel.textContent = `${v}%`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayRotateSlider, 'input', () => {
+      const ov = getEditableOv();
+      const v = parseInt(dom.inspOverlayRotateSlider.value, 10) || 0;
+      if (ov) ov.rotation = v;
+      if (dom.inspOverlayRotateLabel) dom.inspOverlayRotateLabel.textContent = `${v}°`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.inspOverlayAnimSelect, 'change', () => {
+      const ov = getEditableOv();
+      if (ov) { ov.animation = dom.inspOverlayAnimSelect.value; renderCanvasFrame(); }
+    });
+    safeOn(dom.inspOverlayDuplicateBtn, 'click', duplicateSelectedLayerOrClip);
+    safeOn(dom.inspOverlayDeleteBtn, 'click', deleteSelectedCapCutItem);
+
+    // Video Cut Inspector Extras & Color Grading Adjustments
+    safeOn(dom.inspCutTitleInput, 'input', () => {
+      const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+      if (clip) {
+        clip.title = dom.inspCutTitleInput.value;
+        renderTimelineTracks();
+        updateSelectionBadgeUI();
+      }
+    });
+    safeOn(dom.inspCutStartInput, 'change', () => {
+      const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+      if (clip) {
+        pushUndoState('Cut Start Time');
+        clip.start = clamp(parseFloat(dom.inspCutStartInput.value) || 0, 0, clip.end - 0.3);
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspCutEndInput, 'change', () => {
+      const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+      if (clip) {
+        pushUndoState('Cut End Time');
+        clip.end = Math.max(clip.start + 0.3, parseFloat(dom.inspCutEndInput.value) || 1);
+        renderTimelineTracks();
+      }
+    });
+    safeOn(dom.inspCutOpacitySlider, 'input', () => {
+      const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
+      const v = parseInt(dom.inspCutOpacitySlider.value, 10) || 100;
+      if (clip) clip.opacity = v;
+      if (dom.inspCutOpacityLabel) dom.inspCutOpacityLabel.textContent = `${v}%`;
+      renderCanvasFrame();
+    });
+    safeOn(dom.freezeFrameBtn, 'click', () => freezeFrameAtPlayhead(2.0));
+    safeOn(dom.timelineFreezeBtn, 'click', () => freezeFrameAtPlayhead(2.0));
+
+    safeOn(dom.drawerFitScreenBtn, 'click', () => dom.btnFitAllPeople?.click());
+    safeOn(dom.drawerFillCropBtn, 'click', () => dom.btnFillVertical?.click());
+
+    const updateColorAdjust = (key, val) => {
+      if (!state.colorAdjust) state.colorAdjust = { brightness: 0, contrast: 0, saturation: 0 };
+      state.colorAdjust[key] = parseInt(val, 10) || 0;
+      syncContextualInspector();
+      renderCanvasFrame();
+    };
+    safeOn(dom.inspBrightnessSlider, 'input', (e) => updateColorAdjust('brightness', e.target.value));
+    safeOn(dom.drawerBrightnessSlider, 'input', (e) => updateColorAdjust('brightness', e.target.value));
+    safeOn(dom.inspContrastSlider, 'input', (e) => updateColorAdjust('contrast', e.target.value));
+    safeOn(dom.drawerContrastSlider, 'input', (e) => updateColorAdjust('contrast', e.target.value));
+    safeOn(dom.inspSaturationSlider, 'input', (e) => updateColorAdjust('saturation', e.target.value));
+    safeOn(dom.drawerSaturationSlider, 'input', (e) => updateColorAdjust('saturation', e.target.value));
+
+    const resetColorAdjust = () => {
+      pushUndoState('Reset Color Adjustments');
+      state.colorAdjust = { brightness: 0, contrast: 0, saturation: 0 };
+      syncContextualInspector();
+      renderCanvasFrame();
+      showToast('🎨 Reset Brightness, Contrast & Saturation');
+    };
+    safeOn(dom.inspResetColorBtn, 'click', resetColorAdjust);
+    safeOn(dom.drawerResetColorBtn, 'click', resetColorAdjust);
+
+    // Audio Inspector & auto-video-editor Silence Jump-Cutter
+    safeOn(dom.inspVoiceVolSlider, 'input', () => {
+      const pct = parseInt(dom.inspVoiceVolSlider.value, 10) || 95;
+      state.mainVolume = pct / 100;
+      if (dom.mainVolSlider) dom.mainVolSlider.value = String(pct);
+      if (dom.mainVolLabel) dom.mainVolLabel.textContent = `${pct}%`;
+      if (dom.inspVoiceVolLabel) dom.inspVoiceVolLabel.textContent = `${pct}%`;
+      if (window.WhopAudioEngine) window.WhopAudioEngine.setMainVolume(state.mainVolume);
+    });
+    safeOn(dom.inspMusicVolSlider, 'input', () => {
+      const pct = parseInt(dom.inspMusicVolSlider.value, 10) || 0;
+      state.musicVolume = pct / 100;
+      if (dom.musicVolSlider) dom.musicVolSlider.value = String(pct);
+      if (dom.musicVolLabel) dom.musicVolLabel.textContent = `${pct}%`;
+      if (dom.inspMusicVolLabel) dom.inspMusicVolLabel.textContent = `${pct}%`;
+      if (window.WhopAudioEngine) window.WhopAudioEngine.setMusicVolume(state.musicVolume);
+    });
+    safeOn(dom.inspMusicPresetSelect, 'change', () => {
+      state.musicPreset = dom.inspMusicPresetSelect.value;
+      if (state.musicPreset !== 'none' && state.musicVolume === 0) {
+        state.musicVolume = 0.22;
+      }
+      if (window.WhopAudioEngine) {
+        window.WhopAudioEngine.setMusicPreset(state.musicPreset);
+        window.WhopAudioEngine.setMusicVolume(state.musicVolume);
+      }
+      renderMusicPresetCards();
+      syncContextualInspector();
+    });
+
+    safeOn(dom.silenceThresholdSlider, 'input', () => {
+      state.silenceThresholdSec = parseFloat(dom.silenceThresholdSlider.value) || 0.45;
+      if (dom.silenceThresholdLabel) dom.silenceThresholdLabel.textContent = `${state.silenceThresholdSec.toFixed(2)}s`;
+    });
+    safeOn(dom.applySilenceJumpCutsBtn, 'click', () => applyAutoSilenceJumpCuts(state.silenceThresholdSec));
+    safeOn(dom.autoJumpCutsQuickBtn, 'click', () => applyAutoSilenceJumpCuts(state.silenceThresholdSec));
+    safeOn(dom.inspApplySilenceCutsBtn, 'click', () => applyAutoSilenceJumpCuts(state.silenceThresholdSec));
+    safeOn(dom.resetMasterTrackBtn, 'click', resetToUncutMasterTrack);
+
+    // Timeline Toolbar, Aspect Ratio, Stage Zoom, Snapping, Ripple, Bookmarks & 5-Track Headers
+    safeOn(dom.timelineAddTextBtn, 'click', () => addTextLayer('heading'));
+    safeOn(dom.trackAddTextTrackBtn, 'click', () => addTextLayer('heading'));
+    safeOn(dom.trackAddCapBtn, 'click', () => addCustomCaptionPhraseAtPlayhead());
+    safeOn(dom.trackAddOvBtn, 'click', () => triggerVisualOverlayPicker('image'));
+
+    safeOn(dom.addBookmarkBtn, 'click', () => {
+      pushUndoState('Add Marker');
+      if (!Array.isArray(state.bookmarks)) state.bookmarks = [];
+      const t = Number(state.currentTime.toFixed(2));
+      state.bookmarks.push(t);
+      renderTimelineRuler();
+      showToast(`🔖 Added timeline marker at ${formatSeconds(t)}`, '#00f2fe');
+    });
+
+    safeOn(dom.snappingToggleBtn, 'click', () => {
+      state.snappingEnabled = state.snappingEnabled === false;
+      dom.snappingToggleBtn.classList.toggle('active', state.snappingEnabled);
+      showToast(state.snappingEnabled ? '🧲 Magnetic Snapping: ON' : '🧲 Magnetic Snapping: OFF');
+    });
+
+    safeOn(dom.rippleToggleBtn, 'click', () => {
+      state.rippleEnabled = state.rippleEnabled === false;
+      dom.rippleToggleBtn.classList.toggle('active', state.rippleEnabled);
+      showToast(state.rippleEnabled ? '🌊 Ripple Edit: ON (Auto-closes gaps)' : '🌊 Ripple Edit: OFF (Free gap positioning)');
+    });
+
+    safeOn(dom.zoomFitTimelineBtn, 'click', () => {
+      state.timelineZoom = 0.0;
+      if (dom.timelineZoomSlider) dom.timelineZoomSlider.value = '0';
+      if (dom.zoomPercentLabel) dom.zoomPercentLabel.textContent = 'Fit All';
+      renderTimelineRuler();
+      renderTimelineTracks();
+      updatePlayheadUI();
+    });
+
+    safeOn(dom.aspectRatioSelect, 'change', () => {
+      setCanvasAspectRatio(dom.aspectRatioSelect.value);
+    });
+
+    safeOn(dom.previewZoomSelect, 'change', () => {
+      const v = dom.previewZoomSelect.value;
+      state.previewZoom = v;
+      if (dom.previewCanvasBox) {
+        if (v === 'fit') {
+          dom.previewCanvasBox.style.transform = '';
+        } else {
+          const sc = (parseInt(v, 10) || 100) / 100;
+          dom.previewCanvasBox.style.transform = `scale(${sc})`;
+        }
+      }
+    });
+
+    if (dom.closeJarvisBubbleBtn && dom.jarvisFloatingBubble) {
+      safeOn(dom.closeJarvisBubbleBtn, 'click', () => {
+        dom.jarvisFloatingBubble.classList.add('hidden');
+      });
+    }
+
+    // Track Visibility & Lock Toggles across all 5 Tracks
+    if (dom.trackToggleMainVideo) {
+      safeOn(dom.trackToggleMainVideo, 'click', () => {
+        state.trackVisibility.video = state.trackVisibility.video === false;
+        dom.trackToggleMainVideo.classList.toggle('muted', !state.trackVisibility.video);
+        renderTimelineTracks();
+        renderCanvasFrame();
+        showToast(state.trackVisibility.video ? '👁️ Video Track Shown' : '🙈 Video Track Hidden');
+      });
+    }
+    if (dom.trackToggleText) {
+      safeOn(dom.trackToggleText, 'click', () => {
+        state.trackVisibility.text = state.trackVisibility.text === false;
+        dom.trackToggleText.classList.toggle('muted', !state.trackVisibility.text);
+        renderTimelineTracks();
+        renderCanvasFrame();
+        showToast(state.trackVisibility.text ? '👁️ Text & Hook Track Shown' : '🙈 Text & Hook Track Hidden');
+      });
+    }
+
+    const bindTrackLock = (btn, key, label) => {
+      if (!btn) return;
+      safeOn(btn, 'click', () => {
+        if (!state.trackLocks) state.trackLocks = {};
+        state.trackLocks[key] = !state.trackLocks[key];
+        btn.textContent = state.trackLocks[key] ? '🔒' : '🔓';
+        btn.classList.toggle('locked', state.trackLocks[key]);
+        renderTimelineTracks();
+        showToast(state.trackLocks[key] ? `🔒 Locked ${label} Track` : `🔓 Unlocked ${label} Track`);
+      });
+    };
+    bindTrackLock(dom.trackLockVideo, 'video', 'Video');
+    bindTrackLock(dom.trackLockCaptions, 'captions', 'Subtitles');
+    bindTrackLock(dom.trackLockText, 'text', 'Text');
+    bindTrackLock(dom.trackLockOverlays, 'overlays', 'PIP Overlays');
+    bindTrackLock(dom.trackLockAudio, 'audio', 'Audio');
 
     // Step 1s back/forward & skip end
     if (dom.stepBackBtn) {
@@ -6322,20 +9526,6 @@
     }
 
     // Inspector Transform & Actions
-    if (dom.rotateCutBtn) {
-      safeOn(dom.rotateCutBtn, 'click', () => {
-        state.cameraRotation = ((state.cameraRotation || 0) + 90) % 360;
-        renderCanvasFrame();
-        showToast(`↻ Rotated video ${state.cameraRotation}°`);
-      });
-    }
-    if (dom.flipCutBtn) {
-      safeOn(dom.flipCutBtn, 'click', () => {
-        state.cameraFlipH = !state.cameraFlipH;
-        renderCanvasFrame();
-        showToast(state.cameraFlipH ? '⇄ Flipped Horizontal' : '⇄ Reset Horizontal Flip');
-      });
-    }
     if (dom.splitSelectedCutBtn) {
       safeOn(dom.splitSelectedCutBtn, 'click', splitClipAtPlayhead);
     }
@@ -6372,8 +9562,10 @@
         const trans = btn.dataset.transition;
         const clip = (state.sequence?.videoClips || []).find((c) => c.id === state.sequence?.selectedClipId);
         if (clip) {
+          pushUndoState('Set Transition');
           clip.transition = trans;
           if (dom.selectedCutTransitionSelect) dom.selectedCutTransitionSelect.value = trans;
+          renderVideoCutsTrack();
         }
         showToast(`🪄 Transition into cut set to: ${trans}`);
       });
@@ -6468,23 +9660,7 @@
       });
     }
     if (dom.duplicateClipBtn) {
-      safeOn(dom.duplicateClipBtn, 'click', () => {
-        const clips = state.sequence?.videoClips || [];
-        const sel = clips.find((c) => c.id === state.sequence?.selectedClipId) || clips[0];
-        if (!sel) return;
-        const dur = sel.end - sel.start;
-        const copy = Object.assign({}, sel, {
-          id: 'cut-' + Date.now(),
-          title: `${sel.title} (Copy)`,
-          start: sel.end,
-          end: sel.end + dur
-        });
-        clips.push(copy);
-        state.sequence.selectedClipId = copy.id;
-        renderTimelineTracks();
-        syncSelectedCutInspector();
-        showToast(`📄 Duplicated ${sel.title}`);
-      });
+      safeOn(dom.duplicateClipBtn, 'click', duplicateSelectedLayerOrClip);
     }
     if (dom.linkAudioBtn) {
       safeOn(dom.linkAudioBtn, 'click', () => {
@@ -6504,32 +9680,10 @@
         }
       });
     }
-    if (dom.toggleSafeZoneBtn) {
-      safeOn(dom.toggleSafeZoneBtn, 'click', () => {
-        state.showSafeZones = !state.showSafeZones;
-        const safeBox = document.getElementById('safeZoneOverlay');
-        if (safeBox) safeBox.classList.toggle('hidden', !state.showSafeZones);
-        dom.toggleSafeZoneBtn.classList.toggle('active', state.showSafeZones);
-        showToast(state.showSafeZones ? '📱 Safe Zones visible (TikTok/Shorts UI)' : '📱 Safe Zones hidden');
-      });
-    }
     if (dom.themeToggleBtn) {
       safeOn(dom.themeToggleBtn, 'click', () => {
         const isDark = document.documentElement.classList.toggle('dark');
         showToast(isDark ? '🌙 Dark mode active' : '☀️ Light mode active');
-      });
-    }
-
-    // Timeline deselect background click
-    if (dom.timelineStage) {
-      safeOn(dom.timelineStage, 'click', (e) => {
-        if (!e.target.closest('.timeline-clip-block')) {
-          state.sequence.selectedClipId = null;
-          syncSelectedCutInspector();
-          document.querySelectorAll('.timeline-clip-block').forEach((b) => {
-            b.classList.remove('selected');
-          });
-        }
       });
     }
   }
@@ -6544,6 +9698,9 @@
     const url = URL.createObjectURL(file);
     dom.mainVideoEl.src = url;
     dom.mainVideoEl.load();
+    dom.mainVideoEl.addEventListener('loadedmetadata', () => {
+      ensureFilmstripCacheForVideo(url, dom.mainVideoEl.duration || 60);
+    }, { once: true });
 
     if (window.WhopAudioEngine) {
       window.WhopAudioEngine.connectMainVideo(dom.mainVideoEl);
@@ -6574,16 +9731,23 @@
     lastActiveCutId = null;
 
     if (state.isPlaying) {
+      const clips = state.sequence?.videoClips || [];
       const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
-      const endLimit = Math.min(state.trimEnd, dur);
+      const endLimit = clips.length > 0
+        ? Math.max(state.trimEnd, clips[clips.length - 1].end)
+        : Math.min(state.trimEnd, dur);
 
-      if (state.currentTime >= endLimit - 0.05 || state.currentTime < state.trimStart) {
-        state.currentTime = state.trimStart;
+      const startLimit = clips.length > 0
+        ? Math.min(state.trimStart, clips[0].start)
+        : state.trimStart;
+
+      if (state.currentTime >= endLimit - 0.05 || state.currentTime < startLimit) {
+        state.currentTime = clips.length > 0 ? clips[0].start : state.trimStart;
       }
 
       if (state.useCustomMainVideo && dom.mainVideoEl) {
         const activeClip = getActiveVideoCutAtTime(state.currentTime);
-        if (activeClip) {
+        if (activeClip && !activeClip.freezeDataUrl) {
           const cutOffset = Math.max(0, state.currentTime - activeClip.start);
           const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
           const targetSrc = clamp(srcStart + cutOffset, 0, dur);
@@ -6591,9 +9755,12 @@
             dom.mainVideoEl.currentTime = targetSrc;
           }
           lastActiveCutId = activeClip.id;
+          dom.mainVideoEl.playbackRate = state.playbackSpeed || 1.0;
+          dom.mainVideoEl.play().catch(() => {});
+        } else if (activeClip && activeClip.freezeDataUrl) {
+          lastActiveCutId = activeClip.id;
+          dom.mainVideoEl.pause();
         }
-        dom.mainVideoEl.playbackRate = state.playbackSpeed || 1.0;
-        dom.mainVideoEl.play().catch(() => {});
       }
       if (state.useCustomBrollVideo && dom.brollVideoEl) {
         dom.brollVideoEl.playbackRate = state.playbackSpeed || 1.0;
@@ -6636,7 +9803,17 @@
 
       const activeClip = getActiveVideoCutAtTime(state.currentTime);
 
-      if (activeClip && state.useCustomMainVideo && dom.mainVideoEl) {
+      if (activeClip && activeClip.freezeDataUrl) {
+        // Freeze-Frame Cut: Hold crisp frozen frame while smoothly advancing wall clock
+        lastActiveCutId = activeClip.id;
+        if (dom.mainVideoEl && !dom.mainVideoEl.paused) {
+          dom.mainVideoEl.pause();
+        }
+        state.currentTime += dt * (state.playbackSpeed || 1.0);
+        if (state.currentTime >= activeClip.end - 0.02) {
+          state.currentTime = activeClip.end;
+        }
+      } else if (activeClip && state.useCustomMainVideo && dom.mainVideoEl) {
         const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
         const srcEnd = activeClip.sourceEnd !== undefined ? activeClip.sourceEnd : (srcStart + (activeClip.end - activeClip.start));
 
@@ -6758,6 +9935,7 @@
 
   function setLayoutMode(mode) {
     if (!mode) return false;
+    pushUndoState('Set Layout Mode');
     state.layoutMode = mode;
     if (dom.layoutModeGrid) {
       dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
@@ -6777,6 +9955,7 @@
     }
     if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
     if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    renderCanvasFrame();
     showToast(`Switched layout mode to ${mode.replace('-', ' ')}`, '#00f2fe');
     return true;
   }
@@ -6794,21 +9973,57 @@
 
   function setCaptionStyle(style) {
     if (!style) return false;
+    pushUndoState('Set Caption Style');
     state.captionStyle = style;
+    renderCaptionPresetsGrid();
+    syncContextualInspector();
     if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    renderCanvasFrame();
     showToast(`Applied caption style: ${style.replace('-', ' ')}`, '#00f2fe');
     return true;
   }
 
-  function setHookBanner(text) {
-    if (!text) return false;
-    state.hookBannerText = text;
-    state.hookMode = 'top-banner';
-    const bannerEl = document.getElementById('previewHookBanner');
-    if (bannerEl) bannerEl.textContent = text.toUpperCase();
+  function setHookBanner(arg1, arg2) {
+    let enabled = true;
+    let text = String(state.hookText || '');
+    if (typeof arg1 === 'boolean') {
+      enabled = arg1;
+      if (typeof arg2 === 'string') text = arg2;
+    } else if (typeof arg1 === 'string') {
+      text = arg1;
+      if (typeof arg2 === 'boolean') enabled = arg2;
+    }
+    text = String(text || '').trim();
+    if (enabled && !text) return false;
+    pushUndoState('Set Hook Banner');
+    if (text) {
+      state.hookText = text;
+      state.hookBannerText = text;
+    }
+    state.hookMode = enabled ? (state.hookMode === 'off' ? '3s' : state.hookMode) : 'off';
+    if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookText;
+    if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = state.hookText;
     if (typeof syncAllInspectorControlsFromState === 'function') syncAllInspectorControlsFromState();
+    syncContextualInspector();
     if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
-    showToast(`Hook banner set to: "${text}"`, '#00f2fe');
+    renderCanvasFrame();
+    showToast(enabled ? `🔥 Hook banner set to: "${state.hookText}"` : '🙈 Hook banner hidden', '#00f2fe');
+    return true;
+  }
+
+  function setWatermark(text, enabled = true) {
+    pushUndoState('Update Watermark');
+    if (typeof text === 'string' && text.trim() !== '') {
+      state.watermarkText = text.trim();
+      if (dom.watermarkTextInput) dom.watermarkTextInput.value = state.watermarkText;
+    }
+    state.watermarkEnabled = Boolean(enabled);
+    if (dom.watermarkEnabledToggle) dom.watermarkEnabledToggle.checked = state.watermarkEnabled;
+    syncContextualInspector();
+    renderTimelineTracks();
+    updateComplianceAndPayout();
+    renderCanvasFrame();
+    showToast(state.watermarkEnabled ? `🏷️ Watermark: "${state.watermarkText}"` : '🙈 Creator Watermark Hidden', '#00f2fe');
     return true;
   }
 
@@ -6824,17 +10039,6 @@
       dom.playPauseBtn.click();
     }
     return true;
-  }
-
-  function triggerVisualOverlayPicker() {
-    const inp = document.getElementById('visualOverlayFileInput');
-    if (inp) {
-      inp.accept = 'image/*';
-      inp.click();
-      showToast('Opening visual overlay selector...', '#00f2fe');
-      return true;
-    }
-    return false;
   }
 
   function runAutoEdit() {
@@ -6862,6 +10066,9 @@
     cacheDom();
     renderBrollPresetCards();
     renderMusicPresetCards();
+    renderCaptionPresetsGrid();
+    renderTextLayersList();
+    updateUndoRedoButtonsUI();
 
     // Default to REAL VIDEO playback (MrBeast Interview)
     state.useCustomMainVideo = true;
@@ -6869,6 +10076,9 @@
     if (dom.mainVideoEl) {
       dom.mainVideoEl.src = '/uploads/clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4';
       dom.mainVideoEl.load();
+      dom.mainVideoEl.addEventListener('loadedmetadata', () => {
+        ensureFilmstripCacheForVideo(dom.mainVideoEl.src, dom.mainVideoEl.duration || 58.05);
+      }, { once: true });
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.connectMainVideo(dom.mainVideoEl);
       }
@@ -6916,8 +10126,8 @@
 
     if (state.sequence && state.sequence.videoClips && state.sequence.videoClips.length > 0) {
       state.sequence.selectedClipId = state.sequence.videoClips[0].id;
-      syncSelectedCutInspector();
     }
+    setInspectorMode('video');
 
     // Render initial canvas frame & ensure 1 starter clip is saved in Vault
     renderCanvasFrame();
@@ -6927,8 +10137,11 @@
       state,
       dom,
       syncImageInspectorControls,
+      syncContextualInspector,
+      setInspectorMode,
       seekToTime,
       renderTimelineTracks,
+      renderTimelineRuler,
       splitClipAtPlayhead,
       deleteSelectedCapCutItem,
       switchInspectorTab,
@@ -6942,6 +10155,21 @@
       setBrollPreset,
       setCaptionStyle,
       setHookBanner,
+      setWatermark,
+      setCanvasAspectRatio,
+      addTextLayer,
+      addCustomCaptionPhraseAtPlayhead,
+      openCanvasInlineEditor,
+      commitCanvasInlineEdit,
+      freezeFrameAtPlayhead,
+      applyAutoSilenceJumpCuts,
+      resetToUncutMasterTrack,
+      cutSelectedTranscriptWord,
+      undoAction,
+      redoAction,
+      openCommandPalette,
+      closeCommandPalette,
+      setSystemPulse,
       playVideo,
       pauseVideo,
       renderVisualOverlaysList,

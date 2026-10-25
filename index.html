@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenCut × Ssemble — Pro AI Viral Video Editor</title>
+  <title>CapCut Pro × OpenCut — AI Viral Video Editor Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Hidden HTML5 Video Elements for Local Video & Custom B-Roll Ingestion -->
+  <!-- OpenJarvis 3px Top Edge System Pulse Bar -->
+  <div id="systemPulseBar" class="system-pulse-bar" aria-hidden="true"></div>
+
+  <!-- Hidden HTML5 Video Elements & File Pickers -->
   <div class="hidden-media-pool" aria-hidden="true">
     <video id="mainVideoEl" playsinline preload="auto" crossorigin="anonymous"></video>
     <video id="brollVideoEl" playsinline loop muted preload="auto" crossorigin="anonymous"></video>
@@ -18,15 +21,15 @@
     <input type="file" id="brollVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
     <input type="file" id="importProjectFileInput" accept=".json,application/json" />
     <input type="file" id="visualOverlayFileInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" />
+    <input type="file" id="replaceOverlayFileInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" />
   </div>
 
   <!-- =====================================================================
-       OPENCUT TOP NAVBAR
+       CAPCUT PRO × OPENCUT TOP NAVBAR
        ===================================================================== -->
   <header class="opencut-navbar">
     <div class="nav-left">
-      <!-- OpenCut Hexagon Logo -->
-      <div class="nav-logo" title="OpenCut Pro AI Video Editor">
+      <div class="nav-logo" title="CapCut Pro × OpenCut AI Video Editor">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#00f2fe" stroke="#00f2fe"/>
           <path d="M2 17l10 5 10-5" stroke="#38bdf8"/>
@@ -43,7 +46,23 @@
           value="Viral Shorts Studio — Master"
           title="Click to rename this project"
         />
-        <span class="project-badge">9:16 VERTICAL</span>
+        <span id="projectAspectBadge" class="project-badge">9:16 VERTICAL</span>
+      </div>
+
+      <!-- Undo / Redo History Controls -->
+      <div class="nav-history-group">
+        <button type="button" id="undoBtn" class="nav-btn nav-icon-btn" title="Undo (Ctrl+Z)" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 7v6h6"/>
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+          </svg>
+        </button>
+        <button type="button" id="redoBtn" class="nav-btn nav-icon-btn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 7v6h-6"/>
+            <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Quick Project Actions -->
@@ -60,19 +79,23 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-        <span>Saved (<span id="savedClipsCountBadge">1</span>)</span>
+        <span>Vault (<span id="savedClipsCountBadge">0</span>)</span>
+      </button>
+
+      <button type="button" id="openCmdPaletteBtn" class="nav-btn nav-btn-ghost" title="Studio Command Palette (Ctrl+K)">
+        <span>⌘K</span>
       </button>
     </div>
 
     <!-- Center Format / Auto-Edit CTA -->
     <div class="nav-center">
-      <div class="campaign-pill" title="Format Preset">
+      <div class="campaign-pill" title="Format & Campaign Preset">
         <span class="pill-dot"></span>
         <select id="campaignSelect" class="campaign-select" aria-label="Format Selector">
           <option value="tiktok-viral" data-cpm="2.50" data-handle="@Creator • 9:16">TikTok Viral (9:16)</option>
-          <option value="youtube-shorts" data-cpm="2.00" data-handle="@Creator • 9:16">YouTube Shorts (9:16)</option>
-          <option value="instagram-reels" data-cpm="2.20" data-handle="@Creator • 9:16">Instagram Reels (9:16)</option>
-          <option value="capcut-master" data-cpm="3.00" data-handle="@Creator • 9:16">CapCut Master (9:16)</option>
+          <option value="youtube-shorts" data-cpm="2.00" data-handle="@Creator • Shorts">YouTube Shorts (9:16)</option>
+          <option value="instagram-reels" data-cpm="2.20" data-handle="@Creator • Reels">Instagram Reels (9:16)</option>
+          <option value="capcut-master" data-cpm="3.00" data-handle="@Creator • Pro">CapCut Master Pro</option>
         </select>
       </div>
 
@@ -86,8 +109,7 @@
 
     <!-- Right: JARVIS Voice Butler + AI API Key + Export Button + Theme Toggle -->
     <div class="nav-right">
-      <!-- JARVIS AI Voice Butler HUD Button -->
-      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="J.A.R.V.I.S. AI Voice Butler & Assistant (Click to Talk / Control)">
+      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="J.A.R.V.I.S. AI Voice Butler & Co-Editor (Ctrl+J)">
         <div class="jarvis-reactor" id="jarvisReactor">
           <div class="reactor-core"></div>
           <div class="reactor-ring ring-1"></div>
@@ -105,7 +127,7 @@
         <span id="aiKeyStatusDot" class="ai-key-dot"></span>
       </button>
 
-      <button id="openExportModalBtn" class="btn-opencut-export" title="Render & Export 9:16 Video (.MP4 / .WEBM)">
+      <button id="openExportModalBtn" class="btn-opencut-export" title="Render & Export Video (.MP4 / .WEBM)">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -123,15 +145,15 @@
   </header>
 
   <!-- =====================================================================
-       CONNECTED 4-ENGINE AI PIPELINE BADGE BAR
+       CONNECTED REPOSITORY AI PIPELINE BAR
        ===================================================================== -->
-  <div class="repo-engines-bar" id="repoEnginesBar" title="Active 4-Engine Auto-Editing Pipeline">
+  <div class="repo-engines-bar" id="repoEnginesBar" title="Active Multi-Repo NLE & AI Auto-Editing Pipeline">
     <div class="repo-bar-label">
       <span class="pulse-engine-dot"></span>
-      <span class="repo-bar-title">CONNECTED PIPELINE:</span>
+      <span class="repo-bar-title">NLE PIPELINE:</span>
     </div>
     <div class="repo-badges-container" id="repoBadgesContainer">
-      <div class="repo-badge active" id="badgeAutoVideoEditor" title="auto-video-editor: Audio energy curves, silence jump cuts">
+      <div class="repo-badge active" id="badgeAutoVideoEditor" title="auto-video-editor: Audio energy curves & silence jump-cuts">
         <span class="badge-icon">✂️</span>
         <span class="badge-name">auto-video-editor</span>
         <span class="badge-tag">JUMP-CUTS</span>
@@ -141,52 +163,58 @@
         <span class="badge-name">Autoclip</span>
         <span class="badge-tag">1€ FILTER</span>
       </div>
-      <div class="repo-badge active" id="badgeBridgeclip" title="bridgeclip: YuNet ONNX face detection (38ms OpenCV DNN) & presenter framing">
+      <div class="repo-badge active" id="badgeBridgeclip" title="bridgeclip: YuNet ONNX face detection & presenter framing">
         <span class="badge-icon">👁️</span>
         <span class="badge-name">bridgeclip</span>
         <span class="badge-tag">YuNet ONNX</span>
       </div>
-      <div class="repo-badge active" id="badgeOpenClipper" title="OpenClipper: NormalizedBox geometric transforms & viral typography">
+      <div class="repo-badge active" id="badgeOpenClipper" title="OpenClipper + OpenCut + FilmCraft: NLE Canvas, Word-Cut & Smart Crop">
         <span class="badge-icon">📐</span>
-        <span class="badge-name">OpenClipper</span>
-        <span class="badge-tag">SMART CROP</span>
+        <span class="badge-name">OpenCut × FilmCraft</span>
+        <span class="badge-tag">PRO NLE</span>
       </div>
     </div>
     <div class="repo-pipeline-status" id="repoPipelineStatus">
       <span class="status-check">🟢</span>
-      <span class="status-text">4/4 ACTIVE</span>
+      <span class="status-text">ALL ENGINES ACTIVE</span>
     </div>
   </div>
 
   <!-- =====================================================================
-       MAIN 3-PANEL WORKSPACE (OPENCUT ARCHITECTURE)
+       MAIN 3-PANEL WORKSPACE (CAPCUT PRO × OPENCUT ARCHITECTURE)
        ===================================================================== -->
   <main class="opencut-workspace">
     <!-- ===================================================================
-         LEFT PANEL: 52px ICON RAIL + ACTIVE TOOL DRAWER
+         LEFT PANEL: 54px ICON RAIL + ACTIVE TOOL DRAWER
          =================================================================== -->
     <div class="opencut-left-panel">
-      <!-- 52px Vertical Navigation Rail -->
       <nav class="opencut-icon-rail" aria-label="Tool Navigation">
-        <button type="button" class="rail-btn active" data-rail-tab="ai-auto" title="AI Auto-Clips & 1-Click Auto-Edit">
+        <button type="button" class="rail-btn active" data-rail-tab="ai-auto" title="AI Auto-Clips & Prompt Director">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="10" rx="2"/>
             <circle cx="12" cy="5" r="2"/>
             <path d="M12 7v4"/>
-            <line x1="8" y1="16" x2="8" y2="16"/>
-            <line x1="16" y1="16" x2="16" y2="16"/>
           </svg>
           <span class="rail-label">Auto</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="assets" title="Media & Video Library">
+        <button type="button" class="rail-btn" data-rail-tab="assets" title="Media, Layouts, Overlays & Stickers">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
           <span class="rail-label">Media</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="captions" title="Subtitles & Captions">
+        <button type="button" class="rail-btn" data-rail-tab="text" title="Text Layers, Titles, Hook Banner & Watermark (T)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="4 7 4 4 20 4 20 7"/>
+            <line x1="9" y1="20" x2="15" y2="20"/>
+            <line x1="12" y1="4" x2="12" y2="20"/>
+          </svg>
+          <span class="rail-label">Text</span>
+        </button>
+
+        <button type="button" class="rail-btn" data-rail-tab="captions" title="Subtitles, Karaoke Styles & FilmCraft Word Cut">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="5" width="18" height="14" rx="2"/>
             <path d="M7 15h4M7 11h2M13 11h4M15 15h2"/>
@@ -194,7 +222,7 @@
           <span class="rail-label">Captions</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="effects" title="Video Effects & Hard Cuts">
+        <button type="button" class="rail-btn" data-rail-tab="effects" title="Video Effects (VFX)">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
           </svg>
@@ -209,7 +237,7 @@
           <span class="rail-label">Transit</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="filters" title="Color Grading Filters">
+        <button type="button" class="rail-btn" data-rail-tab="filters" title="Color Grading & Adjustments">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/>
@@ -217,7 +245,7 @@
           <span class="rail-label">Filters</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="audio" title="Audio Mixer & SFX">
+        <button type="button" class="rail-btn" data-rail-tab="audio" title="Audio Mixer, Silence Cutter & SFX">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
             <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
@@ -225,7 +253,7 @@
           <span class="rail-label">Audio</span>
         </button>
 
-        <button type="button" class="rail-btn" data-rail-tab="settings" title="Project & AI Settings">
+        <button type="button" class="rail-btn" data-rail-tab="settings" title="Project & Engine Settings">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -237,104 +265,56 @@
       <!-- Active Tool Drawer Panel -->
       <div class="opencut-drawer">
         <!-- ==========================================
-             DRAWER TAB 1: AI AUTO-CLIPS & VIRAL FINDER
+             DRAWER TAB 1: AI AUTO-CLIPS & PROMPT DIRECTOR
              ========================================== -->
         <div id="drawerTab-ai-auto" class="drawer-content active">
-          <!-- Ssemble Hero Banner -->
-          <div class="ssemble-hero-banner" id="ssembleHeroBanner">
-            <div class="ssemble-hero-top">
-              <div class="ssemble-hero-title-wrap">
-                <span class="ai-sparkle-icon">🤖</span>
-                <span class="ssemble-hero-title">AI auto-applies everything</span>
-              </div>
-              <span class="ssemble-pro-tag">SSEMBLE AUTO</span>
-            </div>
-            <div class="ssemble-features-grid">
-              <div class="ssemble-pill-item">
-                <div class="ssemble-pill-header">
-                  <span class="ssemble-pill-icon">💬</span>
-                  <span class="ssemble-auto-tag">AUTO</span>
-                </div>
-                <strong class="ssemble-pill-name">Auto Captions</strong>
-                <span class="ssemble-pill-desc">Word-level karaoke sync</span>
-              </div>
-              <div class="ssemble-pill-item">
-                <div class="ssemble-pill-header">
-                  <span class="ssemble-pill-icon">🎯</span>
-                  <span class="ssemble-auto-tag">AUTO</span>
-                </div>
-                <strong class="ssemble-pill-name">Hook Detection</strong>
-                <span class="ssemble-pill-desc">Starts at viral moment</span>
-              </div>
-              <div class="ssemble-pill-item">
-                <div class="ssemble-pill-header">
-                  <span class="ssemble-pill-icon">🎵</span>
-                  <span class="ssemble-auto-tag">AUTO</span>
-                </div>
-                <strong class="ssemble-pill-name">Trending Audio</strong>
-                <span class="ssemble-pill-desc">Mixed &amp; normalized</span>
-              </div>
-              <div class="ssemble-pill-item">
-                <div class="ssemble-pill-header">
-                  <span class="ssemble-pill-icon">📱</span>
-                  <span class="ssemble-auto-tag">AUTO</span>
-                </div>
-                <strong class="ssemble-pill-name">9:16 Reframing</strong>
-                <span class="ssemble-pill-desc">YuNet face centered</span>
-              </div>
-            </div>
-          </div>
-
           <!-- Prompt-to-Edit: Client Brief & Style Director -->
-          <div class="drawer-section" style="border: 1px solid rgba(99, 102, 241, 0.35); background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(15, 15, 30, 0.6)); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div class="drawer-section" style="border: 1px solid rgba(99, 102, 241, 0.35); background: linear-gradient(180deg, rgba(99, 102, 241, 0.10), rgba(15, 15, 30, 0.65)); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
             <div class="drawer-section-title" style="margin-bottom: 6px;">
               <span style="color:#818cf8; font-weight:800;">✨ PROMPT-TO-EDIT (CLIENT BRIEF)</span>
               <span class="status-pill status-cyan">AI DIRECTOR</span>
             </div>
             <p style="font-size:10.5px; color:#94a3b8; margin:0 0 8px 0; line-height:1.4;">
-              Paste client campaign requirements, rules, or editing styles (e.g. ROAM bounty rules, TraxNYC jump cuts, Hormozi retention style). AI analyzes requirements and executes the exact edit.
+              Paste client campaign rules or editing styles (e.g. ROAM bounty rules, TraxNYC jump cuts, Hormozi style). Everything AI generates stays 100% editable!
             </p>
             <textarea
               id="clientPromptInput"
               class="studio-input"
-              rows="4"
+              rows="3"
               style="width:100%; font-size:11px; font-family:'JetBrains Mono', monospace; line-height:1.45; resize:vertical; padding:8px; background:#0a0a16; border:1px solid #252545; color:#f1f5f9; border-radius:6px;"
-              placeholder="Paste client brief, campaign rules, or edit instructions here...&#10;&#10;e.g.: 'Pre-warmed accounts: post 5 ROAM videos. Keep original audio without background music, add punchy cover text, clean cuts' OR 'TraxNYC style: fast jump cuts, Hormozi pop captions, hype beat'."
+              placeholder="Paste client brief or edit instructions here..."
             ></textarea>
 
             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
-              <button type="button" class="btn-chip" id="presetRoamBriefBtn" title="Load sample ROAM campaign rules">📋 ROAM Campaign Brief</button>
-              <button type="button" class="btn-chip" id="presetTraxNycStyleBtn" title="Load TraxNYC style prompt">💎 TraxNYC Cut Style</button>
-              <button type="button" class="btn-chip" id="presetHormoziBtn" title="Load Alex Hormozi viral style">🔥 Hormozi Pop Style</button>
+              <button type="button" class="btn-chip" id="presetRoamBriefBtn" title="Load ROAM campaign rules">📋 ROAM Brief</button>
+              <button type="button" class="btn-chip" id="presetTraxNycStyleBtn" title="Load TraxNYC style prompt">💎 TraxNYC Cut</button>
+              <button type="button" class="btn-chip" id="presetHormoziBtn" title="Load Alex Hormozi viral style">🔥 Hormozi Pop</button>
             </div>
 
             <button
               type="button"
               id="executePromptEditBtn"
               class="btn-primary-glow"
-              style="width:100%; margin-top:8px; padding:9px 12px; font-weight:800; font-size:12px; letter-spacing:0.5px; background:linear-gradient(135deg, #2563eb, #7c3aed); border:none; border-radius:6px; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;"
+              style="width:100%; margin-top:8px; padding:8px 12px; font-weight:800; font-size:11.5px; background:linear-gradient(135deg, #2563eb, #7c3aed); border:none; border-radius:6px; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;"
             >
               <span>⚡ Analyze Brief &amp; Execute AI Edit</span>
             </button>
 
-            <!-- Live Brief Analysis Summary Breakdown -->
-            <div id="promptAnalysisReport" class="hidden" style="margin-top:8px; padding:8px; background:#0f0f22; border:1px solid #334155; border-radius:6px; font-size:10.5px;">
-              <!-- Populated with detected client requirements & applied edit actions -->
-            </div>
+            <div id="promptAnalysisReport" class="hidden" style="margin-top:8px; padding:8px; background:#0f0f22; border:1px solid #334155; border-radius:6px; font-size:10.5px;"></div>
           </div>
 
           <!-- YouTube / Video URL Ingest -->
           <div class="drawer-section">
             <div class="drawer-section-title">
               <span>PASTE VIDEO LINK:</span>
-              <span id="activeSourceBadge" class="status-pill status-emerald">1080p SOURCE</span>
+              <span id="activeSourceBadge" class="status-pill status-emerald">1080p REALTIME</span>
             </div>
             <div class="url-ingest-row">
               <input
                 type="text"
                 id="streamUrlInput"
                 class="studio-input url-input"
-                placeholder="Paste YouTube, Twitch, MP4 or stream link..."
+                placeholder="Paste YouTube, Shorts, Twitch or MP4 link..."
                 value=""
                 aria-label="Stream URL"
               />
@@ -352,10 +332,10 @@
             </div>
           </div>
 
-          <!-- Target Clip Duration Pills -->
+          <!-- Target Clip Duration & Quick AI Jump-Cuts -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>⏱️ TARGET CLIP DURATION:</span>
+              <span>⏱️ TARGET DURATION:</span>
               <span id="targetDurationDisplay" class="mono-val">30s (Shorts/TikTok)</span>
             </div>
             <div class="duration-pills-row">
@@ -364,35 +344,41 @@
               <button type="button" class="duration-preset-btn" data-dur="60">📖 45–60s</button>
             </div>
             <input type="range" id="targetDurationSlider" min="15" max="90" step="5" value="30" class="drawer-slider" />
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button type="button" id="autoJumpCutsQuickBtn" class="btn-chip" style="flex:1; justify-content:center; border-color:#38bdf8; color:#38bdf8;" title="auto-video-editor: Automatically split & remove dead-air pauses">
+                ✂️ Auto Jump-Cuts
+              </button>
+              <button type="button" id="resetMasterTrackBtn" class="btn-chip" style="flex:1; justify-content:center;" title="Restore continuous uncut master video">
+                🔄 Uncut Master
+              </button>
+            </div>
           </div>
 
-          <!-- AI Viral Candidate Moments (Multiple Choices) -->
+          <!-- AI Viral Candidate Moments -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🔥 DETECTED VIRAL CLIPS (<span id="viralCountBadge">6</span>):</span>
-              <span class="tiny-hint">Click any card to auto-edit</span>
+              <span>🔥 DETECTED VIRAL CLIPS (<span id="viralCountBadge">5</span>):</span>
+              <span class="tiny-hint">Click to load</span>
             </div>
-            <div id="viralMomentsList" class="viral-moments-list">
-              <!-- Dynamically populated with 6-8 rich categorized viral moment cards -->
-            </div>
+            <div id="viralMomentsList" class="viral-moments-list"></div>
           </div>
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 2: ASSETS & MEDIA LIBRARY
+             DRAWER TAB 2: MEDIA, LAYOUTS & OVERLAYS
              ========================================== -->
         <div id="drawerTab-assets" class="drawer-content">
           <!-- Upload Dropzone -->
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>UPLOAD MEDIA</span></div>
+            <div class="drawer-section-title"><span>UPLOAD LOCAL MEDIA</span></div>
             <div id="videoDropzone" class="upload-dropzone" role="button" tabindex="0" title="Click or drop a local video file">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              <span id="dropzoneMainLabel" class="dropzone-primary">Upload Video (.MP4 / .MOV)</span>
-              <span id="dropzoneSubLabel" class="dropzone-secondary">Drop high-res video file here</span>
+              <span id="dropzoneMainLabel" class="dropzone-primary">Upload Video (.MP4 / .MOV / .WEBM)</span>
+              <span id="dropzoneSubLabel" class="dropzone-secondary">Instant hardware stream — zero lag</span>
             </div>
           </div>
 
@@ -407,45 +393,51 @@
             </select>
           </div>
 
-          <!-- B-Roll Preset Library -->
+          <!-- Canvas Layout & Framing Modes (CapCut / Ssemble) -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🎮 SATISFYING B-ROLL PRESETS</span>
-              <button type="button" id="uploadCustomBrollBtn" class="btn-link-action">+ Custom</button>
+              <span>📐 CANVAS LAYOUT &amp; FRAMING</span>
             </div>
-            <div id="brollPresetGrid" class="broll-preset-grid">
-              <!-- Populated dynamically -->
+            <div id="layoutModeGrid" class="capcut-layout-grid">
+              <button type="button" class="layout-card active" data-layout="full-main">
+                <span class="layout-icon">📱</span>
+                <span class="layout-name">Full 9:16</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="ambient-blur">
+                <span class="layout-icon">🖼️</span>
+                <span class="layout-name">Blur Fit</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="split-60-40">
+                <span class="layout-icon">⚡</span>
+                <span class="layout-name">Split 60/40</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="split-50-50">
+                <span class="layout-icon">🌗</span>
+                <span class="layout-name">Split 50/50</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="pip-facecam">
+                <span class="layout-icon">🎯</span>
+                <span class="layout-name">PiP Box</span>
+              </button>
+            </div>
+            <div style="display:flex; gap:4px; margin-top:6px;">
+              <button type="button" class="btn-chip active" id="drawerFitScreenBtn" style="flex:1; justify-content:center;">Fit All People</button>
+              <button type="button" class="btn-chip" id="drawerFillCropBtn" style="flex:1; justify-content:center;">Fill 9:16 Crop</button>
             </div>
           </div>
 
-          <!-- Realtime Project Media Assets -->
-          <div class="drawer-section">
-            <div class="drawer-section-title"><span>ACTIVE REALTIME MEDIA</span></div>
-            <div class="project-asset-card active" id="activeProjectAssetCard" title="Active Realtime Master Video">
-              <div class="asset-card-thumb">
-                <span class="asset-badge-live">LIVE</span>
-                <span class="asset-badge-type">1080p MP4</span>
-              </div>
-              <div class="asset-card-info">
-                <div class="asset-card-title" id="activeAssetCardTitle">Master Video Source</div>
-                <div class="asset-card-meta" id="activeAssetCardMeta">1080p MP4 • Continuous Master Track</div>
-                <div class="asset-card-status">🟢 Active on Master Timeline</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Picture & Visual Overlays (CapCut Overlay) -->
+          <!-- Picture & Visual Overlays (CapCut PIP & Stickers) -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🖼️ PICTURE &amp; VISUAL OVERLAYS:</span>
+              <span>🖼️ PICTURE &amp; PIP OVERLAYS:</span>
               <span id="activeOverlaysCountBadge" class="status-pill status-cyan">0 ITEMS</span>
             </div>
             <div style="display:flex; gap:6px; margin-bottom:8px;">
-              <button type="button" id="btnUploadVisualImage" class="btn-micro" style="flex:1; padding:7px 10px; background:linear-gradient(135deg, #00f2fe, #4facfe); color:#050510; font-weight:700;">+ Picture / Image</button>
+              <button type="button" id="btnUploadVisualImage" class="btn-micro" style="flex:1; padding:7px 10px; background:linear-gradient(135deg, #00f2fe, #4facfe); color:#050510; font-weight:700;">+ Picture / PIP</button>
               <button type="button" id="btnUploadVisualVideo" class="btn-micro" style="flex:1; padding:7px 10px; background:#1e1e38; color:#f1f5f9; border:1px solid #3b82f6;">+ Video Cut-In</button>
             </div>
             <div style="margin-bottom:8px;">
-              <span style="font-size:10px; color:#94a3b8; font-weight:700;">QUICK VIRAL STICKERS:</span>
+              <span style="font-size:10px; color:#94a3b8; font-weight:700;">QUICK VIRAL STICKERS (CLICK TO ADD):</span>
               <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; margin-top:4px;">
                 <button type="button" class="btn-chip meme-preset-btn" data-meme="stonks">📈 Stonks</button>
                 <button type="button" class="btn-chip meme-preset-btn" data-meme="mind-blown">🤯 Blown</button>
@@ -455,50 +447,65 @@
                 <button type="button" class="btn-chip meme-preset-btn" data-meme="whop-vip">👑 VIP</button>
               </div>
             </div>
-            <div id="visualOverlaysList" class="visual-overlays-list">
-              <!-- Populated dynamically -->
+            <div id="visualOverlaysList" class="visual-overlays-list"></div>
+          </div>
+
+          <!-- B-Roll Preset Library -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🎮 SATISFYING B-ROLL PRESETS</span>
+              <button type="button" id="uploadCustomBrollBtn" class="btn-link-action">+ Custom</button>
             </div>
+            <div id="brollPresetGrid" class="broll-preset-grid"></div>
           </div>
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 3: CAPTIONS & TRANSCRIPT
+             DRAWER TAB 3: TEXT LAYERS, HOOK & WATERMARK (CAPCUT T TOOL)
              ========================================== -->
-        <div id="drawerTab-captions" class="drawer-content">
+        <div id="drawerTab-text" class="drawer-content">
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>SUBTITLE STYLE PRESETS</span></div>
-            <div id="captionPresetGrid" class="caption-preset-grid">
-              <!-- Populated with Hormozi Pop, MrBeast Impact, Clean Minimal, Neon Glow, Whop Fire -->
+            <div class="drawer-section-title">
+              <span>🔤 ADD CAPCUT TEXT LAYER</span>
+              <span class="tiny-hint">Drag &amp; double-click on canvas</span>
+            </div>
+            <div class="text-presets-grid">
+              <button type="button" class="text-preset-card" data-text-preset="heading">
+                <span class="tp-preview" style="font-weight:900; color:#ffffff;">HEADING</span>
+                <small>Bold Impact Title</small>
+              </button>
+              <button type="button" class="text-preset-card" data-text-preset="hormozi-badge">
+                <span class="tp-preview" style="background:#facc15; color:#05050a; padding:2px 8px; border-radius:4px; font-weight:900;">VIRAL POP</span>
+                <small>Yellow Pill Callout</small>
+              </button>
+              <button type="button" class="text-preset-card" data-text-preset="neon-glow">
+                <span class="tp-preview" style="color:#00f2fe; text-shadow:0 0 10px #00f2fe; font-weight:800;">NEON CYBER</span>
+                <small>Glowing Accent</small>
+              </button>
+              <button type="button" class="text-preset-card" data-text-preset="red-alert">
+                <span class="tp-preview" style="background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-weight:900;">🚨 WATCH THIS</span>
+                <small>Breaking Pill</small>
+              </button>
+              <button type="button" class="text-preset-card" data-text-preset="lower-third">
+                <span class="tp-preview" style="background:rgba(15,23,42,0.9); border-left:3px solid #38bdf8; color:#f8fafc; padding:2px 8px; font-weight:700;">@Speaker Name</span>
+                <small>Clean Lower Third</small>
+              </button>
+              <button type="button" class="text-preset-card" data-text-preset="minimal-sub">
+                <span class="tp-preview" style="color:#e2e8f0; font-weight:600;">Clean Note</span>
+                <small>Minimal Caption</small>
+              </button>
             </div>
           </div>
 
+          <!-- Top Hook Banner Controls -->
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>TYPOGRAPHY &amp; POSITION</span></div>
-            <div class="slider-control">
-              <div class="slider-label-row">
-                <span>Font Size</span>
-                <span id="captionFontSizeLabel" class="mono-val">68px</span>
-              </div>
-              <input type="range" id="captionFontSizeSlider" min="36" max="96" step="2" value="68" class="drawer-slider" />
+            <div class="drawer-section-title">
+              <span>🔥 TOP HOOK BANNER</span>
+              <button type="button" id="selectHookOnCanvasBtn" class="btn-micro">Edit on Stage</button>
             </div>
-            <div class="slider-control">
-              <div class="slider-label-row">
-                <span>Vertical Position (Y)</span>
-                <span id="captionPosYLabel" class="mono-val">76%</span>
-              </div>
-              <input type="range" id="captionPosYSlider" min="40" max="90" step="1" value="76" class="drawer-slider" />
-            </div>
-            <label class="toggle-row">
-              <span>Auto Keyword Emojis (🔥, 💰, ⚡)</span>
-              <input type="checkbox" id="autoEmojiToggle" checked />
-            </label>
-          </div>
-
-          <div class="drawer-section">
-            <div class="drawer-section-title"><span>TOP PATTERN-INTERRUPT HOOK BANNER</span></div>
             <input
               type="text"
-              id="hookBannerTextInput"
+              id="hookBannerTextDrawerInput"
               class="studio-input"
               value="WAIT FOR THE CRAZY TWIST 🤯👇"
               placeholder="Enter top hook headline..."
@@ -510,9 +517,108 @@
             </div>
           </div>
 
+          <!-- Creator Tag / Watermark Badge Controls (100% Editable & Toggleable!) -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🌐 SPEECH LANGUAGE &amp; RETRANSCRIBE</span>
+              <span>🏷️ CREATOR TAG / WATERMARK</span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:10px; cursor:pointer; color:#38bdf8;">
+                <input type="checkbox" id="watermarkEnabledToggle" checked />
+                <span>Visible</span>
+              </label>
+            </div>
+            <input
+              type="text"
+              id="watermarkTextInput"
+              class="studio-input"
+              value="@WhopClipper • Verified Bounty"
+              placeholder="@YourHandle • Creator Tag"
+            />
+            <div style="font-size:10px; color:#64748b; margin-top:4px;">
+              Tip: Drag watermark directly on the video canvas or uncheck Visible to remove it!
+            </div>
+          </div>
+
+          <!-- Active Custom Text Layers List -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>📑 ACTIVE TEXT LAYERS (<span id="textLayersCountBadge">0</span>)</span>
+            </div>
+            <div id="textLayersList" class="visual-overlays-list"></div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             DRAWER TAB 4: CAPTIONS & FILMCRAFT TRANSCRIPT
+             ========================================== -->
+        <div id="drawerTab-captions" class="drawer-content">
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>💬 DYNAMIC SUBTITLES</span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:10.5px; cursor:pointer; color:#10b981;">
+                <input type="checkbox" id="captionsEnabledToggle" checked />
+                <span>Enabled</span>
+              </label>
+            </div>
+            <div id="captionPresetGrid" class="caption-preset-grid"></div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>TYPOGRAPHY, COLORS &amp; POSITION</span></div>
+            <div style="display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center; margin-bottom:8px;">
+              <select id="captionFontFamilySelect" class="studio-input" style="font-size:11px; padding:5px 8px;">
+                <option value="Plus Jakarta Sans" selected>Plus Jakarta (Hormozi)</option>
+                <option value="Montserrat">Montserrat ExtraBold</option>
+                <option value="Anton">Anton Impact (MrBeast)</option>
+                <option value="JetBrains Mono">JetBrains Mono</option>
+              </select>
+              <input type="color" id="captionColorInput" value="#ffffff" title="Base Text Color" class="color-swatch-input" />
+              <input type="color" id="captionHighlightColorInput" value="#facc15" title="Active Word Highlight Color" class="color-swatch-input" />
+            </div>
+
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Font Size</span>
+                <span id="captionFontSizeLabel" class="mono-val">68px</span>
+              </div>
+              <input type="range" id="captionFontSizeSlider" min="32" max="108" step="2" value="68" class="drawer-slider" />
+            </div>
+
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Horizontal Position (X)</span>
+                <span id="captionPosXLabel" class="mono-val">50%</span>
+              </div>
+              <input type="range" id="captionPosXSlider" min="15" max="85" step="1" value="50" class="drawer-slider" />
+            </div>
+
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Vertical Position (Y)</span>
+                <span id="captionPosYLabel" class="mono-val">72%</span>
+              </div>
+              <input type="range" id="captionPosYSlider" min="12" max="90" step="1" value="72" class="drawer-slider" />
+            </div>
+
+            <label class="toggle-row">
+              <span>Auto Keyword Emojis (🔥, 💰, ⚡)</span>
+              <input type="checkbox" id="autoEmojiToggle" checked />
+            </label>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>TOP HOOK HEADLINE</span></div>
+            <input
+              type="text"
+              id="hookBannerTextInput"
+              class="studio-input"
+              value="WAIT FOR THE CRAZY TWIST 🤯👇"
+              placeholder="Enter top hook headline..."
+            />
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🌐 SPEECH LANGUAGE &amp; WHISPER AI</span>
               <span id="transcriptLangBadge" class="status-pill status-cyan">EN (99.5%)</span>
             </div>
             <div style="display:flex; gap:6px; margin-top:6px;">
@@ -529,17 +635,22 @@
 
           <div class="drawer-section transcript-group">
             <div class="drawer-section-title">
-              <span>INTERACTIVE TRANSCRIPT EDITOR</span>
-              <span class="tiny-hint">Click word to seek</span>
+              <span>FILMCRAFT WORD-CUT TRANSCRIPT</span>
+              <span class="tiny-hint">Click=Seek • DblClick=Edit</span>
             </div>
-            <div id="transcriptWordCloud" class="transcript-word-cloud">
-              <!-- Populated with word chips -->
+            <div class="filmcraft-word-toolbar">
+              <button type="button" id="transcriptTrimInBtn" class="btn-chip" title="Trim video start to selected word">⏪ In</button>
+              <button type="button" id="transcriptTrimOutBtn" class="btn-chip" title="Trim video end to selected word">Out ⏩</button>
+              <button type="button" id="transcriptCutWordBtn" class="btn-chip" style="border-color:#f43f5e; color:#fb7185;" title="Paper-Edit: Cut selected word out of video timeline!">✂️ Cut Word</button>
+              <button type="button" id="transcriptSnap30sBtn" class="btn-chip" title="Isolate 30s around word">⚡ 30s</button>
+              <button type="button" id="addCaptionPhraseBtn" class="btn-chip" style="border-color:#10b981; color:#10b981;" title="Insert new custom subtitle at playhead">➕ Word</button>
             </div>
+            <div id="transcriptWordCloud" class="transcript-word-cloud"></div>
           </div>
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 4: EFFECTS (PRO CINEMA & VFX)
+             DRAWER TAB 5: EFFECTS (PRO CINEMA & VFX)
              ========================================== -->
         <div id="drawerTab-effects" class="drawer-content">
           <div class="drawer-section">
@@ -636,7 +747,7 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 5: TRANSITIONS
+             DRAWER TAB 6: TRANSITIONS
              ========================================== -->
         <div id="drawerTab-transitions" class="drawer-content">
           <div class="drawer-section">
@@ -655,12 +766,12 @@
               <button type="button" class="transition-btn" data-transition="punch-in">
                 <span class="trans-icon">🔍</span>
                 <strong>Punch-In</strong>
-                <small>1.25x zoom punch</small>
+                <small>1.18× zoom punch</small>
               </button>
               <button type="button" class="transition-btn" data-transition="whip">
                 <span class="trans-icon">💨</span>
                 <strong>Whip Pan</strong>
-                <small>Horizontal speed blur</small>
+                <small>Horizontal motion</small>
               </button>
               <button type="button" class="transition-btn" data-transition="dissolve">
                 <span class="trans-icon">✨</span>
@@ -672,7 +783,7 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 6: FILTERS (COLOR GRADING)
+             DRAWER TAB 7: FILTERS & COLOR GRADING
              ========================================== -->
         <div id="drawerTab-filters" class="drawer-content">
           <div class="drawer-section">
@@ -704,25 +815,54 @@
               </button>
             </div>
           </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>CUSTOM COLOR ADJUSTMENTS</span>
+              <button type="button" id="drawerResetColorBtn" class="btn-micro">Reset</button>
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row"><span>Brightness</span><span id="drawerBrightnessVal" class="mono-val">0</span></div>
+              <input type="range" id="drawerBrightnessSlider" min="-50" max="50" step="1" value="0" class="drawer-slider" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row"><span>Contrast</span><span id="drawerContrastVal" class="mono-val">0</span></div>
+              <input type="range" id="drawerContrastSlider" min="-50" max="50" step="1" value="0" class="drawer-slider" />
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row"><span>Saturation</span><span id="drawerSaturationVal" class="mono-val">0</span></div>
+              <input type="range" id="drawerSaturationSlider" min="-100" max="100" step="2" value="0" class="drawer-slider" />
+            </div>
+          </div>
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 7: AUDIO MIXER & SFX
+             DRAWER TAB 8: AUDIO MIXER, SILENCE CUT & SFX
              ========================================== -->
         <div id="drawerTab-audio" class="drawer-content">
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>AI AUDIO POLISH</span></div>
-            <label class="toggle-row">
+            <div class="drawer-section-title"><span>AI SILENCE JUMP-CUTTER (AUTO-VIDEO-EDITOR)</span></div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Min Pause Gap to Cut:</span>
+                <span id="silenceThresholdLabel" class="mono-val">0.45s</span>
+              </div>
+              <input type="range" id="silenceThresholdSlider" min="0.25" max="1.5" step="0.05" value="0.45" class="drawer-slider" />
+            </div>
+            <button type="button" id="applySilenceJumpCutsBtn" class="btn-micro" style="width:100%; padding:8px; margin-top:4px; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; font-weight:700; border:none; border-radius:6px; cursor:pointer;">
+              ✂️ Remove Dead Air &amp; Create Jump-Cuts
+            </button>
+            <label class="toggle-row" style="margin-top:8px;">
               <span class="toggle-label">
-                <strong>Auto-Skip Dead Air &amp; Breath Pauses</strong>
-                <small>Jumps over silent gaps (&gt;0.4s) seamlessly</small>
+                <strong>Auto-Skip Breath Pauses</strong>
+                <small>Highlight silent intervals on waveform</small>
               </span>
               <input type="checkbox" id="cutSilenceToggle" checked />
             </label>
             <label class="toggle-row">
               <span class="toggle-label">
-                <strong>Broadcast Loudness Normalizer (-14 LUFS)</strong>
-                <small>Boosts vocal clarity for TikTok/Shorts</small>
+                <strong>Broadcast Loudness (-14 LUFS)</strong>
+                <small>Boosts vocal clarity for Shorts/TikTok</small>
               </span>
               <input type="checkbox" id="loudnessNormToggle" checked />
             </label>
@@ -735,14 +875,14 @@
                 <span>🎙️ Main Voice</span>
                 <span id="mainVolLabel" class="mono-val">95%</span>
               </div>
-              <input type="range" id="mainVolSlider" min="0" max="120" step="5" value="95" class="drawer-slider" />
+              <input type="range" id="mainVolSlider" min="0" max="150" step="5" value="95" class="drawer-slider" />
             </div>
             <div class="slider-control">
               <div class="slider-label-row">
                 <span>🎵 Background Music</span>
-                <span id="musicVolLabel" class="mono-val">35%</span>
+                <span id="musicVolLabel" class="mono-val">0%</span>
               </div>
-              <input type="range" id="musicVolSlider" min="0" max="100" step="5" value="35" class="drawer-slider" />
+              <input type="range" id="musicVolSlider" min="0" max="100" step="5" value="0" class="drawer-slider" />
             </div>
             <div class="slider-control">
               <div class="slider-label-row">
@@ -755,9 +895,7 @@
 
           <div class="drawer-section">
             <div class="drawer-section-title"><span>COPYRIGHT-FREE MUSIC BEDS</span></div>
-            <div id="musicPresetList" class="music-preset-list">
-              <!-- Populated from WhopAudioEngine -->
-            </div>
+            <div id="musicPresetList" class="music-preset-list"></div>
           </div>
 
           <div class="drawer-section">
@@ -772,26 +910,31 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 8: SETTINGS
+             DRAWER TAB 9: SETTINGS & SHORTCUTS
              ========================================== -->
         <div id="drawerTab-settings" class="drawer-content">
           <div class="drawer-section">
             <div class="drawer-section-title"><span>AI AUTO-EDIT ENGINE</span></div>
             <select id="aiModelSelect" class="studio-input" style="width:100%; font-size:12px; background:#0f0f1e; border:1px solid #252545; color:#f1f5f9; padding:8px 10px; border-radius:6px; cursor:pointer;">
-              <option value="multimodal-local" selected>🤖 Hybrid Multimodal (OpenCV Vision Flow + Whisper)</option>
-              <option value="gemini-2.5-flash">✨ Google Gemini 2.5 Flash Multimodal (Vision + Audio)</option>
-              <option value="qwen-omni">⚡ Qwen 2.5 Omni / VL (Vision Multimodal)</option>
-              <option value="qwen-text">🧠 Local Qwen3-4B (Text Only)</option>
+              <option value="multimodal-local" selected>🤖 Hybrid Multimodal (OpenCV YuNet + Whisper)</option>
+              <option value="gemini-2.5-flash">✨ Google Gemini Flash Multimodal (Vision + Audio)</option>
+              <option value="qwen-omni">⚡ Qwen 2.5 Omni / VL (Local Vision)</option>
             </select>
           </div>
 
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>CANVAS &amp; EXPORT SETTINGS</span></div>
-            <div style="font-size:11.5px; color:#94a3b8; line-height:1.6;">
-              <div>• Internal Resolution: <strong>1080×1920 (9:16)</strong></div>
-              <div>• Render Pipeline: <strong>60 FPS Hardware Clock</strong></div>
-              <div>• Audio Engine: <strong>WebAudio API (32-bit Float)</strong></div>
-              <div>• Fast Partial Slicer: <strong>Enabled (~1.5s slice)</strong></div>
+            <div class="drawer-section-title"><span>CAPCUT PRO KEYBOARD SHORTCUTS</span></div>
+            <div style="font-size:11px; color:#cbd5e1; line-height:1.75; font-family:'JetBrains Mono', monospace;">
+              <div><strong style="color:#00f2fe;">Space</strong> — Play / Pause</div>
+              <div><strong style="color:#00f2fe;">Ctrl+B / B</strong> — Split at Playhead</div>
+              <div><strong style="color:#00f2fe;">Q / W</strong> — Ripple Trim In / Out</div>
+              <div><strong style="color:#00f2fe;">Ctrl+Z / Ctrl+Y</strong> — Undo / Redo</div>
+              <div><strong style="color:#00f2fe;">Ctrl+D</strong> — Duplicate Selected</div>
+              <div><strong style="color:#00f2fe;">Del / Backspace</strong> — Delete Selected</div>
+              <div><strong style="color:#00f2fe;">T</strong> — Add Text Layer</div>
+              <div><strong style="color:#00f2fe;">← / →</strong> — Step 1 Frame (Shift = 1s)</div>
+              <div><strong style="color:#00f2fe;">J / K / L</strong> — Shuttle Back / Pause / Fast</div>
+              <div><strong style="color:#00f2fe;">Double-Click Canvas</strong> — Inline Edit Text</div>
             </div>
           </div>
         </div>
@@ -799,18 +942,36 @@
     </div>
 
     <!-- ===================================================================
-         CENTER PANEL: PREVIEW STAGE & OPENCUT TRANSPORT BAR
+         CENTER PANEL: INTERACTIVE CAPCUT STAGE & TRANSPORT BAR
          =================================================================== -->
     <div class="opencut-center-panel">
-      <!-- Stage Canvas Container (Clean Stage • Controlled via Clip Properties Inspector) -->
-      <div class="opencut-stage-wrapper">
+      <div class="opencut-stage-wrapper" id="stageViewportWrapper">
+        <!-- Floating Quick Context Bar when a Canvas Layer is Selected -->
+        <div id="canvasFloatingToolbar" class="canvas-floating-toolbar hidden">
+          <span id="canvasSelectedTag" class="cft-tag">Layer</span>
+          <button type="button" id="cftEditTextBtn" class="cft-btn" title="Edit Text Inline (Double-Click)">✏️ Edit</button>
+          <button type="button" id="cftToggleStyleBtn" class="cft-btn hidden" title="Switch Clean PIP / Framed Card">🖼️ PIP/Card</button>
+          <button type="button" id="cftCenterBtn" class="cft-btn" title="Center Layer on Canvas">🎯 Center</button>
+          <button type="button" id="cftDuplicateBtn" class="cft-btn" title="Duplicate Layer (Ctrl+D)">📄 Copy</button>
+          <button type="button" id="cftDeleteBtn" class="cft-btn cft-btn-danger" title="Delete / Hide Layer (Del)">🗑️ Delete</button>
+        </div>
+
         <div class="preview-canvas-box" id="previewCanvasBox">
-          <canvas id="previewCanvas" width="1080" height="1920" aria-label="Short-Form Video Canvas"></canvas>
+          <canvas id="previewCanvas" width="1080" height="1920" aria-label="Interactive Video Canvas"></canvas>
+
+          <!-- Inline Direct On-Canvas Text Editor (Triggered on Double-Click!) -->
+          <div id="canvasInlineEditorWrap" class="canvas-inline-editor hidden">
+            <div class="cie-header">
+              <span id="cieLayerLabel">✏️ EDIT TEXT ON CANVAS</span>
+              <span class="cie-hint">Enter to apply • Esc to cancel</span>
+            </div>
+            <textarea id="canvasInlineInput" rows="2" class="cie-textarea"></textarea>
+          </div>
 
           <!-- Safe Zone Guide Overlay -->
           <div id="safeZoneOverlay" class="safe-zone-overlay hidden">
             <div class="safe-zone-top">TOP SAFE ZONE</div>
-            <div class="safe-zone-right">TIKTOK ICONS</div>
+            <div class="safe-zone-right">TIKTOK / REELS UI</div>
             <div class="safe-zone-bottom">CAPTION SAFE ZONE</div>
           </div>
 
@@ -822,16 +983,14 @@
         </div>
       </div>
 
-      <!-- OpenCut Player Transport Bar -->
+      <!-- CapCut × OpenCut Player Transport Bar -->
       <div class="opencut-transport-bar">
-        <!-- Left: SMPTE Timecode Display -->
         <div class="transport-timecode">
           <span id="currentTimecode" class="timecode-current">00:00:00:00</span>
           <span class="timecode-sep">/</span>
           <span id="totalDurationTimecode" class="timecode-total">00:00:58:05</span>
         </div>
 
-        <!-- Center: Transport Playback Controls -->
         <div class="transport-controls">
           <button type="button" id="skipStartBtn" class="transport-btn" title="Skip to Start (Home)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -840,7 +999,7 @@
             </svg>
           </button>
 
-          <button type="button" id="stepBackBtn" class="transport-btn" title="Step Back 1s (Left Arrow)">
+          <button type="button" id="stepBackBtn" class="transport-btn" title="Step Back (← Frame / Shift+← 1s)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
               <polygon points="19 19 9 12 19 5 19 19"/>
             </svg>
@@ -852,7 +1011,7 @@
             </svg>
           </button>
 
-          <button type="button" id="stepForwardBtn" class="transport-btn" title="Step Forward 1s (Right Arrow)">
+          <button type="button" id="stepForwardBtn" class="transport-btn" title="Step Forward (→ Frame / Shift+→ 1s)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
               <polygon points="5 5 15 12 5 19 5 5"/>
             </svg>
@@ -864,30 +1023,36 @@
               <line x1="19" y1="5" x2="19" y2="19"/>
             </svg>
           </button>
+
+          <button type="button" id="loopToggleBtn" class="transport-btn active" title="Toggle Loop Playback">
+            🔁
+          </button>
         </div>
 
-        <!-- Right: Viewport Controls (Fit dropdown, Aspect Ratio, Fullscreen) -->
         <div class="transport-actions">
-          <select id="previewZoomSelect" class="transport-select" title="Zoom Fit">
+          <button type="button" id="snapshotPngBtn" class="transport-btn" title="Save Current Frame as PNG">📸</button>
+
+          <select id="previewZoomSelect" class="transport-select" title="Canvas Stage Zoom">
             <option value="fit" selected>Fit</option>
             <option value="50">50%</option>
+            <option value="75">75%</option>
             <option value="100">100%</option>
-            <option value="200">200%</option>
+            <option value="150">150%</option>
           </select>
 
-          <select id="aspectRatioSelect" class="transport-select" title="Aspect Ratio">
+          <select id="aspectRatioSelect" class="transport-select" title="Canvas Aspect Ratio">
             <option value="9:16" selected>9:16</option>
             <option value="16:9">16:9</option>
             <option value="1:1">1:1</option>
           </select>
 
-          <button type="button" id="toggleSafeZoneBtn" class="transport-btn" title="Toggle Safe Zones">
+          <button type="button" id="toggleSafeZoneBtn" class="transport-btn" title="Toggle TikTok/Reels Safe Zones">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
             </svg>
           </button>
 
-          <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen (F)">
+          <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen Stage (F)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
@@ -897,36 +1062,77 @@
     </div>
 
     <!-- ===================================================================
-         RIGHT PANEL: OPENCUT PROPERTIES INSPECTOR
+         RIGHT PANEL: MULTI-MODE CONTEXT-AWARE CAPCUT INSPECTOR
          =================================================================== -->
     <div class="opencut-right-panel" id="inspectorSidebar">
-      <!-- Empty State (OpenCut Exact Match when nothing is selected) -->
-      <div id="inspectorEmptyState" class="inspector-empty-view">
+      <!-- Top Context Mode Switcher Bar -->
+      <div class="inspector-mode-bar" id="inspectorModeBar">
+        <button type="button" class="insp-mode-tab active" data-insp-mode="video" title="Video Clip Properties">🎬 Video</button>
+        <button type="button" class="insp-mode-tab" data-insp-mode="caption" title="Subtitle Properties">💬 Sub</button>
+        <button type="button" class="insp-mode-tab" data-insp-mode="text" title="Text / Hook / Watermark">🔤 Text</button>
+        <button type="button" class="insp-mode-tab" data-insp-mode="overlay" title="Picture / PIP / Sticker">🖼️ PIP</button>
+        <button type="button" class="insp-mode-tab" data-insp-mode="audio" title="Audio Track & Mixer">🎵 Audio</button>
+      </div>
+
+      <!-- Empty State (Shown only if user explicitly deselects all) -->
+      <div id="inspectorEmptyState" class="inspector-empty-view hidden">
         <div class="empty-icon-wrap">
-          <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.3">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.4">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
           </svg>
         </div>
-        <h3 class="empty-title">It's empty here</h3>
-        <p class="empty-desc">Click an element on the timeline to edit its properties</p>
+        <h3 class="empty-title">No Layer Selected</h3>
+        <p class="empty-desc">Click any element directly on the video canvas or timeline to edit its properties, or jump to:</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%; max-width:230px; margin-top:6px;">
+          <button type="button" class="prop-btn" data-quick-insp="video">🎬 Master Video</button>
+          <button type="button" class="prop-btn" data-quick-insp="caption">💬 Subtitles</button>
+          <button type="button" class="prop-btn" data-quick-insp="text">🔤 Hook / Tag</button>
+          <button type="button" class="prop-btn" data-quick-insp="audio">🎵 Audio Mix</button>
+        </div>
       </div>
 
-      <!-- Properties Inspector (Visible when a timeline clip is clicked) -->
-      <div id="inspectorPropertiesPanel" class="inspector-properties hidden">
+      <!-- =========================================================
+           MODE 1: VIDEO CUT INSPECTOR (#inspectorPropertiesPanel)
+           ========================================================= -->
+      <div id="inspectorPropertiesPanel" class="inspector-properties">
         <div class="properties-header">
-          <span class="properties-title">Clip Properties</span>
-          <span id="selectedCutBadge" class="cut-badge">Cut #1</span>
+          <span class="properties-title">🎬 Video Cut</span>
+          <span id="selectedCutBadge" class="cut-badge">Master</span>
         </div>
 
-        <!-- Transform -->
+        <!-- Editable Cut Name & Exact Timing -->
         <div class="prop-group">
-          <h4 class="prop-group-title">Transform</h4>
+          <h4 class="prop-group-title">Clip Identity &amp; Timing</h4>
+          <input type="text" id="inspCutTitleInput" class="studio-input" style="width:100%; font-size:11.5px; padding:5px 8px;" value="Master Video Track" placeholder="Rename cut..." />
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="mini-field-lbl">Start (s)</span>
+              <input type="number" id="inspCutStartInput" class="studio-input mono-input" step="0.1" min="0" value="0.0" />
+            </div>
+            <div>
+              <span class="mini-field-lbl">End (s)</span>
+              <input type="number" id="inspCutEndInput" class="studio-input mono-input" step="0.1" min="0.2" value="30.0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Transform & Framing -->
+        <div class="prop-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="prop-group-title" style="margin:0;">Transform &amp; Framing</h4>
+            <button type="button" id="btnResetZoom" class="btn-micro">Reset</button>
+          </div>
+          <div class="prop-btn-row" style="margin-bottom:4px;">
+            <button type="button" id="btnFitAllPeople" class="prop-btn active" title="Unzoomed Fit — All speakers visible">📐 Fit Screen</button>
+            <button type="button" id="btnFillVertical" class="prop-btn" title="Fill 9:16 Vertical Crop">📱 Fill 9:16</button>
+          </div>
+
           <div class="slider-control">
             <div class="slider-label-row">
               <span>Scale / Zoom</span>
-              <span id="selectedCutZoomLabel" class="mono-val">1.25×</span>
+              <span id="selectedCutZoomLabel" class="mono-val">1.00×</span>
             </div>
-            <input type="range" id="selectedCutZoomSlider" min="0.5" max="2.5" step="0.05" value="1.25" class="prop-slider" />
+            <input type="range" id="selectedCutZoomSlider" min="0.4" max="3.0" step="0.02" value="1.0" class="prop-slider" />
           </div>
 
           <div class="slider-control">
@@ -934,7 +1140,7 @@
               <span>Position X (Pan)</span>
               <span id="selectedCutPanXLabel" class="mono-val">0%</span>
             </div>
-            <input type="range" id="selectedCutPanXSlider" min="-50" max="50" step="1" value="0" class="prop-slider" />
+            <input type="range" id="selectedCutPanXSlider" min="-80" max="80" step="1" value="0" class="prop-slider" />
           </div>
 
           <div class="slider-control">
@@ -942,7 +1148,15 @@
               <span>Position Y</span>
               <span id="selectedCutPanYLabel" class="mono-val">0%</span>
             </div>
-            <input type="range" id="selectedCutPanYSlider" min="-50" max="50" step="1" value="0" class="prop-slider" />
+            <input type="range" id="selectedCutPanYSlider" min="-80" max="80" step="1" value="0" class="prop-slider" />
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>Opacity</span>
+              <span id="inspCutOpacityLabel" class="mono-val">100%</span>
+            </div>
+            <input type="range" id="inspCutOpacitySlider" min="10" max="100" step="5" value="100" class="prop-slider" />
           </div>
 
           <div class="prop-btn-row">
@@ -951,9 +1165,12 @@
           </div>
         </div>
 
-        <!-- Playback Speed -->
+        <!-- Speed & Freeze Frame -->
         <div class="prop-group">
-          <h4 class="prop-group-title">Playback Speed</h4>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="prop-group-title" style="margin:0;">Speed &amp; Freeze</h4>
+            <button type="button" id="freezeFrameBtn" class="btn-micro" title="Insert 2.0s Freeze Frame at Playhead">❄️ Freeze 2s</button>
+          </div>
           <div class="speed-chips-row">
             <button type="button" class="speed-chip" data-speed="0.5">0.5×</button>
             <button type="button" class="speed-chip active" data-speed="1.0">1.0×</button>
@@ -963,202 +1180,484 @@
           </div>
         </div>
 
-        <!-- Audio Volume -->
+        <!-- Color Adjustments -->
         <div class="prop-group">
-          <h4 class="prop-group-title">Audio Volume</h4>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="prop-group-title" style="margin:0;">Color Adjustments</h4>
+            <button type="button" id="inspResetColorBtn" class="btn-micro">Reset</button>
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Brightness</span><span id="inspBrightnessLabel" class="mono-val">0</span></div>
+            <input type="range" id="inspBrightnessSlider" min="-50" max="50" step="1" value="0" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Contrast</span><span id="inspContrastLabel" class="mono-val">0</span></div>
+            <input type="range" id="inspContrastSlider" min="-50" max="50" step="1" value="0" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Saturation</span><span id="inspSaturationLabel" class="mono-val">0</span></div>
+            <input type="range" id="inspSaturationSlider" min="-100" max="100" step="2" value="0" class="prop-slider" />
+          </div>
+        </div>
+
+        <!-- Audio & Transition -->
+        <div class="prop-group">
+          <h4 class="prop-group-title">Clip Audio &amp; Transition</h4>
           <div class="slider-control">
             <div class="slider-label-row">
-              <span>Volume</span>
+              <span>Clip Volume</span>
               <span id="selectedCutVolLabel" class="mono-val">100%</span>
             </div>
             <input type="range" id="selectedCutVolSlider" min="0" max="200" step="5" value="100" class="prop-slider" />
           </div>
-          <label class="toggle-row">
-            <span>Voice Loudness Normalizer (-14 LUFS)</span>
-            <input type="checkbox" id="cutNormToggle" checked />
-          </label>
-        </div>
-
-        <!-- Transition into Cut -->
-        <div class="prop-group">
-          <h4 class="prop-group-title">Transition into Cut</h4>
           <select id="selectedCutTransitionSelect" class="prop-select">
-            <option value="cut">Hard Cut (0ms)</option>
-            <option value="flash">Strobe Flash (60ms)</option>
-            <option value="punch-in">Punch-In Zoom</option>
-            <option value="whip">Whip Pan</option>
-            <option value="dissolve">Cross Dissolve</option>
+            <option value="cut">Transition: Hard Cut (0ms)</option>
+            <option value="flash">Transition: Strobe Flash (60ms)</option>
+            <option value="punch-in">Transition: Punch-In Zoom</option>
+            <option value="whip">Transition: Whip Pan</option>
+            <option value="dissolve">Transition: Cross Dissolve</option>
           </select>
         </div>
 
         <!-- Quick Actions -->
         <div class="prop-actions">
-          <button type="button" id="splitSelectedCutBtn" class="prop-btn prop-btn-primary">✂ Split Cut (Ctrl+B)</button>
-          <button type="button" id="deleteSelectedCutBtn" class="prop-btn prop-btn-danger">🗑 Delete Cut (Del)</button>
+          <button type="button" id="splitSelectedCutBtn" class="prop-btn prop-btn-primary">✂ Split (Ctrl+B)</button>
+          <button type="button" id="deleteSelectedCutBtn" class="prop-btn prop-btn-danger">🗑 Delete (Del)</button>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           MODE 2: CAPTION / SUBTITLE INSPECTOR (#inspectorCaptionPanel)
+           ========================================================= -->
+      <div id="inspectorCaptionPanel" class="inspector-properties hidden">
+        <div class="properties-header">
+          <span class="properties-title">💬 Subtitle Phrase</span>
+          <span id="selectedCaptionBadge" class="cut-badge">Phrase</span>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Phrase Text (Live Editable)</h4>
+          <textarea id="inspCaptionTextInput" rows="2" class="studio-input" style="width:100%; font-size:12px; font-weight:700; padding:6px 8px;" placeholder="Type subtitle words..."></textarea>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="mini-field-lbl">Start (s)</span>
+              <input type="number" id="inspCapStartInput" class="studio-input mono-input" step="0.05" min="0" value="0.0" />
+            </div>
+            <div>
+              <span class="mini-field-lbl">End (s)</span>
+              <input type="number" id="inspCapEndInput" class="studio-input mono-input" step="0.05" min="0.1" value="1.5" />
+            </div>
+          </div>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Style, Font &amp; Colors</h4>
+          <select id="inspCapStyleSelect" class="prop-select">
+            <option value="hormozi-pop">🔥 Hormozi Pop (Yellow Active)</option>
+            <option value="mrbeast-bold">⚡ MrBeast Impact (Cyan Active)</option>
+            <option value="clean-pill">💊 CapCut Clean Pill Box</option>
+            <option value="whop-fire">🔴 Red Pill Highlight</option>
+            <option value="neon-cyber">💜 Cyberpunk Neon Glow</option>
+            <option value="minimal-white">✨ Minimal Crisp White</option>
+          </select>
+          <div style="display:grid; grid-template-columns:1fr auto auto; gap:6px; align-items:center; margin-top:4px;">
+            <select id="inspCapFontSelect" class="prop-select">
+              <option value="Plus Jakarta Sans">Plus Jakarta</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Anton">Anton Impact</option>
+              <option value="JetBrains Mono">JetBrains Mono</option>
+            </select>
+            <input type="color" id="inspCapColorInput" value="#ffffff" title="Text Color" class="color-swatch-input" />
+            <input type="color" id="inspCapHighlightInput" value="#facc15" title="Active Highlight Color" class="color-swatch-input" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Font Size</span><span id="inspCapSizeLabel" class="mono-val">68px</span></div>
+            <input type="range" id="inspCapSizeSlider" min="32" max="108" step="2" value="68" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Outline Stroke</span><span id="inspCapStrokeLabel" class="mono-val">14px</span></div>
+            <input type="range" id="inspCapStrokeSlider" min="0" max="26" step="1" value="14" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position X</span><span id="inspCapPosXLabel" class="mono-val">50%</span></div>
+            <input type="range" id="inspCapPosXSlider" min="15" max="85" step="1" value="50" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position Y</span><span id="inspCapPosYLabel" class="mono-val">72%</span></div>
+            <input type="range" id="inspCapPosYSlider" min="12" max="90" step="1" value="72" class="prop-slider" />
+          </div>
+        </div>
+
+        <div class="prop-actions">
+          <button type="button" id="inspAddCaptionBtn" class="prop-btn prop-btn-primary">➕ Add Phrase</button>
+          <button type="button" id="inspDeleteCaptionBtn" class="prop-btn prop-btn-danger">🗑 Delete Phrase</button>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           MODE 3: TEXT / HOOK BANNER / WATERMARK INSPECTOR (#inspectorTextPanel)
+           ========================================================= -->
+      <div id="inspectorTextPanel" class="inspector-properties hidden">
+        <div class="properties-header">
+          <span class="properties-title" id="inspTextHeaderTitle">🔤 Text Layer</span>
+          <span id="selectedTextBadge" class="cut-badge">Text</span>
+        </div>
+
+        <div class="prop-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="prop-group-title" style="margin:0;">Text Content</h4>
+            <label style="font-size:10.5px; color:#38bdf8; display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="inspTextVisibleToggle" checked /> Visible
+            </label>
+          </div>
+          <textarea id="inspTextContentInput" rows="2" class="studio-input" style="width:100%; font-size:12px; font-weight:700; padding:6px 8px;" placeholder="Enter text..."></textarea>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="mini-field-lbl">Start (s)</span>
+              <input type="number" id="inspTextStartInput" class="studio-input mono-input" step="0.1" min="0" value="0.0" />
+            </div>
+            <div>
+              <span class="mini-field-lbl">Duration (s)</span>
+              <input type="number" id="inspTextDurInput" class="studio-input mono-input" step="0.1" min="0.5" value="4.0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Typography &amp; Pill Styling</h4>
+          <div style="display:grid; grid-template-columns:1fr auto auto; gap:6px; align-items:center;">
+            <select id="inspTextFontSelect" class="prop-select">
+              <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+              <option value="Montserrat">Montserrat ExtraBold</option>
+              <option value="Anton">Anton Impact</option>
+              <option value="JetBrains Mono">JetBrains Mono</option>
+            </select>
+            <input type="color" id="inspTextColorInput" value="#ffffff" title="Text Color" class="color-swatch-input" />
+            <input type="color" id="inspTextBgColorInput" value="#0f172a" title="Background Pill Color" class="color-swatch-input" />
+          </div>
+          <label class="toggle-row">
+            <span>Background Pill Box</span>
+            <input type="checkbox" id="inspTextBgToggle" checked />
+          </label>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Font Size / Scale</span><span id="inspTextSizeLabel" class="mono-val">48px</span></div>
+            <input type="range" id="inspTextSizeSlider" min="18" max="120" step="2" value="48" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position X</span><span id="inspTextPosXLabel" class="mono-val">50%</span></div>
+            <input type="range" id="inspTextPosXSlider" min="5" max="95" step="1" value="50" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position Y</span><span id="inspTextPosYLabel" class="mono-val">25%</span></div>
+            <input type="range" id="inspTextPosYSlider" min="4" max="96" step="1" value="25" class="prop-slider" />
+          </div>
+          <select id="inspTextAnimSelect" class="prop-select">
+            <option value="spring-pop">Animation: Spring Pop</option>
+            <option value="slide-up">Animation: Slide Up</option>
+            <option value="typewriter">Animation: Typewriter</option>
+            <option value="fade">Animation: Smooth Fade</option>
+            <option value="none">Animation: None</option>
+          </select>
+        </div>
+
+        <div class="prop-actions">
+          <button type="button" id="inspTextDuplicateBtn" class="prop-btn prop-btn-primary">📄 Duplicate</button>
+          <button type="button" id="inspTextDeleteBtn" class="prop-btn prop-btn-danger">🗑 Delete / Hide</button>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           MODE 4: OVERLAY / PICTURE / PIP INSPECTOR (#inspectorOverlayPanel)
+           ========================================================= -->
+      <div id="inspectorOverlayPanel" class="inspector-properties hidden">
+        <div class="properties-header">
+          <span class="properties-title">🖼️ Overlay / PIP</span>
+          <span id="selectedOverlayBadge" class="cut-badge">PIP</span>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Layer Media &amp; Display Style</h4>
+          <input type="text" id="inspOverlayNameInput" class="studio-input" style="width:100%; font-size:11.5px; padding:5px 8px;" value="Picture Overlay" />
+          <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-top:4px;">
+            <select id="inspOverlayStyleSelect" class="prop-select" title="Choose Clean Borderless CapCut PIP or Framed Topic Card">
+              <option value="clean-pip">✨ Clean Borderless PIP (CapCut)</option>
+              <option value="card">🪪 Framed Topic Card</option>
+            </select>
+            <button type="button" id="inspReplaceOverlayBtn" class="prop-btn" title="Replace image/video file">🔄 File</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div>
+              <span class="mini-field-lbl">Start Offset (s)</span>
+              <input type="number" id="inspOverlayStartInput" class="studio-input mono-input" step="0.1" min="0" value="0.0" />
+            </div>
+            <div>
+              <span class="mini-field-lbl">Duration (s)</span>
+              <input type="number" id="inspOverlayDurInput" class="studio-input mono-input" step="0.1" min="0.5" value="3.5" />
+            </div>
+          </div>
+        </div>
+
+        <div class="prop-group">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="prop-group-title" style="margin:0;">Transform &amp; Appearance</h4>
+            <button type="button" id="inspOverlayCenterBtn" class="btn-micro">Center</button>
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Scale / Size</span><span id="inspOverlayScaleLabel" class="mono-val">100%</span></div>
+            <input type="range" id="inspOverlayScaleSlider" min="15" max="280" step="2" value="100" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position X</span><span id="inspOverlayPosXLabel" class="mono-val">50%</span></div>
+            <input type="range" id="inspOverlayPosXSlider" min="5" max="95" step="1" value="50" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Position Y</span><span id="inspOverlayPosYLabel" class="mono-val">38%</span></div>
+            <input type="range" id="inspOverlayPosYSlider" min="5" max="95" step="1" value="38" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Corner Radius</span><span id="inspOverlayRadiusLabel" class="mono-val">16px</span></div>
+            <input type="range" id="inspOverlayRadiusSlider" min="0" max="80" step="2" value="16" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Opacity</span><span id="inspOverlayOpacityLabel" class="mono-val">100%</span></div>
+            <input type="range" id="inspOverlayOpacitySlider" min="10" max="100" step="5" value="100" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>Rotation</span><span id="inspOverlayRotateLabel" class="mono-val">0°</span></div>
+            <input type="range" id="inspOverlayRotateSlider" min="-180" max="180" step="2" value="0" class="prop-slider" />
+          </div>
+          <select id="inspOverlayAnimSelect" class="prop-select">
+            <option value="spring-pop">Animation: Spring Pop</option>
+            <option value="slide-up">Animation: Slide Up</option>
+            <option value="dissolve">Animation: Smooth Dissolve</option>
+            <option value="glitch-pop">Animation: Glitch Pop</option>
+            <option value="none">Animation: Static (None)</option>
+          </select>
+        </div>
+
+        <div class="prop-actions">
+          <button type="button" id="inspOverlayDuplicateBtn" class="prop-btn prop-btn-primary">📄 Duplicate</button>
+          <button type="button" id="inspOverlayDeleteBtn" class="prop-btn prop-btn-danger">🗑 Delete</button>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           MODE 5: AUDIO TRACK & MIXER INSPECTOR (#inspectorAudioPanel)
+           ========================================================= -->
+      <div id="inspectorAudioPanel" class="inspector-properties hidden">
+        <div class="properties-header">
+          <span class="properties-title">🎵 Audio Track</span>
+          <span class="cut-badge">3-Bus Mix</span>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Voice &amp; Music Balance</h4>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>🎙️ Main Voice Volume</span><span id="inspVoiceVolLabel" class="mono-val">95%</span></div>
+            <input type="range" id="inspVoiceVolSlider" min="0" max="150" step="5" value="95" class="prop-slider" />
+          </div>
+          <div class="slider-control">
+            <div class="slider-label-row"><span>🎵 Background Music</span><span id="inspMusicVolLabel" class="mono-val">0%</span></div>
+            <input type="range" id="inspMusicVolSlider" min="0" max="100" step="5" value="0" class="prop-slider" />
+          </div>
+          <select id="inspMusicPresetSelect" class="prop-select">
+            <option value="none">Music Bed: None (Clean Original Voice)</option>
+            <option value="phonk-drive">Music Bed: Phonk Drift (140 BPM)</option>
+            <option value="lofi-chill">Music Bed: Lo-Fi Study Beat (86 BPM)</option>
+            <option value="neon-runner">Music Bed: Cyber Synthwave (124 BPM)</option>
+            <option value="cinematic-tension">Music Bed: Dark Tension Pulse (98 BPM)</option>
+          </select>
+        </div>
+
+        <div class="prop-group">
+          <h4 class="prop-group-title">Audio Polish &amp; Jump-Cuts</h4>
+          <label class="toggle-row">
+            <span>Voice Normalizer (-14 LUFS)</span>
+            <input type="checkbox" id="cutNormToggle" checked />
+          </label>
+          <button type="button" id="inspApplySilenceCutsBtn" class="prop-btn prop-btn-primary" style="width:100%;">
+            ✂️ Auto-Cut Silent Pauses
+          </button>
         </div>
       </div>
     </div>
   </main>
 
   <!-- =====================================================================
-       BOTTOM MULTI-TRACK NLE TIMELINE (OPENCUT EXACT MATCH)
+       BOTTOM 5-TRACK PIXEL-ALIGNED CAPCUT NLE TIMELINE
        ===================================================================== -->
   <footer class="opencut-timeline" aria-label="Multi-Track Video Timeline">
     <!-- Timeline Action Toolbar -->
     <div class="timeline-toolbar">
       <div class="toolbar-left">
-        <button type="button" id="capcutSplitBtn" class="toolbar-btn" title="Split Element (Ctrl+B)">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+        <button type="button" id="timelineUndoBtn" class="toolbar-btn" title="Undo (Ctrl+Z)" disabled>↩</button>
+        <button type="button" id="timelineRedoBtn" class="toolbar-btn" title="Redo (Ctrl+Y)" disabled>↪</button>
+        <div class="toolbar-divider"></div>
+
+        <button type="button" id="capcutSplitBtn" class="toolbar-btn" title="Split at Playhead (Ctrl+B / B)">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
             <line x1="20" y1="4" x2="8.12" y2="15.88"/>
             <line x1="14.47" y1="14.48" x2="20" y2="20"/>
-            <line x1="8.12" y1="8.12" x2="12" y2="12"/>
           </svg>
-          <span>Split (Ctrl+B)</span>
+          <span>Split</span>
         </button>
 
-        <button type="button" id="capcutTrimInBtn" class="toolbar-btn" title="Split Left / Trim In (Q)">
-          <span>⏪ Cut In (Q)</span>
+        <button type="button" id="capcutTrimInBtn" class="toolbar-btn" title="Trim Left / Cut In (Q)">
+          <span>⏪ In (Q)</span>
         </button>
 
-        <button type="button" id="capcutTrimOutBtn" class="toolbar-btn" title="Split Right / Trim Out (W)">
-          <span>Cut Out (W) ⏩</span>
+        <button type="button" id="capcutTrimOutBtn" class="toolbar-btn" title="Trim Right / Cut Out (W)">
+          <span>Out (W) ⏩</span>
         </button>
 
-        <button type="button" id="capcutAddOverlayBtn" class="toolbar-btn toolbar-btn-accent" title="Add Picture / Visual Overlay into Gap or on Clip (CapCut)">
-          <span>🖼️ + Overlay</span>
+        <button type="button" id="timelineFreezeBtn" class="toolbar-btn" title="Freeze Frame 2.0s at Playhead">
+          <span>❄️ Freeze</span>
         </button>
 
-        <button type="button" id="linkAudioBtn" class="toolbar-btn" title="Link / Extract Audio">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-          </svg>
-          <span>Link</span>
+        <button type="button" id="timelineAddTextBtn" class="toolbar-btn toolbar-btn-accent" title="Add Editable Text Layer at Playhead (T)">
+          <span>🔤 + Text</span>
         </button>
 
-        <button type="button" id="duplicateClipBtn" class="toolbar-btn" title="Duplicate Element">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>
-          <span>Duplicate</span>
+        <button type="button" id="capcutAddOverlayBtn" class="toolbar-btn toolbar-btn-accent" title="Add Picture / PIP Overlay at Playhead">
+          <span>🖼️ + PIP</span>
         </button>
 
-        <button type="button" id="capcutDeleteBtn" class="toolbar-btn toolbar-btn-danger" title="Delete Element (Del)">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          </svg>
-          <span>Delete</span>
+        <button type="button" id="duplicateClipBtn" class="toolbar-btn" title="Duplicate Selected Element (Ctrl+D)">
+          <span>📄 Copy</span>
+        </button>
+
+        <button type="button" id="capcutDeleteBtn" class="toolbar-btn toolbar-btn-danger" title="Delete Selected Element (Del)">
+          <span>🗑 Delete</span>
         </button>
 
         <div class="toolbar-divider"></div>
 
-        <button type="button" id="addBookmarkBtn" class="toolbar-btn" title="Add Bookmark Marker">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-          </svg>
-          <span>Marker</span>
+        <button type="button" id="addBookmarkBtn" class="toolbar-btn" title="Add Timeline Marker at Playhead">
+          <span>🔖 Marker</span>
         </button>
       </div>
 
       <div class="toolbar-center">
-        <!-- Scene Selector Dropdown (OpenCut Style) -->
-        <div class="scene-selector-wrap">
-          <select id="sceneSelect" class="scene-select">
-            <option value="main-scene" selected>Main scene ▾</option>
-            <option value="hook-scene">Hook scene</option>
-            <option value="outro-scene">Outro scene</option>
-          </select>
-        </div>
+        <span id="timelineSelectionBadge" class="timeline-sel-pill">🎬 Master Video</span>
       </div>
 
       <div class="toolbar-right">
-        <!-- Snapping & Ripple -->
-        <button type="button" id="snappingToggleBtn" class="toolbar-btn active" title="Toggle Snapping (Magnet)">
-          <span style="font-size:12px;">🧲</span>
-          <span>Snapping</span>
+        <button type="button" id="snappingToggleBtn" class="toolbar-btn active" title="Toggle Magnetic Snapping">
+          <span>🧲 Snap</span>
         </button>
 
-        <button type="button" id="rippleToggleBtn" class="toolbar-btn active" title="Toggle Auto-Ripple Edit">
-          <span style="font-size:12px;">↔</span>
-          <span>Ripple</span>
+        <button type="button" id="rippleToggleBtn" class="toolbar-btn active" title="Toggle Ripple Edit (Auto-close or keep gaps)">
+          <span>↔ Ripple</span>
         </button>
 
-        <!-- Timeline Zoom Slider -->
-        <div class="timeline-zoom-control" title="Zoom Timeline">
-          <span class="zoom-btn" id="zoomOutBtn">-</span>
+        <button type="button" id="zoomFitTimelineBtn" class="toolbar-btn" title="Zoom to Fit Full Timeline">
+          <span>Fit</span>
+        </button>
+
+        <div class="timeline-zoom-control" title="Zoom Timeline (Ctrl + Mouse Wheel)">
+          <span class="zoom-btn" id="zoomOutBtn">−</span>
           <input type="range" id="timelineZoomSlider" min="0" max="100" value="100" class="zoom-slider" />
           <span class="zoom-btn" id="zoomInBtn">+</span>
         </div>
       </div>
     </div>
 
-    <!-- Timeline Tracks Wrapper -->
+    <!-- 5-Track Pixel-Aligned Wrapper -->
     <div class="timeline-tracks-wrapper">
       <!-- Left Track Headers -->
       <div class="track-headers">
-        <div class="track-header-item">
-          <span class="track-name">📹 Video Cuts</span>
+        <div class="track-header-item track-h-video">
+          <span class="track-name">🎬 Video</span>
           <div class="track-controls">
-            <button type="button" class="track-ctrl-btn" id="trackToggleMainVideo" title="Show/Hide Video">👁️</button>
-            <button type="button" class="track-ctrl-btn" id="trackLockVideo" title="Lock Track">🔒</button>
-            <button type="button" class="track-ctrl-btn" id="trackAddCutBtn" title="Split / Add Cut">✂️</button>
+            <button type="button" class="track-ctrl-btn" id="trackToggleMainVideo" title="Show/Hide Video Track">👁️</button>
+            <button type="button" class="track-ctrl-btn" id="trackLockVideo" title="Lock/Unlock Video Track">🔓</button>
+            <button type="button" class="track-ctrl-btn" id="trackAddCutBtn" title="Split Video at Playhead">✂️</button>
           </div>
         </div>
 
-        <div class="track-header-item">
+        <div class="track-header-item track-h-captions">
           <span class="track-name">💬 Captions</span>
           <div class="track-controls">
             <button type="button" class="track-ctrl-btn" id="trackToggleCaptions" title="Show/Hide Captions">👁️</button>
-            <button type="button" class="track-ctrl-btn" id="trackLockCaptions" title="Lock Track">🔒</button>
+            <button type="button" class="track-ctrl-btn" id="trackLockCaptions" title="Lock/Unlock Captions">🔓</button>
+            <button type="button" class="track-ctrl-btn" id="trackAddCapBtn" title="Add Subtitle Phrase">➕</button>
           </div>
         </div>
 
-        <div class="track-header-item">
-          <span class="track-name">🎨 Overlays</span>
+        <div class="track-header-item track-h-text">
+          <span class="track-name">🔤 Text/Hook</span>
+          <div class="track-controls">
+            <button type="button" class="track-ctrl-btn" id="trackToggleText" title="Show/Hide Text & Hook">👁️</button>
+            <button type="button" class="track-ctrl-btn" id="trackLockText" title="Lock/Unlock Text Track">🔓</button>
+            <button type="button" class="track-ctrl-btn" id="trackAddTextTrackBtn" title="Add Text Layer">➕</button>
+          </div>
+        </div>
+
+        <div class="track-header-item track-h-overlays">
+          <span class="track-name">🖼️ PIP/Stickers</span>
           <div class="track-controls">
             <button type="button" class="track-ctrl-btn" id="trackToggleOverlays" title="Show/Hide Overlays">👁️</button>
-            <button type="button" class="track-ctrl-btn" id="trackLockOverlays" title="Lock Track">🔒</button>
+            <button type="button" class="track-ctrl-btn" id="trackLockOverlays" title="Lock/Unlock Overlays">🔓</button>
+            <button type="button" class="track-ctrl-btn" id="trackAddOvBtn" title="Upload Picture / PIP">➕</button>
           </div>
         </div>
 
-        <div class="track-header-item">
+        <div class="track-header-item track-h-audio">
           <span class="track-name">🎵 Audio</span>
           <div class="track-controls">
-            <button type="button" class="track-ctrl-btn" id="trackToggleMainAudio" title="Mute/Unmute Audio">🔊</button>
-            <button type="button" class="track-ctrl-btn" id="trackLockAudio" title="Lock Track">🔒</button>
+            <button type="button" class="track-ctrl-btn" id="trackToggleMainAudio" title="Mute/Unmute Main Audio">🔊</button>
+            <button type="button" class="track-ctrl-btn" id="trackLockAudio" title="Lock/Unlock Audio">🔓</button>
           </div>
         </div>
       </div>
 
       <!-- Right Timeline Stage -->
       <div id="timelineStage" class="timeline-stage">
-        <!-- Ruler Bar with Frame Marks -->
+        <!-- Frame-Accurate Ruler + Bookmark Markers -->
         <div id="timelineRuler" class="timeline-ruler"></div>
 
-        <!-- Track 1: Interactive Video Cuts Blocks -->
+        <!-- Track 1: Interactive Video Cuts + Filmstrip Thumbnails -->
         <div id="videoTrackLane" class="track-lane track-video-cuts"></div>
 
-        <!-- Track 2: Karaoke Captions Track -->
+        <!-- Track 2: Karaoke Captions Phrases -->
         <div id="captionTrackLane" class="track-lane track-captions"></div>
 
-        <!-- Track 3: Top Hook Banner + Overlays -->
+        <!-- Track 3: Custom Text Layers + Hook Banner + Watermark -->
+        <div id="textTrackLane" class="track-lane track-text-layers"></div>
+
+        <!-- Track 4: Picture PIP Overlays + Video Cut-Ins + Stickers -->
         <div id="overlayTrackLane" class="track-lane track-overlays"></div>
 
-        <!-- Track 4: Audio Waveform Track -->
+        <!-- Track 5: Audio Waveform + Music Bed -->
         <div id="audioTrackLane" class="track-lane track-audio">
           <canvas id="waveformCanvas" width="1400" height="34"></canvas>
         </div>
 
-        <!-- Blue Playhead Needle -->
+        <!-- Glowing Magnetic Snap Guideline -->
+        <div id="timelineSnapLine" class="timeline-snap-line hidden"></div>
+
+        <!-- Cyan CapCut Playhead Needle -->
         <div id="timelinePlayhead" class="timeline-playhead">
           <div class="playhead-cap"></div>
         </div>
       </div>
     </div>
   </footer>
+
+  <!-- =====================================================================
+       CAPCUT PRO RIGHT-CLICK CONTEXT MENU
+       ===================================================================== -->
+  <div id="capcutContextMenu" class="capcut-context-menu hidden" role="menu">
+    <button type="button" class="ctx-item" data-ctx="split"><span>✂️ Split at Playhead</span><kbd>Ctrl+B</kbd></button>
+    <button type="button" class="ctx-item" data-ctx="edit"><span>✏️ Edit Text / Rename</span><kbd>DblClick</kbd></button>
+    <button type="button" class="ctx-item" data-ctx="duplicate"><span>📄 Duplicate Layer</span><kbd>Ctrl+D</kbd></button>
+    <button type="button" class="ctx-item" data-ctx="freeze"><span>❄️ Freeze Frame (2.0s)</span><kbd>F</kbd></button>
+    <button type="button" class="ctx-item" data-ctx="toggle-pip"><span>🖼️ Toggle Clean PIP / Card</span></button>
+    <button type="button" class="ctx-item" data-ctx="center"><span>🎯 Center on Canvas</span></button>
+    <div class="ctx-sep"></div>
+    <button type="button" class="ctx-item ctx-danger" data-ctx="delete"><span>🗑️ Delete Element</span><kbd>Del</kbd></button>
+  </div>
 
   <!-- =====================================================================
        MODAL 1: SAVED CLIPS VAULT
@@ -1168,11 +1667,11 @@
       <div class="modal-header">
         <div class="modal-title-group">
           <h3 id="vaultModalTitle" class="modal-title">📂 Saved Clips Vault</h3>
-          <span class="modal-subtitle">Persistent studio storage — load or export your saved clips</span>
+          <span class="modal-subtitle">Persistent studio storage — load or export your saved edits</span>
         </div>
         <div class="modal-header-actions">
           <button type="button" id="importProjectBtn" class="btn-chip" title="Import .JSON project">📥 Import .JSON</button>
-          <button type="button" id="saveCurrentInVaultModalBtn" class="btn-opencut-export" style="padding:6px 12px; font-size:12px;">💾 Save Active Clip</button>
+          <button type="button" id="saveCurrentInVaultModalBtn" class="btn-opencut-export" style="padding:6px 12px; font-size:12px;">💾 Save Active Edit</button>
           <button type="button" id="closeVaultModalBtn" class="btn-close-modal">✕</button>
         </div>
       </div>
@@ -1181,14 +1680,14 @@
   </div>
 
   <!-- =====================================================================
-       MODAL 2: EXPORT 9:16 VIDEO MODAL
+       MODAL 2: EXPORT VIDEO MODAL (FAST FFMPEG MP4 + FULL WEBM CANVAS)
        ===================================================================== -->
   <div id="exportModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
     <div class="modal-card modal-export">
       <div class="modal-header">
         <div class="modal-title-group">
-          <h3 id="exportModalTitle" class="modal-title">🎬 Export 9:16 Video</h3>
-          <span class="modal-subtitle">Render vertical video with burned-in captions, smooth face reframe &amp; mixed audio</span>
+          <h3 id="exportModalTitle" class="modal-title">🎬 Export Master Video</h3>
+          <span class="modal-subtitle">Render high-definition video with burned-in captions, overlays &amp; mixed audio</span>
         </div>
         <button type="button" id="closeExportModalBtn" class="btn-close-modal">✕</button>
       </div>
@@ -1196,19 +1695,19 @@
         <div class="export-summary-grid">
           <div class="export-spec-box">
             <span class="spec-label">RESOLUTION</span>
-            <strong class="spec-val">1080×1920 (9:16) @ 60fps</strong>
+            <strong id="exportSpecResolution" class="spec-val">1080×1920 (9:16) @ 60fps</strong>
           </div>
           <div class="export-spec-box">
-            <span class="spec-label">CLIP DURATION</span>
-            <strong id="exportSpecDuration" class="spec-val">28.5s</strong>
+            <span class="spec-label">SEQUENCE DURATION</span>
+            <strong id="exportSpecDuration" class="spec-val">30.0s</strong>
           </div>
           <div class="export-spec-box">
-            <span class="spec-label">FACE TRACKING</span>
-            <strong class="spec-val score-emerald">YuNet Active</strong>
+            <span class="spec-label">ACTIVE CUTS &amp; LAYERS</span>
+            <strong id="exportSpecLayers" class="spec-val score-emerald">1 Cut • Subtitles ON</strong>
           </div>
           <div class="export-spec-box">
-            <span class="spec-label">AUDIO NORM</span>
-            <strong class="spec-val score-emerald">-14 LUFS</strong>
+            <span class="spec-label">AUDIO MASTER</span>
+            <strong class="spec-val score-emerald">-14 LUFS Broadcast</strong>
           </div>
         </div>
 
@@ -1217,18 +1716,27 @@
             <div id="exportProgressBar" class="progress-bar-fill"></div>
           </div>
           <div class="progress-status-row">
-            <span id="exportProgressStatus">Rendering 9:16 frames...</span>
+            <span id="exportProgressStatus">Rendering frames...</span>
             <span id="exportProgressPercent" class="mono-val">0%</span>
           </div>
         </div>
 
-        <div class="export-actions-row">
-          <button type="button" id="startVideoRenderBtn" class="btn-opencut-export full-width" style="padding:12px; font-size:14px;">
-            🎬 Render &amp; Download MP4 / WebM Video
+        <div class="export-actions-row" style="display:flex; flex-direction:column; gap:8px;">
+          <button type="button" id="startFfmpegRenderBtn" class="btn-opencut-export full-width" style="padding:12px; font-size:13.5px;">
+            ⚡ Fast Server FFmpeg Render (.MP4 • Hardware H.264)
           </button>
-          <div style="display:flex; gap:8px; width:100%; margin-top:8px;">
-            <button type="button" id="exportSrtBtn" class="btn-chip full-width">Export .SRT Subtitles</button>
-            <button type="button" id="exportJsonProjectBtn" class="btn-chip full-width">Export .JSON Project</button>
+          <div style="display:flex; gap:8px; width:100%;">
+            <button type="button" id="startVideoRenderBtn" class="btn-chip full-width" style="padding:10px; font-weight:700; border-color:#38bdf8; color:#38bdf8; justify-content:center;">
+              🎬 Record Full Canvas + All Custom Layers (.WebM/.MP4)
+            </button>
+            <button type="button" id="stopVideoRenderBtn" class="btn-chip hidden" style="padding:10px; font-weight:700; border-color:#ef4444; color:#ef4444;">
+              ⏹ Finish &amp; Save Now
+            </button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; width:100%; margin-top:4px;">
+            <button type="button" id="exportSrtBtn" class="btn-chip" style="justify-content:center;">📝 .SRT Subtitles</button>
+            <button type="button" id="exportPngModalBtn" class="btn-chip" style="justify-content:center;">📸 .PNG Frame</button>
+            <button type="button" id="exportJsonProjectBtn" class="btn-chip" style="justify-content:center;">📦 .JSON Project</button>
           </div>
         </div>
       </div>
@@ -1236,7 +1744,7 @@
   </div>
 
   <!-- =====================================================================
-       MODAL 3: AI ENGINE & API KEY CONFIGURATION (FREE GEMINI / MULTIMODAL)
+       MODAL 3: AI ENGINE & API KEY CONFIGURATION
        ===================================================================== -->
   <div id="aiKeyModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="aiKeyModalTitle">
     <div class="modal-card modal-ai-key">
@@ -1249,35 +1757,31 @@
       </div>
 
       <div class="ai-key-modal-body">
-        <!-- Free Gemini Callout Banner -->
         <div class="ai-key-info-box">
           <div class="info-box-header">
             <span class="info-box-badge">✨ RECOMMENDED • 100% FREE</span>
-            <strong>Google Gemini 2.5 Flash / 1.5 Pro</strong>
+            <strong>Google Gemini Flash / Pro</strong>
           </div>
           <p class="info-box-desc">
-            Gemini provides a generous free tier with multimodal video + audio analysis. Get your free key instantly from Google AI Studio:
+            Gemini provides multimodal video + audio analysis and powers JARVIS bilingual Taglish/English commands.
           </p>
           <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="btn-get-key-link">
             <span>Get Free Gemini API Key (Google AI Studio)</span>
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
           </a>
         </div>
 
-        <!-- Provider Selection -->
         <div class="form-group">
           <label for="aiProviderSelect" class="form-label">AI Model Provider:</label>
           <select id="aiProviderSelect" class="studio-input modal-select" style="width:100%; padding:9px 12px; background:#0f111e; border:1px solid #232742; color:#f1f5f9; border-radius:6px; font-size:12px;">
-            <option value="gemini-2.5-flash" selected>✨ Google Gemini 2.5 Flash (Free Tier • Video Frame + Audio Multimodal)</option>
-            <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep Reasoning &amp; Viral Hook Analysis)</option>
+            <option value="gemini-2.5-flash" selected>✨ Google Gemini Flash (Free Tier • Multimodal)</option>
+            <option value="gemini-1.5-pro">Google Gemini Pro (Deep Viral Hook Reasoning)</option>
             <option value="openai">OpenAI GPT-4o / GPT-4o-mini</option>
             <option value="groq">Groq (Llama 3.3 70B • Ultra Fast)</option>
-            <option value="qwen-local">Local Qwen2.5-VL-3B Multimodal (llama-server:8080)</option>
-            <option value="local-opencv">Local Hybrid (OpenCV Vision + Faster-Whisper • No Key Required)</option>
+            <option value="qwen-local">Local Qwen2.5-VL Multimodal (llama-server:8080)</option>
+            <option value="local-opencv">Local Hybrid (OpenCV YuNet + Faster-Whisper • Offline)</option>
           </select>
         </div>
 
-        <!-- API Key Input -->
         <div class="form-group" id="apiKeyInputGroup" style="margin-top:12px;">
           <label for="userAiApiKeyInput" class="form-label">API Key:</label>
           <div class="api-key-input-wrap">
@@ -1285,17 +1789,13 @@
               type="password"
               id="userAiApiKeyInput"
               class="studio-input api-key-field"
-              placeholder="Paste your API key here (e.g. AIzaSy... or sk-...)"
+              placeholder="Paste your API key here (e.g. AIzaSy...)"
               autocomplete="off"
             />
             <button type="button" id="toggleApiKeyVisibilityBtn" class="btn-key-eye" title="Toggle Visibility">👁️</button>
           </div>
-          <span class="form-hint" style="display:block; margin-top:6px; font-size:11px; color:#94a3b8;">
-            Stored safely in your browser localStorage. Never sent to any external server other than the official API endpoint.
-          </span>
         </div>
 
-        <!-- Connection Test Status -->
         <div id="aiKeyTestStatus" class="ai-key-status-row hidden">
           <span id="aiKeyStatusIcon">⚡</span>
           <span id="aiKeyStatusMessage">Ready to test connection</span>
@@ -1313,13 +1813,14 @@
     </div>
   </div>
 
-  <!-- Floating JARVIS Live Voice Bubble HUD -->
+  <!-- Floating JARVIS Live Voice Bubble HUD (Positioned cleanly away from timeline!) -->
   <div id="jarvisFloatingBubble" class="jarvis-floating-bubble hidden">
     <div class="jarvis-bubble-reactor"></div>
     <div class="jarvis-bubble-content">
       <div class="jarvis-bubble-sender">JARVIS • AI BUTLER</div>
       <div id="jarvisBubbleText" class="jarvis-bubble-text">"It's done, sir."</div>
     </div>
+    <button type="button" id="closeJarvisBubbleBtn" class="jarvis-bubble-close" title="Dismiss">&times;</button>
   </div>
 
   <!-- JARVIS AI Command Center Modal -->
@@ -1334,26 +1835,24 @@
           </div>
           <div>
             <h3 class="modal-title" style="color:#00f2fe; margin:0; font-size:16px;">J.A.R.V.I.S. AI Command Center</h3>
-            <span class="modal-sub" style="color:#94a3b8; font-size:11.5px;">Voice Butler • Timeline Automation • ElevenLabs &amp; Google AI</span>
+            <span class="modal-sub" style="color:#94a3b8; font-size:11.5px;">Taglish/English Voice Butler • Full CapCut Layer Control</span>
           </div>
         </div>
         <button type="button" id="closeJarvisModalBtn" class="modal-close" aria-label="Close JARVIS HUD">&times;</button>
       </div>
 
       <div class="jarvis-modal-body">
-        <!-- Quick Command & Chitchat Action Chips -->
         <div class="jarvis-quick-commands">
           <button type="button" class="jarvis-cmd-chip" data-cmd="hello">👋 "Hello Jarvis"</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="kamusta">🇵🇭 "Kamusta ka?"</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="chitchat">💬 "Kwentuhan mo ako"</button>
           <button type="button" class="jarvis-cmd-chip" data-cmd="split">✂️ Split Clip</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="play">▶️ Play / Pause</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="picture">🖼️ Insert Picture</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="auto-edit">⚡ 1-Click Auto Edit</button>
-          <button type="button" class="jarvis-cmd-chip" data-cmd="done">🗣️ "It's done, sir"</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="add-text">🔤 Add Text</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="picture">🖼️ Insert PIP</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="hide-watermark">🏷️ Hide Watermark</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="undo">↩️ Undo</button>
+          <button type="button" class="jarvis-cmd-chip" data-cmd="auto-edit">⚡ Auto Edit</button>
         </div>
 
-        <!-- Futuristic SiriWave Audio Visualizer & System Diagnostics -->
         <div class="jarvis-siri-box">
           <div class="jarvis-status-pills">
             <span class="status-pill"><span class="pill-dot green"></span> NEURAL CORE: ONLINE</span>
@@ -1363,15 +1862,13 @@
           <div id="jarvisSiriContainer" class="jarvis-siri-container"></div>
         </div>
 
-        <!-- Interactive Chat History -->
         <div id="jarvisChatMessages" class="jarvis-chat-stream">
           <div class="jarvis-msg msg-jarvis">
             <div class="msg-author">JARVIS • AI BUTLER</div>
-            <div class="msg-body">At your service, sir. All editing suites, video cuts, and neural models are operational. How may I assist with your edit?</div>
+            <div class="msg-body">At your service, sir. Every video cut, text layer, subtitle, picture overlay, and audio bus is editable and under your command. How may I assist?</div>
           </div>
         </div>
 
-        <!-- Voice & Text Input Bar -->
         <div class="jarvis-input-bar">
           <button type="button" id="jarvisMicBtn" class="jarvis-mic-btn" title="Speak to JARVIS (Microphone)">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
@@ -1381,25 +1878,20 @@
               <line x1="8" y1="23" x2="16" y2="23"/>
             </svg>
           </button>
-          <input type="text" id="jarvisTextInput" class="jarvis-text-input" placeholder="Give JARVIS a command or question (e.g. 'split here', 'is it done?')..." />
-          <button type="button" id="jarvisSendBtn" class="jarvis-send-btn">
-            <span>Send</span>
-          </button>
+          <input type="text" id="jarvisTextInput" class="jarvis-text-input" placeholder="Command JARVIS in Taglish or English (e.g. 'maglagay ng text VIRAL', 'hatiin dito', 'undo')..." />
+          <button type="button" id="jarvisSendBtn" class="jarvis-send-btn"><span>Send</span></button>
         </div>
 
-        <!-- Voice Configuration Settings Accordion -->
         <div class="jarvis-settings-box">
-          <div class="jarvis-settings-title">
-            <span>⚙️ Voice &amp; Provider Settings</span>
-          </div>
+          <div class="jarvis-settings-title"><span>⚙️ Voice &amp; Provider Settings</span></div>
           <div class="jarvis-settings-grid">
             <div>
               <label class="jarvis-field-label">ElevenLabs API Key:</label>
-              <input type="password" id="jarvisElevenKeyInput" class="studio-input" value="" placeholder="sk_... (ElevenLabs API Key)" />
+              <input type="password" id="jarvisElevenKeyInput" class="studio-input" value="" placeholder="sk_... (Optional)" />
             </div>
             <div>
               <label class="jarvis-field-label">Google API Key:</label>
-              <input type="password" id="jarvisGoogleKeyInput" class="studio-input" value="" placeholder="AI key... (Google API Key)" />
+              <input type="password" id="jarvisGoogleKeyInput" class="studio-input" value="" placeholder="AIza... (Gemini Key)" />
             </div>
             <div>
               <label class="jarvis-field-label">Voice Persona:</label>
@@ -1416,14 +1908,26 @@
                 <option value="en-US">🇺🇸 English (United States)</option>
               </select>
             </div>
-            <div style="display:flex; align-items:flex-end;">
-              <button type="button" id="jarvisTestVoiceBtn" class="btn-chip" style="width:100%; height:38px; font-weight:600; border-color:#00f2fe; color:#00f2fe;">
-                <span>🔊 Test JARVIS Voice</span>
-              </button>
-            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <button type="button" id="jarvisTestVoiceBtn" class="btn-chip" style="width:100%; justify-content:center; height:34px; font-weight:600; border-color:#00f2fe; color:#00f2fe;">
+              <span>🔊 Test JARVIS Voice</span>
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Studio Command Palette Modal (Ctrl+K — OpenCut × OpenJarvis) -->
+  <div id="commandPaletteModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Studio Command Palette">
+    <div class="modal-card cmd-palette-card">
+      <div class="cmd-palette-search-row">
+        <span class="cmd-palette-icon">🔍</span>
+        <input type="text" id="cmdPaletteInput" class="cmd-palette-input" placeholder="Type a CapCut command, preset, filter, or shortcut (e.g. Split, Freeze, Auto Jump-Cuts, Hormozi, 16:9)..." autocomplete="off" />
+        <kbd class="cmd-esc-badge">ESC</kbd>
+      </div>
+      <div id="cmdPaletteResults" class="cmd-palette-results"></div>
     </div>
   </div>
 
