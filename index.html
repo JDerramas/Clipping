@@ -1258,6 +1258,16 @@
           <button type="button" class="jarvis-cmd-chip" data-cmd="done">🗣️ "It's done, sir"</button>
         </div>
 
+        <!-- Futuristic SiriWave Audio Visualizer & System Diagnostics -->
+        <div class="jarvis-siri-box">
+          <div class="jarvis-status-pills">
+            <span class="status-pill"><span class="pill-dot green"></span> NEURAL CORE: ONLINE</span>
+            <span class="status-pill"><span class="pill-dot cyan"></span> VOICE SYNTH: ACTIVE</span>
+            <span class="status-pill"><span class="pill-dot purple"></span> HOTKEY: CTRL+J</span>
+          </div>
+          <div id="jarvisSiriContainer" class="jarvis-siri-container"></div>
+        </div>
+
         <!-- Interactive Chat History -->
         <div id="jarvisChatMessages" class="jarvis-chat-stream">
           <div class="jarvis-msg msg-jarvis">
@@ -1319,6 +1329,7 @@
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <!-- Engines & Application Scripts -->
+  <script src="assets/siriwave.umd.min.js"></script>
   <script src="broll-engine.js"></script>
   <script src="audio-engine.js"></script>
   <script src="jarvis-engine.js"></script>

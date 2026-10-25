@@ -35,8 +35,47 @@
       this.chatHistory = [];
       this.speechSynth = typeof window !== 'undefined' ? window.speechSynthesis : null;
       this.selectedWebVoice = null;
+      this.siriWave = null;
 
       this.initWebVoice();
+      if (typeof window !== 'undefined') {
+        window.addEventListener('DOMContentLoaded', () => {
+          this.initSiriWave();
+        });
+      }
+    }
+
+    playStartSound() {
+      try {
+        const audio = new Audio('/assets/audio/jarvis_start.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      } catch (e) {}
+    }
+
+    initSiriWave() {
+      if (typeof SiriWave === 'undefined') return;
+      const container = document.getElementById('jarvisSiriContainer');
+      if (!container) return;
+      if (this.siriWave) {
+        try { this.siriWave.start(); } catch (e) {}
+        return;
+      }
+      try {
+        container.innerHTML = '';
+        this.siriWave = new SiriWave({
+          container: container,
+          width: container.clientWidth || 520,
+          height: 65,
+          style: 'ios9',
+          amplitude: 0.25,
+          speed: 0.12,
+          autostart: true,
+          cover: true
+        });
+      } catch (e) {
+        console.warn('[JARVIS] SiriWave init notice:', e);
+      }
     }
 
     initWebVoice() {
@@ -78,6 +117,13 @@
       if (reactor) reactor.classList.add('glowing-active');
       if (wave) wave.classList.add('wave-active');
 
+      if (this.siriWave) {
+        try {
+          this.siriWave.setSpeed(0.35);
+          this.siriWave.setAmplitude(1.35);
+        } catch (e) {}
+      }
+
       if (bubble && bubbleText) {
         bubbleText.textContent = `"${text}"`;
         bubble.classList.remove('hidden');
@@ -92,6 +138,13 @@
 
       if (reactor) reactor.classList.remove('glowing-active');
       if (wave) wave.classList.remove('wave-active');
+
+      if (this.siriWave) {
+        try {
+          this.siriWave.setSpeed(0.12);
+          this.siriWave.setAmplitude(0.22);
+        } catch (e) {}
+      }
 
       if (bubble) {
         bubble.classList.remove('visible');
@@ -277,6 +330,15 @@
       }
 
       try {
+        this.playStartSound();
+        this.initSiriWave();
+        if (this.siriWave) {
+          try {
+            this.siriWave.setSpeed(0.38);
+            this.siriWave.setAmplitude(1.5);
+          } catch (e) {}
+        }
+
         this.recognition = new SpeechRec();
         this.recognition.continuous = false;
         this.recognition.interimResults = false;
@@ -290,6 +352,12 @@
           const transcript = event.results[0][0].transcript;
           this.isListening = false;
           if (reactor) reactor.classList.remove('listening-active');
+          if (this.siriWave) {
+            try {
+              this.siriWave.setSpeed(0.12);
+              this.siriWave.setAmplitude(0.25);
+            } catch (e) {}
+          }
           if (typeof onTextCallback === 'function') onTextCallback(transcript);
           this.handleUserCommand(transcript);
         };
@@ -297,11 +365,23 @@
         this.recognition.onerror = () => {
           this.isListening = false;
           if (reactor) reactor.classList.remove('listening-active');
+          if (this.siriWave) {
+            try {
+              this.siriWave.setSpeed(0.12);
+              this.siriWave.setAmplitude(0.25);
+            } catch (e) {}
+          }
         };
 
         this.recognition.onend = () => {
           this.isListening = false;
           if (reactor) reactor.classList.remove('listening-active');
+          if (this.siriWave) {
+            try {
+              this.siriWave.setSpeed(0.12);
+              this.siriWave.setAmplitude(0.25);
+            } catch (e) {}
+          }
         };
 
         this.recognition.start();
@@ -465,5 +545,20 @@
 
   global.JarvisEngine = JarvisEngine;
   global.jarvis = new JarvisEngine();
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
+        e.preventDefault();
+        const modal = document.getElementById('jarvisModal');
+        const hudBtn = document.getElementById('jarvisHudBtn');
+        if (modal && modal.classList.contains('hidden') && hudBtn) {
+          hudBtn.click();
+        } else if (global.jarvis) {
+          global.jarvis.toggleListening();
+        }
+      }
+    });
+  }
 
 })(typeof window !== 'undefined' ? window : globalThis);

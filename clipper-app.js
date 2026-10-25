@@ -4137,6 +4137,12 @@
       if (dom.jarvisGoogleKeyInput && window.jarvis) dom.jarvisGoogleKeyInput.value = window.jarvis.googleKey || '';
       if (dom.jarvisVoicePresetSelect && window.jarvis) dom.jarvisVoicePresetSelect.value = window.jarvis.voicePreset || 'jarvis-british';
       dom.jarvisModal.classList.remove('hidden');
+      if (window.jarvis) {
+        window.jarvis.playStartSound();
+        setTimeout(() => {
+          if (window.jarvis.initSiriWave) window.jarvis.initSiriWave();
+        }, 100);
+      }
     }
 
     function closeJarvisModal() {
