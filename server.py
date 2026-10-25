@@ -108,12 +108,30 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         # Handle Range Requests for Media Files (/uploads/, /outputs/, /assets/)
         local_file_path = ROOT_DIR / path.lstrip("/")
-        if local_file_path.is_file() and ("Range" in self.headers or path.endswith((".mp4", ".webm", ".mov"))):
+        if local_file_path.is_file() and ("Range" in self.headers or path.endswith((".mp4", ".webm", ".mov", ".mkv", ".wav", ".mp3"))):
             self.stream_file_with_range(local_file_path)
             return
 
         # Default static file handling
         super().do_GET()
+
+    def do_HEAD(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        local_file_path = ROOT_DIR / path.lstrip("/")
+        if local_file_path.is_file() and path.endswith((".mp4", ".webm", ".mov", ".mkv", ".wav", ".mp3")):
+            file_size = local_file_path.stat().st_size
+            content_type, _ = mimetypes.guess_type(str(local_file_path))
+            if not content_type:
+                content_type = "video/mp4"
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(file_size))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            return
+        super().do_HEAD()
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -160,13 +178,16 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 content_type = "video/mp4"
 
             if not range_header:
-                # Full content response
+                # Full content response with byte-range capability
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(file_size))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Cache-Control", "public, max-age=3600")
                 self.end_headers()
                 with open(file_path, "rb") as f:
-                    while chunk := f.read(CHUNK_SIZE):
+                    buf_size = 256 * 1024
+                    while chunk := f.read(buf_size):
                         self.wfile.write(chunk)
                 return
 
@@ -178,7 +199,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
             start = int(range_match.group(1))
             end_str = range_match.group(2)
-            end = int(end_str) if end_str else min(start + CHUNK_SIZE - 1, file_size - 1)
+            # Open-ended range requests stream to end of file to prevent playback starvation
+            end = int(end_str) if end_str else (file_size - 1)
             end = min(end, file_size - 1)
 
             if start >= file_size or start > end:
@@ -193,13 +215,16 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
             self.send_header("Content-Length", str(content_length))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "public, max-age=3600")
             self.end_headers()
 
             with open(file_path, "rb") as f:
                 f.seek(start)
                 bytes_left = content_length
+                buf_size = 256 * 1024
                 while bytes_left > 0:
-                    read_len = min(bytes_left, 64 * 1024)
+                    read_len = min(bytes_left, buf_size)
                     chunk = f.read(read_len)
                     if not chunk:
                         break

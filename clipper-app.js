@@ -3242,6 +3242,7 @@
   function seekToTime(targetSec) {
     const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
     state.currentTime = clamp(targetSec, 0, dur);
+    lastActiveCutId = null;
     if (state.useCustomMainVideo && dom.mainVideoEl) {
       const activeClip = getActiveVideoCutAtTime(state.currentTime);
       if (activeClip) {
@@ -3251,6 +3252,7 @@
         if (Math.abs(dom.mainVideoEl.currentTime - targetSrc) > 0.04) {
           dom.mainVideoEl.currentTime = targetSrc;
         }
+        lastActiveCutId = activeClip.id;
       } else if (!dom.mainVideoEl.paused) {
         dom.mainVideoEl.pause();
       }
@@ -3876,6 +3878,13 @@
   function loadProjectFromServer(data) {
     if (!data || !data.video_url) return;
 
+    if (state.isPlaying) {
+      state.isPlaying = false;
+      updatePlayPauseButtonUI();
+      if (dom.mainVideoEl) dom.mainVideoEl.pause();
+    }
+    lastActiveCutId = null;
+
     state.useCustomMainVideo = true;
     state.customMainFileName = data.filename;
     state.streamDuration = data.duration || 60;
@@ -3889,19 +3898,12 @@
       });
     }
 
-    dom.mainVideoEl.src = data.video_url;
-    dom.mainVideoEl.load();
-
-    if (window.WhopAudioEngine) {
-      window.WhopAudioEngine.connectMainVideo(dom.mainVideoEl);
-    }
-
     if (dom.serverVideoSelect) {
       dom.serverVideoSelect.value = data.filename;
     }
 
     if (dom.activeSourceBadge) {
-      dom.activeSourceBadge.textContent = '1080p SOURCE';
+      dom.activeSourceBadge.textContent = '1080p REALTIME';
       dom.activeSourceBadge.className = 'status-pill status-emerald';
     }
 
@@ -3935,7 +3937,35 @@
     }
 
     state.currentTime = state.trimStart;
-    dom.mainVideoEl.currentTime = state.trimStart;
+
+    if (dom.mainVideoEl) {
+      dom.mainVideoEl.preload = 'auto';
+      dom.mainVideoEl.crossOrigin = 'anonymous';
+      dom.mainVideoEl.src = data.video_url;
+
+      const onReady = () => {
+        dom.mainVideoEl.removeEventListener('loadedmetadata', onReady);
+        dom.mainVideoEl.removeEventListener('canplay', onReady);
+        if (!isNaN(dom.mainVideoEl.duration) && dom.mainVideoEl.duration > 0) {
+          state.streamDuration = dom.mainVideoEl.duration;
+        }
+        dom.mainVideoEl.currentTime = state.trimStart;
+        renderCanvasFrame();
+        updatePlayheadUI();
+      };
+
+      if (dom.mainVideoEl.readyState >= 1) {
+        onReady();
+      } else {
+        dom.mainVideoEl.addEventListener('loadedmetadata', onReady, { once: true });
+        dom.mainVideoEl.addEventListener('canplay', onReady, { once: true });
+        dom.mainVideoEl.load();
+      }
+
+      if (window.WhopAudioEngine) {
+        window.WhopAudioEngine.connectMainVideo(dom.mainVideoEl);
+      }
+    }
 
     selectViralMoment(0, false);
     renderViralMomentsList();
@@ -3944,25 +3974,51 @@
     renderTranscriptCloud();
     updateTelemetryBar();
     syncAllInspectorControlsFromState();
-    showToast(`🎬 Loaded Real Video: "${data.filename}" (${state.streamDuration.toFixed(1)}s)`);
+    showToast(`⚡ Realtime Stream Ready: "${data.filename}" (${state.streamDuration.toFixed(1)}s)`, '#10b981');
   }
 
   async function loadSelectedServerVideo(filename) {
     if (!filename) return;
     try {
-      showToast(`Loading ${filename}...`, '#38bdf8');
+      showToast(`⚡ Loading ${filename} (Realtime Stream)...`, '#38bdf8');
       const projId = 'proj_' + filename.replace(/\.[^/.]+$/, '');
       const res = await fetch(`/api/active_project?id=${encodeURIComponent(projId)}`);
       const data = await res.json();
       if (data && data.video_url) {
         loadProjectFromServer(data);
       } else {
+        if (state.isPlaying) {
+          state.isPlaying = false;
+          updatePlayPauseButtonUI();
+          if (dom.mainVideoEl) dom.mainVideoEl.pause();
+        }
+        lastActiveCutId = null;
         state.useCustomMainVideo = true;
         state.customMainFileName = filename;
-        dom.mainVideoEl.src = `/uploads/${filename}`;
-        dom.mainVideoEl.load();
+        if (dom.mainVideoEl) {
+          dom.mainVideoEl.preload = 'auto';
+          dom.mainVideoEl.crossOrigin = 'anonymous';
+          dom.mainVideoEl.src = `/uploads/${filename}`;
+          const onReady = () => {
+            dom.mainVideoEl.removeEventListener('loadedmetadata', onReady);
+            dom.mainVideoEl.removeEventListener('canplay', onReady);
+            if (!isNaN(dom.mainVideoEl.duration) && dom.mainVideoEl.duration > 0) {
+              state.streamDuration = dom.mainVideoEl.duration;
+            }
+            dom.mainVideoEl.currentTime = state.trimStart;
+            renderCanvasFrame();
+            updatePlayheadUI();
+          };
+          if (dom.mainVideoEl.readyState >= 1) {
+            onReady();
+          } else {
+            dom.mainVideoEl.addEventListener('loadedmetadata', onReady, { once: true });
+            dom.mainVideoEl.addEventListener('canplay', onReady, { once: true });
+            dom.mainVideoEl.load();
+          }
+        }
         dom.activeSourceBadge.textContent = 'REAL VIDEO';
-        showToast(`Loaded ${filename}`);
+        showToast(`⚡ Loaded ${filename} in Realtime`, '#10b981');
       }
     } catch (e) {
       showToast(`Error loading video: ${e.message}`, '#ef4444');
@@ -4751,7 +4807,12 @@
       });
       safeOn(dom.mainVideoEl, 'timeupdate', () => {
         if (state.isPlaying && state.useCustomMainVideo) {
-          state.currentTime = dom.mainVideoEl.currentTime;
+          const activeClip = getActiveVideoCutAtTime(state.currentTime);
+          if (activeClip) {
+            const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
+            const cutOffset = Math.max(0, dom.mainVideoEl.currentTime - srcStart);
+            state.currentTime = activeClip.start + cutOffset;
+          }
           renderCanvasFrame();
           updatePlayheadUI();
         }
@@ -6505,9 +6566,12 @@
     }
   }
 
+  let lastActiveCutId = null;
+
   function togglePlayPause() {
     state.isPlaying = !state.isPlaying;
     updatePlayPauseButtonUI();
+    lastActiveCutId = null;
 
     if (state.isPlaying) {
       const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
@@ -6515,15 +6579,19 @@
 
       if (state.currentTime >= endLimit - 0.05 || state.currentTime < state.trimStart) {
         state.currentTime = state.trimStart;
-        if (dom.mainVideoEl) dom.mainVideoEl.currentTime = state.trimStart;
-      } else {
-        // FIRST FRAME GUARD: only seek if video element is more than 60ms off
-        if (dom.mainVideoEl && Math.abs(dom.mainVideoEl.currentTime - state.currentTime) > 0.06) {
-          dom.mainVideoEl.currentTime = state.currentTime;
-        }
       }
 
       if (state.useCustomMainVideo && dom.mainVideoEl) {
+        const activeClip = getActiveVideoCutAtTime(state.currentTime);
+        if (activeClip) {
+          const cutOffset = Math.max(0, state.currentTime - activeClip.start);
+          const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
+          const targetSrc = clamp(srcStart + cutOffset, 0, dur);
+          if (Math.abs(dom.mainVideoEl.currentTime - targetSrc) > 0.04) {
+            dom.mainVideoEl.currentTime = targetSrc;
+          }
+          lastActiveCutId = activeClip.id;
+        }
         dom.mainVideoEl.playbackRate = state.playbackSpeed || 1.0;
         dom.mainVideoEl.play().catch(() => {});
       }
@@ -6551,7 +6619,7 @@
   }
 
   // =========================================================================
-  // MAIN 60FPS ANIMATION LOOP (ULTRA SMOOTH • ZERO-SEEK HARDWARE CLOCK)
+  // MAIN 60FPS ANIMATION LOOP (CAPCUT ZERO-SEEK HARDWARE CLOCK ENGINE)
   // =========================================================================
   let lastFrameTs = performance.now();
 
@@ -6560,47 +6628,55 @@
     lastFrameTs = nowTs;
 
     if (state.isPlaying) {
-      const step = dt * (state.playbackSpeed || 1.0);
-      state.currentTime += step;
-
       const clips = state.sequence?.videoClips || [];
       const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
       const endLimit = clips.length > 0
         ? Math.max(state.trimEnd, clips[clips.length - 1].end)
         : Math.min(state.trimEnd, dur);
 
-      if (state.currentTime >= endLimit - 0.04) {
-        if (state.loopClip && !state.isRecordingExport) {
-          const startT = clips.length > 0 ? clips[0].start : state.trimStart;
-          seekToTime(startT);
-        } else if (!state.isRecordingExport) {
-          state.currentTime = endLimit;
-          state.isPlaying = false;
-          updatePlayPauseButtonUI();
-          if (dom.mainVideoEl) dom.mainVideoEl.pause();
-          if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
+      const activeClip = getActiveVideoCutAtTime(state.currentTime);
+
+      if (activeClip && state.useCustomMainVideo && dom.mainVideoEl) {
+        const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
+        const srcEnd = activeClip.sourceEnd !== undefined ? activeClip.sourceEnd : (srcStart + (activeClip.end - activeClip.start));
+
+        // 1. Cut Transition: Seeks once ONLY when moving into a different cut
+        if (lastActiveCutId !== activeClip.id) {
+          lastActiveCutId = activeClip.id;
+          const cutOffset = Math.max(0, state.currentTime - activeClip.start);
+          const targetSrc = clamp(srcStart + cutOffset, 0, dur);
+          dom.mainVideoEl.currentTime = targetSrc;
+        }
+
+        // 2. Continuous Playback assurance without seeking
+        if (dom.mainVideoEl.paused) {
+          dom.mainVideoEl.playbackRate = state.playbackSpeed || 1.0;
+          dom.mainVideoEl.play().catch(() => {});
+        }
+
+        // 3. ZERO-SEEK HARDWARE MASTER CLOCK: Timeline follows native hardware video decoder directly
+        const curSrc = dom.mainVideoEl.currentTime;
+        const currentCutOffset = Math.max(0, curSrc - srcStart);
+        state.currentTime = activeClip.start + currentCutOffset;
+
+        // Cut Volume normalization
+        const cutVol = typeof activeClip.volume === 'number' ? activeClip.volume : 1.0;
+        dom.mainVideoEl.volume = clamp(cutVol * (state.sequence?.mainAudioMuted ? 0 : 1), 0, 1);
+
+        // Check if cut has completed
+        if (curSrc >= srcEnd - 0.04 || state.currentTime >= activeClip.end - 0.04) {
+          state.currentTime = activeClip.end;
         }
       } else {
-        const activeClip = getActiveVideoCutAtTime(state.currentTime);
-        if (activeClip && state.useCustomMainVideo && dom.mainVideoEl) {
-          const cutOffset = Math.max(0, state.currentTime - activeClip.start);
-          const srcStart = activeClip.sourceStart !== undefined ? activeClip.sourceStart : activeClip.start;
-          const targetSourceTime = srcStart + cutOffset;
+        // Playhead is in a gap between cuts or virtual demo
+        lastActiveCutId = null;
+        const step = dt * (state.playbackSpeed || 1.0);
+        state.currentTime += step;
 
-          // Sync video time if drifted by more than 0.08s
-          if (Math.abs(dom.mainVideoEl.currentTime - targetSourceTime) > 0.08) {
-            dom.mainVideoEl.currentTime = targetSourceTime;
-          }
-          if (dom.mainVideoEl.paused) {
-            dom.mainVideoEl.play().catch(() => {});
-          }
-          const cutVol = typeof activeClip.volume === 'number' ? activeClip.volume : 1.0;
-          dom.mainVideoEl.volume = clamp(cutVol * (state.sequence?.mainAudioMuted ? 0 : 1), 0, 1);
-        } else if (!activeClip) {
-          // Playhead is in a GAP between cuts (or outside cuts)
+        if (!activeClip) {
           const activeOverlay = getActiveVisualOverlayAtTime(state.currentTime);
           if (!activeOverlay) {
-            // Gap between cuts with NO visual overlay: STOP playback at the cut boundary!
+            // Gap with NO visual overlay: STOP at cut boundary!
             if (state.isPlaying) {
               const prevCut = (state.sequence?.videoClips || [])
                 .filter((c) => c.end <= state.currentTime + 0.06)
@@ -6614,11 +6690,26 @@
               if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
             }
           } else {
-            // There IS an active visual overlay in the gap! Keep main video paused so overlay plays cleanly
+            // Active visual overlay in gap: pause main video so overlay plays cleanly
             if (dom.mainVideoEl && !dom.mainVideoEl.paused) {
               dom.mainVideoEl.pause();
             }
           }
+        }
+      }
+
+      // 4. End limit check (Loop or Stop)
+      if (state.currentTime >= endLimit - 0.04) {
+        lastActiveCutId = null;
+        if (state.loopClip && !state.isRecordingExport) {
+          const startT = clips.length > 0 ? clips[0].start : state.trimStart;
+          seekToTime(startT);
+        } else if (!state.isRecordingExport) {
+          state.currentTime = endLimit;
+          state.isPlaying = false;
+          updatePlayPauseButtonUI();
+          if (dom.mainVideoEl) dom.mainVideoEl.pause();
+          if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
         }
       }
 

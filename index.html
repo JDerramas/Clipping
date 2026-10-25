@@ -12,8 +12,8 @@
 <body>
   <!-- Hidden HTML5 Video Elements for Local Video & Custom B-Roll Ingestion -->
   <div class="hidden-media-pool" aria-hidden="true">
-    <video id="mainVideoEl" playsinline crossorigin="anonymous"></video>
-    <video id="brollVideoEl" playsinline loop muted crossorigin="anonymous"></video>
+    <video id="mainVideoEl" playsinline preload="auto" crossorigin="anonymous"></video>
+    <video id="brollVideoEl" playsinline loop muted preload="auto" crossorigin="anonymous"></video>
     <input type="file" id="mainVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
     <input type="file" id="brollVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
     <input type="file" id="importProjectFileInput" accept=".json,application/json" />
