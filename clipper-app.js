@@ -375,6 +375,11 @@
     dom.btnUploadVisualVideo = document.getElementById('btnUploadVisualVideo');
     dom.visualOverlaysList = document.getElementById('visualOverlaysList');
     dom.activeOverlaysCountBadge = document.getElementById('activeOverlaysCountBadge');
+    dom.capcutAddOverlayBtn = document.getElementById('capcutAddOverlayBtn');
+    dom.streamAudioLanguageSelect = document.getElementById('streamAudioLanguageSelect');
+    dom.captionLanguageSelect = document.getElementById('captionLanguageSelect');
+    dom.retranscribeSubtitlesBtn = document.getElementById('retranscribeSubtitlesBtn');
+    dom.transcriptLangBadge = document.getElementById('transcriptLangBadge');
 
     dom.timelineStage = document.getElementById('timelineStage');
     dom.timelineRuler = document.getElementById('timelineRuler');
@@ -1291,7 +1296,8 @@
     const hardEffects = getHardEditEffectsAtTime(state.currentTime, state.trimStart, voiceLevel);
 
     if (state.layoutMode === 'ambient-blur') {
-      if (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
+      const activeCut = getActiveVideoCutAtTime(state.currentTime);
+      if (activeCut && state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) {
         // Ambient reflection background
         ctx.save();
         ctx.filter = 'blur(28px) brightness(0.65)';
@@ -1321,7 +1327,9 @@
         ctx.lineWidth = 3;
         ctx.strokeRect(0, drawY, W, drawH);
       } else {
-        renderMainViewport(ctx, { x: 0, y: 0, w: W, h: H }, state.currentTime, voiceLevel, 1.0, 0);
+        // In gap between cuts or no active cut: clean dark backdrop for overlays
+        ctx.fillStyle = '#05050a';
+        ctx.fillRect(0, 0, W, H);
       }
     } else {
       let mainRect = { x: 0, y: 0, w: W, h: H };
@@ -2258,6 +2266,9 @@
       mediaEl.src = url;
     }
 
+    const ovDuration = state.pendingOverlayDuration || (isVideo ? 5.0 : 3.5);
+    state.pendingOverlayDuration = null;
+
     const newOv = {
       id: `ov_${Date.now()}`,
       name: file.name.length > 22 ? file.name.substring(0, 19) + '...' : file.name,
@@ -2265,7 +2276,7 @@
       customUrl: url,
       mediaEl,
       startTime: Math.max(0, state.currentTime - state.trimStart),
-      duration: 4.0,
+      duration: ovDuration,
       position: isVideo ? 'full-screen' : 'center-pop',
       animation: 'spring-pop',
       scale: 1.0,
@@ -2274,9 +2285,31 @@
     };
 
     state.visualOverlays.push(newOv);
+    state.selectedTimelineItem = `visual-overlay-${newOv.id}`;
+    state.selectedVisualOverlayId = newOv.id;
     renderVisualOverlaysList();
     renderTimelineTracks();
-    showToast(`🎉 Added ${isVideo ? 'Cut-In Video' : 'Visual Image'}: "${newOv.name}" at ${(newOv.startTime).toFixed(1)}s!`, '#10b981');
+    showToast(`🎉 Added ${isVideo ? 'Cut-In Video' : 'Visual Image'}: "${newOv.name}" (${ovDuration.toFixed(1)}s) at ${(state.currentTime).toFixed(1)}s!`, '#10b981');
+  }
+
+  function triggerVisualOverlayPicker(preferType = 'image') {
+    const activeCut = getActiveVideoCutAtTime(state.currentTime);
+    let gapDur = 3.5;
+    if (!activeCut) {
+      const clips = state.sequence?.videoClips || [];
+      const nextCut = clips.filter((c) => c.start >= state.currentTime).sort((a, b) => a.start - b.start)[0];
+      const prevCut = clips.filter((c) => c.end <= state.currentTime).sort((a, b) => b.end - a.end)[0];
+      if (prevCut && nextCut && nextCut.start > prevCut.end) {
+        gapDur = Math.max(0.5, Number((nextCut.start - prevCut.end).toFixed(2)));
+        state.currentTime = prevCut.end;
+      }
+    }
+    state.pendingOverlayDuration = gapDur;
+
+    if (dom.visualOverlayFileInput) {
+      dom.visualOverlayFileInput.accept = preferType === 'video' ? 'video/*' : 'image/*,video/*';
+      dom.visualOverlayFileInput.click();
+    }
   }
 
   function addPresetMemeOverlay(presetId) {
@@ -2788,6 +2821,57 @@
         dom.overlayTrackLane.appendChild(imgBlock);
       }
     }
+
+    // Multiple Visual & Picture Overlays (CapCut Overlays)
+    if (Array.isArray(state.visualOverlays)) {
+      state.visualOverlays.forEach((ov) => {
+        if (ov.id === 'ov_ai_plan_visual' && state.overlayImage && state.overlayImage.enabled) return;
+
+        const ovStart = state.trimStart + (ov.startTime || 0);
+        const ovDur = Math.max(0.5, ov.duration || 3.5);
+        const ovEnd = ovStart + ovDur;
+
+        if (ovEnd >= viewStart && ovStart <= viewEnd) {
+          const leftPct = timeToTimelinePct(ovStart);
+          const rightPct = timeToTimelinePct(ovEnd);
+          const isSel = (state.selectedTimelineItem === `visual-overlay-${ov.id}` || state.selectedVisualOverlayId === ov.id);
+
+          const ovBlock = document.createElement('div');
+          ovBlock.className = `timeline-block block-image-overlay ${isSel ? 'selected' : ''}`;
+          ovBlock.style.left = `${leftPct}%`;
+          ovBlock.style.width = `${Math.max(3.5, rightPct - leftPct)}%`;
+          ovBlock.style.top = '4px';
+
+          const icon = ov.type === 'custom_video' ? '🎬' : (ov.type === 'custom_image' ? '🖼️' : '🔥');
+          ovBlock.innerHTML = `
+            <div class="block-resize-handle block-resize-left" data-action="resize-ov-left" title="Drag to adjust Start Time"></div>
+            <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;">${icon} ${ov.name || 'Overlay'} (${ovDur.toFixed(1)}s)</span>
+            <div class="block-resize-handle block-resize-right" data-action="resize-ov-right" title="Drag to adjust Duration"></div>
+          `;
+
+          ovBlock.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            const action = e.target.dataset.action || 'move-ov';
+            state.selectedTimelineItem = `visual-overlay-${ov.id}`;
+            state.selectedVisualOverlayId = ov.id;
+            state.selectedCanvasLayer = 'image';
+            state.timelineBlockDrag = {
+              item: `visual-overlay-${ov.id}`,
+              overlayId: ov.id,
+              action: action,
+              startX: e.clientX,
+              initStart: ovStart,
+              initDuration: ovDur
+            };
+            seekToTime(ovStart);
+            renderTimelineTracks();
+            renderVisualOverlaysList();
+          });
+
+          dom.overlayTrackLane.appendChild(ovBlock);
+        }
+      });
+    }
   }
 
   function renderAudioTrack() {
@@ -2910,6 +2994,22 @@
       if (time >= c.start && time < c.end) return c;
     }
     return null; // Return null if in a gap between cuts or beyond end!
+  }
+
+  function getActiveVisualOverlayAtTime(time) {
+    if (state.overlayImage && state.overlayImage.enabled) {
+      const s = state.overlayImage.start;
+      const d = state.overlayImage.duration || 4.5;
+      if (time >= s && time <= s + d) return state.overlayImage;
+    }
+    if (Array.isArray(state.visualOverlays)) {
+      for (const ov of state.visualOverlays) {
+        const s = state.trimStart + (ov.startTime || 0);
+        const d = ov.duration || 3.5;
+        if (time >= s && time <= s + d) return ov;
+      }
+    }
+    return null;
   }
 
   function updateTrimUI() {
@@ -3760,6 +3860,7 @@
           target_duration: state.targetDuration,
           clip_start: clipStart,
           clip_end: clipEnd,
+          language: dom.streamAudioLanguageSelect ? dom.streamAudioLanguageSelect.value : 'en'
         })
       });
       const dlData = await dlRes.json();
@@ -4584,26 +4685,80 @@
     }
 
     // Visual Media Overlays & Memes Tab Listeners
+    if (dom.capcutAddOverlayBtn) {
+      safeOn(dom.capcutAddOverlayBtn, 'click', () => {
+        triggerVisualOverlayPicker('image');
+      });
+    }
     if (dom.btnUploadVisualImage) {
       safeOn(dom.btnUploadVisualImage, 'click', () => {
-        if (dom.visualOverlayFileInput) {
-          dom.visualOverlayFileInput.accept = 'image/*';
-          dom.visualOverlayFileInput.click();
-        }
+        triggerVisualOverlayPicker('image');
       });
     }
     if (dom.btnUploadVisualVideo) {
       safeOn(dom.btnUploadVisualVideo, 'click', () => {
-        if (dom.visualOverlayFileInput) {
-          dom.visualOverlayFileInput.accept = 'video/*';
-          dom.visualOverlayFileInput.click();
-        }
+        triggerVisualOverlayPicker('video');
       });
     }
     if (dom.visualOverlayFileInput) {
       safeOn(dom.visualOverlayFileInput, 'change', (e) => {
         if (e.target.files && e.target.files[0]) {
           addCustomVisualOverlay(e.target.files[0]);
+        }
+      });
+    }
+
+    if (dom.retranscribeSubtitlesBtn) {
+      safeOn(dom.retranscribeSubtitlesBtn, 'click', async () => {
+        const lang = dom.captionLanguageSelect ? dom.captionLanguageSelect.value : 'en';
+        const filename = state.activeProject?.filename || (state.sequence?.videoClips[0]?.videoPath ? state.sequence.videoClips[0].videoPath.split(/[/\\]/).pop() : null);
+        if (!filename) {
+          showToast('⚠️ No video loaded to re-transcribe', '#f59e0b');
+          return;
+        }
+        if (dom.retranscribeSubtitlesBtn) {
+          dom.retranscribeSubtitlesBtn.disabled = true;
+          dom.retranscribeSubtitlesBtn.textContent = '⏳ Transcribing...';
+        }
+        if (dom.transcriptLangBadge) {
+          dom.transcriptLangBadge.textContent = 'TRANSCRIBING...';
+          dom.transcriptLangBadge.className = 'status-pill status-amber';
+        }
+        showToast(`🎙️ Running Whisper speech transcription in ${lang.toUpperCase()}...`, '#38bdf8');
+        try {
+          const resp = await fetch('/api/retranscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, language: lang })
+          });
+          const data = await resp.json();
+          if (data && data.success && Array.isArray(data.words)) {
+            state.karaokeWords = data.words;
+            const clip = getActiveClip();
+            if (clip) clip.transcript = data.words;
+            if (state.analysis) state.analysis.transcript = data.words;
+            renderTranscriptCloud();
+            renderTimelineTracks();
+            if (dom.transcriptLangBadge) {
+              dom.transcriptLangBadge.textContent = `${lang.toUpperCase()} (${data.words.length} words)`;
+              dom.transcriptLangBadge.className = 'status-pill status-emerald';
+            }
+            showToast(`✅ Subtitles updated in ${lang.toUpperCase()} (${data.words.length} words)!`, '#10b981');
+          } else {
+            throw new Error(data.error || 'Failed to re-transcribe');
+          }
+        } catch (err) {
+          console.error(err);
+          showToast(`❌ Retranscription error: ${err.message}`, '#ef4444');
+          if (dom.transcriptLangBadge) {
+            dom.transcriptLangBadge.textContent = 'ERROR';
+            dom.transcriptLangBadge.className = 'status-pill status-rose';
+          }
+        } finally {
+          if (dom.retranscribeSubtitlesBtn) {
+            dom.retranscribeSubtitlesBtn.disabled = false;
+            dom.retranscribeSubtitlesBtn.textContent = '🔄 Retranscribe';
+          }
         }
       });
     }
@@ -5241,6 +5396,28 @@
     };
 
     deleteSelectedCapCutItem = function deleteSelectedCapCutItem() {
+      // 0. Delete selected Visual Overlay
+      if (state.selectedVisualOverlayId || (state.selectedTimelineItem && state.selectedTimelineItem.startsWith('visual-overlay-'))) {
+        const ovId = state.selectedVisualOverlayId || state.selectedTimelineItem.replace('visual-overlay-', '');
+        const idx = (state.visualOverlays || []).findIndex((o) => o.id === ovId);
+        if (idx !== -1) {
+          const removed = state.visualOverlays.splice(idx, 1)[0];
+          state.selectedVisualOverlayId = null;
+          state.selectedTimelineItem = null;
+          renderVisualOverlaysList();
+          renderTimelineTracks();
+          showToast(`🗑️ Deleted visual overlay "${removed.name || 'item'}"`, '#ef4444');
+          return;
+        }
+      }
+      if (state.selectedTimelineItem === 'overlay-image' && state.overlayImage) {
+        state.overlayImage.enabled = false;
+        state.selectedTimelineItem = null;
+        renderTimelineTracks();
+        showToast('🗑️ Removed image overlay', '#ef4444');
+        return;
+      }
+
       // 1. Delete selected Subtitle Phrase
       if (state.selectedCaptionSegment) {
         const seg = state.selectedCaptionSegment;
@@ -5735,6 +5912,28 @@
             renderTimelineTracks();
           }
           return;
+        } else if (state.timelineBlockDrag.item.startsWith('visual-overlay-')) {
+          const ovId = state.timelineBlockDrag.overlayId;
+          const ov = (state.visualOverlays || []).find((o) => o.id === ovId);
+          if (ov) {
+            const act = state.timelineBlockDrag.action;
+            if (act === 'move' || act === 'move-ov') {
+              const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
+              ov.startTime = Math.max(0, Number((newStart - state.trimStart).toFixed(2)));
+            } else if (act === 'resize-right' || act === 'resize-ov-right') {
+              const newDur = Math.max(0.5, state.timelineBlockDrag.initDuration + dt);
+              ov.duration = Number(newDur.toFixed(2));
+            } else if (act === 'resize-left' || act === 'resize-ov-left') {
+              const newStart = Math.max(0, state.timelineBlockDrag.initStart + dt);
+              const deltaStart = newStart - state.timelineBlockDrag.initStart;
+              const newDur = Math.max(0.5, state.timelineBlockDrag.initDuration - deltaStart);
+              ov.startTime = Math.max(0, Number((newStart - state.trimStart).toFixed(2)));
+              ov.duration = Number(newDur.toFixed(2));
+            }
+            renderVisualOverlaysList();
+            renderTimelineTracks();
+          }
+          return;
         }
       }
 
@@ -6180,9 +6379,29 @@
           }
           const cutVol = typeof activeClip.volume === 'number' ? activeClip.volume : 1.0;
           dom.mainVideoEl.volume = clamp(cutVol * (state.sequence?.mainAudioMuted ? 0 : 1), 0, 1);
-        } else if (!activeClip && dom.mainVideoEl && !dom.mainVideoEl.paused) {
-          // In a GAP between cuts! Pause main video so NO video or audio plays during the gap!
-          dom.mainVideoEl.pause();
+        } else if (!activeClip) {
+          // Playhead is in a GAP between cuts (or outside cuts)
+          const activeOverlay = getActiveVisualOverlayAtTime(state.currentTime);
+          if (!activeOverlay) {
+            // Gap between cuts with NO visual overlay: STOP playback at the cut boundary!
+            if (state.isPlaying) {
+              const prevCut = (state.sequence?.videoClips || [])
+                .filter((c) => c.end <= state.currentTime + 0.06)
+                .sort((a, b) => b.end - a.end)[0];
+              if (prevCut && state.currentTime >= prevCut.end - 0.06) {
+                state.currentTime = prevCut.end;
+              }
+              state.isPlaying = false;
+              updatePlayPauseButtonUI();
+              if (dom.mainVideoEl) dom.mainVideoEl.pause();
+              if (window.WhopAudioEngine) window.WhopAudioEngine.stopMusic();
+            }
+          } else {
+            // There IS an active visual overlay in the gap! Keep main video paused so overlay plays cleanly
+            if (dom.mainVideoEl && !dom.mainVideoEl.paused) {
+              dom.mainVideoEl.pause();
+            }
+          }
         }
       }
 
@@ -6417,6 +6636,7 @@
       setHookBanner,
       playVideo,
       pauseVideo,
+      renderVisualOverlaysList,
       triggerVisualOverlayPicker,
       runAutoEdit,
       openExportModal,

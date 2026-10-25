@@ -304,6 +304,14 @@
                 Extract
               </button>
             </div>
+            <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:10px; color:#94a3b8; font-weight:700;">AUDIO TRACK:</span>
+              <select id="streamAudioLanguageSelect" class="studio-input" style="flex:1; font-size:11px; padding:4px 8px; background:#0f0f1e; border:1px solid #252545; color:#38bdf8;">
+                <option value="en" selected>🇺🇸 English / Original Audio</option>
+                <option value="tl">🇵🇭 Tagalog / Filipino Audio</option>
+                <option value="auto">🌐 Auto-Detect</option>
+              </select>
+            </div>
           </div>
 
           <!-- Target Clip Duration Pills -->
@@ -387,6 +395,32 @@
               </div>
             </div>
           </div>
+
+          <!-- Picture & Visual Overlays (CapCut Overlay) -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🖼️ PICTURE &amp; VISUAL OVERLAYS:</span>
+              <span id="activeOverlaysCountBadge" class="status-pill status-cyan">0 ITEMS</span>
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <button type="button" id="btnUploadVisualImage" class="btn-micro" style="flex:1; padding:7px 10px; background:linear-gradient(135deg, #00f2fe, #4facfe); color:#050510; font-weight:700;">+ Picture / Image</button>
+              <button type="button" id="btnUploadVisualVideo" class="btn-micro" style="flex:1; padding:7px 10px; background:#1e1e38; color:#f1f5f9; border:1px solid #3b82f6;">+ Video Cut-In</button>
+            </div>
+            <div style="margin-bottom:8px;">
+              <span style="font-size:10px; color:#94a3b8; font-weight:700;">QUICK VIRAL STICKERS:</span>
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; margin-top:4px;">
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="stonks">📈 Stonks</button>
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="mind-blown">🤯 Blown</button>
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="breaking-news">🚨 Alert</button>
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="money-rain">💸 Cash</button>
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="secret-hack">🤫 Hack</button>
+                <button type="button" class="btn-chip meme-preset-btn" data-meme="whop-vip">👑 VIP</button>
+              </div>
+            </div>
+            <div id="visualOverlaysList" class="visual-overlays-list">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
         </div>
 
         <!-- ==========================================
@@ -435,6 +469,23 @@
               <button type="button" class="btn-chip active" data-hook-mode="3s">First 3.5s</button>
               <button type="button" class="btn-chip" data-hook-mode="always">Always On</button>
               <button type="button" class="btn-chip" data-hook-mode="off">Hidden</button>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🌐 SPEECH LANGUAGE &amp; RETRANSCRIBE</span>
+              <span id="transcriptLangBadge" class="status-pill status-cyan">EN (99.5%)</span>
+            </div>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <select id="captionLanguageSelect" class="studio-input" style="flex:1; font-size:11px; padding:6px 8px; background:#0f0f1e; border:1px solid #252545; color:#f1f5f9;">
+                <option value="en" selected>🇺🇸 English (Native)</option>
+                <option value="tl">🇵🇭 Tagalog / Filipino</option>
+                <option value="auto">🌐 Auto-Detect Voice</option>
+              </select>
+              <button type="button" id="retranscribeSubtitlesBtn" class="btn-mini btn-accent" style="white-space:nowrap; padding:6px 12px; font-weight:700;" title="Re-transcribe audio with Faster-Whisper AI">
+                🔄 Retranscribe
+              </button>
             </div>
           </div>
 
@@ -934,6 +985,10 @@
 
         <button type="button" id="capcutTrimOutBtn" class="toolbar-btn" title="Split Right / Trim Out (W)">
           <span>Cut Out (W) ⏩</span>
+        </button>
+
+        <button type="button" id="capcutAddOverlayBtn" class="toolbar-btn toolbar-btn-accent" title="Add Picture / Visual Overlay into Gap or on Clip (CapCut)">
+          <span>🖼️ + Overlay</span>
         </button>
 
         <button type="button" id="linkAudioBtn" class="toolbar-btn" title="Link / Extract Audio">

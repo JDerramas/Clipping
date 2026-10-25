@@ -368,6 +368,7 @@ def download_highlight_section(
     clip_end: float,
     title: str = "",
     meta_info: dict | None = None,
+    preferred_lang: str = "en",
 ) -> Path:
     """
     Downloads ONLY the specified 30s-60s highlight section without downloading
@@ -396,10 +397,49 @@ def download_highlight_section(
         (f["url"] for f in formats if f.get("protocol") == "m3u8_native" and f.get("vcodec") != "none" and f.get("height") in (720, 1080, 480, 360)),
         None
     )
-    a_m3u8 = next(
-        (f["url"] for f in formats if f.get("protocol") == "m3u8_native" and f.get("acodec") != "none"),
-        None
-    )
+
+    # Priority-based audio selection: Preferred language > Original > Foreign dubs
+    audio_candidates = [
+        f for f in formats
+        if f.get("protocol") == "m3u8_native" and f.get("acodec") != "none"
+    ]
+
+    target_lang = (preferred_lang or "en").lower()
+
+    def score_audio_candidate(f):
+        lang = str(f.get("language") or "").lower()
+        note = str(f.get("format_note") or "").lower()
+        s = 0
+        if target_lang in ("en", "eng"):
+            if "original" in note:
+                s += 100
+            if lang in ("en", "en-us", "en-gb", "eng", "orig", "original"):
+                s += 90
+            elif lang in ("und", ""):
+                s += 20
+            elif lang:
+                s -= 50
+        elif target_lang in ("tl", "fil", "tag"):
+            if lang in ("tl", "fil", "tagalog", "filipino"):
+                s += 120
+            elif "original" in note:
+                s += 60
+            elif lang in ("en", "en-us", "eng"):
+                s += 30
+            elif lang:
+                s -= 30
+        else:
+            if lang == target_lang:
+                s += 120
+            if "original" in note:
+                s += 50
+        pref = f.get("language_preference")
+        if isinstance(pref, (int, float)):
+            s += int(pref) * 5
+        return s
+
+    audio_candidates.sort(key=score_audio_candidate, reverse=True)
+    a_m3u8 = audio_candidates[0]["url"] if audio_candidates else None
 
     if v_m3u8 and a_m3u8:
         try:
@@ -440,7 +480,8 @@ def download_highlight_section(
     out_tmpl = str(UPLOADS / f"clip_{timestamp}_%(id)s.%(ext)s")
     sec_opts = {
         "outtmpl": out_tmpl,
-        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[language=en]/bestaudio[format_note*=original]/bestaudio[language=orig]/bestaudio/best",
+        "format_sort": ["hasaud", "lang:en", "lang:orig", "res:720"],
         "download_ranges": yt_dlp.utils.download_range_func(None, [(clip_start, clip_end)]),
         "force_keyframes_at_cuts": False,
         "noplaylist": True,
@@ -474,7 +515,8 @@ def download_authorized_url(url: str) -> Path:
 
     ydl_opts = {
         "outtmpl": out_tmpl,
-        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[language=en]/bestaudio[format_note*=original]/bestaudio[language=orig]/bestaudio/best",
+        "format_sort": ["hasaud", "lang:en", "lang:orig", "res:720"],
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
@@ -539,13 +581,19 @@ def transcribe_video(
     language: str | None = None,
     cpu_threads: int = 4,
     use_vad: bool = True,
+    force_retranscribe: bool = False,
 ) -> list[dict]:
     cache_path = TEMP / f"{video_path.stem}.transcript.json"
-    if cache_path.exists():
+    if cache_path.exists() and not force_retranscribe:
         try:
             cached_data = json.loads(cache_path.read_text(encoding="utf-8"))
             if isinstance(cached_data, list) and len(cached_data) > 0:
-                return cached_data
+                # Check for Arabic or corrupt non-native script in cached data if English or clean audio is desired
+                has_arabic = any('\u0600' <= c <= '\u06FF' for c in str(cached_data[:2]))
+                if not has_arabic:
+                    return cached_data
+                else:
+                    sys.stderr.write(f"[Engine] Invalidating Arabic cached transcript for {video_path.name}...\n")
         except Exception:
             pass
 

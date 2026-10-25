@@ -143,6 +143,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_command(payload)
         elif path in ("/api/jarvis_chat", "/api/jarvis-chat"):
             self.handle_api_jarvis_chat(payload)
+        elif path in ("/api/retranscribe", "/api/re-transcribe"):
+            self.handle_api_retranscribe(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -268,10 +270,29 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         projects = engine.load_saved_projects()
         params = parse_qs(parsed_url.query)
         target_id = params.get("id", [None])[0]
+        video_param = params.get("video", [None])[0]
 
         target_proj = None
         if target_id:
             target_proj = next((p for p in projects if p.get("id") == target_id), None)
+        elif video_param:
+            target_proj = next((p for p in projects if p.get("filename") == video_param or video_param in str(p.get("video_path", ""))), None)
+            if not target_proj and (engine.UPLOADS / video_param).exists():
+                v_path = engine.UPLOADS / video_param
+                v_meta = engine.probe_video_metadata(v_path)
+                target_proj = {
+                    "id": f"proj_{v_path.stem}",
+                    "filename": v_path.name,
+                    "video_path": str(v_path),
+                    "meta": v_meta,
+                    "plan": {
+                        "clip_start": 0.0,
+                        "clip_end": min(30.0, v_meta.get("duration", 30.0)),
+                        "hook_banner": "DID WE EAT MORE THAN 1% OF THE STORE? 🛒🤯",
+                        "virality_score": 92,
+                        "reason": "English transcript opening hook.",
+                    }
+                }
         if not target_proj and projects:
             target_proj = projects[0]
 
@@ -291,7 +312,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "plan": {
                     "clip_start": 0.0,
                     "clip_end": min(30.0, meta["duration"]),
-                    "hook_banner": "DISCOVER THE HIDDEN TRUTH",
+                    "hook_banner": "DID WE EAT MORE THAN 1% OF THE STORE? 🛒🤯",
                     "virality_score": 92,
                     "reason": "High-retention opening hook.",
                 }
@@ -301,6 +322,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         video_filename = target_proj.get("filename") or Path(target_proj.get("video_path", "")).name
         meta = target_proj.get("meta", {})
         plan = target_proj.get("plan", {})
+
+        # Sanitize any Arabic in hook_banner
+        hook_banner = plan.get("hook_banner", "")
+        if any('\u0600' <= c <= '\u06FF' for c in hook_banner):
+            plan["hook_banner"] = "DID WE EAT MORE THAN 1% OF THE STORE? 🛒🤯"
         clip_start = float(plan.get("clip_start", 0.0))
         clip_end = float(plan.get("clip_end", 30.0))
         clip_dur = max(1.0, clip_end - clip_start)
@@ -774,13 +800,15 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 peak_reason = f"Explicit range {clip_start}s - {clip_end}s"
 
             # 3. Partial Download of ONLY the 30s-60s highlight section (1-3 seconds, no full video!)
-            sys.stderr.write(f"[Fast-Ingest] Slicing viral highlight ({clip_start}s to {clip_end}s) without full download...\n")
+            pref_lang = payload.get("language") or "en"
+            sys.stderr.write(f"[Fast-Ingest] Slicing viral highlight ({clip_start}s to {clip_end}s) [lang={pref_lang}] without full download...\n")
             downloaded_path = engine.download_highlight_section(
                 url=url,
                 clip_start=clip_start,
                 clip_end=clip_end,
                 title=title,
-                meta_info=meta_info.get("info")
+                meta_info=meta_info.get("info"),
+                preferred_lang=pref_lang
             )
             meta = engine.probe_video_metadata(downloaded_path)
 
@@ -802,9 +830,39 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             pass
         except Exception as e:
             try:
-                self.send_json_response({"success": False, "error": str(e)}, status=500)
+                self.send_json_response({"error": str(e)}, status=500)
             except Exception:
                 pass
+
+    def handle_api_retranscribe(self, payload):
+        filename = payload.get("filename")
+        lang = payload.get("language")
+        if lang in ("auto", "", "null", None):
+            lang = None
+        if not filename:
+            self.send_json_response({"error": "Missing filename"}, status=400)
+            return
+        video_path = engine.UPLOADS / filename
+        if not video_path.exists():
+            self.send_json_response({"error": f"File not found: {filename}"}, status=404)
+            return
+        try:
+            sys.stderr.write(f"[Server] Retranscribing {filename} with language={lang}...\n")
+            segments = engine.transcribe_video(video_path, language=lang, force_retranscribe=True)
+            meta = engine.probe_video_metadata(video_path)
+            target_srt = engine.OUTPUTS / f"{Path(filename).stem}.srt"
+            engine.write_clip_srt(segments, 0.0, float(meta.get("duration", 3600.0)), target_srt)
+            words = engine.parse_srt_to_karaoke_words(target_srt, clip_start=0.0)
+            self.send_json_response({
+                "success": True,
+                "message": f"Retranscribed in {lang or 'auto-detected language'}",
+                "words": words,
+                "segments": segments,
+                "srt_path": f"/outputs/{target_srt.name}"
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Server Retranscribe Error] {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_api_analyze(self, payload):
         video_filename = payload.get("filename")
