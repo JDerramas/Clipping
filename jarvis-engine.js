@@ -553,6 +553,84 @@
         return;
       }
 
+      if (text.includes('caption') && (text.includes('neon') || text.includes('glow') || text.includes('cyber'))) {
+        if (window.WhopState) window.WhopState.captionStyle = 'neon-cyber';
+        if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+        await this.speak("Applied Neon Cyber subtitle style, sir.");
+        return;
+      }
+
+      // Layout Manipulation Commands
+      if (text.includes('split 50') || text.includes('split screen') || text.includes('dalawang video') || text.includes('split layout')) {
+        if (window.WhopState) {
+          window.WhopState.layoutMode = 'split-50-50';
+          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+          await this.speak("Switched layout to 50/50 split screen with satisfying B-roll, sir.");
+          return;
+        }
+      }
+
+      if (text.includes('full screen') || text.includes('buong screen') || text.includes('solo video') || text.includes('full main')) {
+        if (window.WhopState) {
+          window.WhopState.layoutMode = 'full-main';
+          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+          await this.speak("Switched layout to full 9 by 16 vertical frame, sir.");
+          return;
+        }
+      }
+
+      // B-Roll Video Manipulation Commands
+      if (text.includes('minecraft')) {
+        if (window.WhopState) {
+          window.WhopState.brollPreset = 'minecraft-parkour';
+          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+          await this.speak("Synchronized Minecraft Parkour B-roll to the lower frame, sir.");
+          return;
+        }
+      }
+
+      if (text.includes('subway') || text.includes('surfer')) {
+        if (window.WhopState) {
+          window.WhopState.brollPreset = 'subway-surfers';
+          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+          await this.speak("Loaded Subway Surfers gameplay B-roll, sir.");
+          return;
+        }
+      }
+
+      if (text.includes('slime') || text.includes('satisfying')) {
+        if (window.WhopState) {
+          window.WhopState.brollPreset = 'satisfying-slime';
+          if (window.WhopStudio?.renderTimelineTracks) window.WhopStudio.renderTimelineTracks();
+          await this.speak("Applied satisfying kinetic slime B-roll, sir.");
+          return;
+        }
+      }
+
+      // Timeline Seeking / Scrubbing Navigation
+      const seekMatch = text.match(/(?:seek to|jump to|go to|punta sa|punta|timestamp|segundo|second|sec)\s*(\d+)/i);
+      if (seekMatch && seekMatch[1]) {
+        const sec = parseInt(seekMatch[1], 10);
+        if (window.WhopStudio?.seekToTime) {
+          window.WhopStudio.seekToTime(sec);
+          await this.speak(`Navigated playhead to ${sec} seconds, sir.`);
+          return;
+        }
+      }
+
+      // Viral Hook Banner Customization
+      const hookMatch = rawText.match(/(?:change hook to|set banner to|set title to|palitan ang title sa|hook banner)\s*(.+)/i);
+      if (hookMatch && hookMatch[1]) {
+        const newTitle = hookMatch[1].trim();
+        if (window.WhopState) {
+          window.WhopState.hookBannerText = newTitle;
+          const bannerEl = document.getElementById('previewHookBanner');
+          if (bannerEl) bannerEl.textContent = newTitle.toUpperCase();
+          await this.speak(`Updated hook banner headline to: ${newTitle}, sir.`);
+          return;
+        }
+      }
+
       // 2. Real-Time Conversational AI (Full Tagalog/Taglish understanding, dynamic British English speech)
       await this.askAI(rawText);
     }
@@ -601,6 +679,7 @@
           const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'JARVIS'}: ${turn.text}`).join('\n');
           const systemPrompt = `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor.
 Always address the user as "Sir" or "sir".
+You possess full interactive control over the user's video editor timeline: you can split and cut clips, delete unwanted segments, switch layout modes (9:16 full-screen or 50/50 split), layer dynamic B-rolls (Minecraft, Subway Surfers, Slime), insert visual overlays/pictures, change hook banners, style dynamic captions (MrBeast, Hormozi, Neon), and trigger 1080p exports.
 The user speaks to you in Tagalog (Filipino / Taglish) or English.
 You understand Tagalog and Taglish 100% fluently.
 CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog).
