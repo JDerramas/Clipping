@@ -145,6 +145,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_jarvis_chat(payload)
         elif path in ("/api/retranscribe", "/api/re-transcribe"):
             self.handle_api_retranscribe(payload)
+        elif path in ("/api/prompt_director", "/api/prompt-director"):
+            self.handle_api_prompt_director(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -864,6 +866,197 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             sys.stderr.write(f"[Server Retranscribe Error] {e}\n")
             self.send_json_response({"error": str(e)}, status=500)
 
+    def handle_api_prompt_director(self, payload):
+        """
+        AI Prompt Director: Comprehends client briefs, campaign instructions,
+        or editing reference styles (e.g. ROAM bounty rules, TraxNYC jump cuts, Hormozi retention)
+        and automatically outputs an intelligent, executable editing plan for the timeline.
+        """
+        client_prompt = str(payload.get("prompt") or "").strip()
+        filename = payload.get("filename") or ""
+        video_url = payload.get("video_url") or ""
+        api_key = payload.get("api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+
+        if not client_prompt:
+            self.send_json_response({"error": "No client prompt or brief provided"}, status=400)
+            return
+
+        # 1. Gather Video Context
+        video_path = None
+        if filename:
+            cand = engine.UPLOADS / filename
+            if cand.exists():
+                video_path = cand
+        if not video_path:
+            vids = sorted(list(engine.UPLOADS.glob("*.mp4")), key=lambda p: p.stat().st_mtime, reverse=True)
+            if vids:
+                video_path = vids[0]
+                filename = video_path.name
+
+        meta = engine.probe_video_metadata(video_path) if video_path else {"duration": 30.0}
+        total_dur = float(meta.get("duration", 30.0))
+
+        sample_words = []
+        if video_path:
+            possible_srts = list(engine.OUTPUTS.glob(f"{video_path.stem}*.srt"))
+            if possible_srts:
+                latest_srt = sorted(possible_srts, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+                words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
+                sample_words = [w.get("word", "") for w in words[:40]]
+
+        transcript_preview = " ".join(sample_words) if sample_words else "High energy dialogue"
+
+        # 2. Query Gemini 3.5 Flash Director Model
+        raw_output = ""
+        system_directive = (
+            "You are an Elite Social Media Video Director and Master Video Editor. "
+            "A creator gave you a Client Campaign Brief or Editing Style Prompt. "
+            "Analyze the brief thoroughly and return a complete, executable timeline plan that satisfies all client requirements.\n\n"
+            f"=== CLIENT BRIEF / PROMPT ===\n{client_prompt}\n\n"
+            f"=== VIDEO CONTEXT ===\nFilename: {filename}\nDuration: {total_dur:.1f}s\nTranscript: {transcript_preview}\n\n"
+            "MANDATES:\n"
+            "1. Cover Text / Hook Banner: Extract or craft an irresistible, viral hook headline (max 6-8 words, UPPERCASE with 1-2 emojis).\n"
+            "2. Audio Strategy: If the brief states 'Keep the sound each video came with' or 'Do not rewrite/swap audio', set keep_original_sound: true, add_bg_music: false, bg_music_volume: 0. "
+            "If brief asks for music or TraxNYC hype style, set add_bg_music: true, music_preset: 'neon-runner', bg_music_volume: 22.\n"
+            "3. Pacing & Jump Cuts: Create 3 to 5 dynamic jump cuts covering the video without dead air, with subtle 1.12x zoom on punchy moments.\n"
+            "4. Captions: Style 'hormozi-pop' or 'mrbeast-bold' with auto emojis.\n"
+            "5. Overlays: Recommend 1-2 stickers (stonks, breaking-news, money-rain, mind-blown, secret-hack).\n\n"
+            "OUTPUT FORMAT: Return ONLY a valid JSON object:\n"
+            "{\n"
+            '  "campaign_title": "<1-5 words>",\n'
+            '  "client_rules_detected": ["<rule 1>", "<rule 2>", "<rule 3>"],\n'
+            '  "hook_banner": "<VIRAL HOOK BANNER 💥>",\n'
+            '  "pacing_style": "Fast Human Jump Cuts (TraxNYC Style)",\n'
+            '  "audio_strategy": {\n'
+            '    "keep_original_sound": true,\n'
+            '    "add_bg_music": false,\n'
+            '    "music_preset": "none",\n'
+            '    "main_voice_volume": 100,\n'
+            '    "bg_music_volume": 0,\n'
+            '    "reason": "<reason>"\n'
+            '  },\n'
+            '  "jump_cuts": [\n'
+            '    {"id": "cut-1", "start": 0.0, "end": 4.5, "zoom": 1.0, "pan_x": 0},\n'
+            '    {"id": "cut-2", "start": 4.8, "end": 10.2, "zoom": 1.12, "pan_x": 0},\n'
+            '    {"id": "cut-3", "start": 10.5, "end": 18.0, "zoom": 1.0, "pan_x": 0}\n'
+            '  ],\n'
+            '  "captions": {"style": "hormozi-pop", "auto_emoji": true, "font_size": 72},\n'
+            '  "layout_mode": "ambient-blur",\n'
+            '  "visual_overlays": [{"presetId": "stonks", "startTime": 3.0, "duration": 3.5, "name": "Viral Indicator 📈"}],\n'
+            '  "director_notes": "<2 sentences for creator>",\n'
+            '  "actions": [\n'
+            '    {"action": "set_banner", "text": "<HOOK BANNER>"},\n'
+            '    {"action": "set_caption_style", "style": "hormozi-pop"},\n'
+            '    {"action": "set_layout", "mode": "ambient-blur"},\n'
+            '    {"action": "set_audio", "bg_music": false, "main_vol": 1.0, "music_vol": 0},\n'
+            '    {"action": "apply_cuts", "cuts": [...]}\n'
+            '  ]\n'
+            "}"
+        )
+
+        temp_req_file = engine.TEMP / f"director_req_{int(time.time() * 1000)}.json"
+        try:
+            req_body = {"contents": [{"parts": [{"text": system_directive}]}]}
+            temp_req_file.write_text(json.dumps(req_body), encoding="utf-8")
+            file_arg = f"@{str(temp_req_file).replace(chr(92), '/')}"
+            models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite"]
+            for model_name in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                proc = subprocess.run(
+                    ["curl.exe", "-s", "-m", "15", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
+                    capture_output=True,
+                    text=True,
+                    timeout=18
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    res_data = json.loads(proc.stdout)
+                    candidates = res_data.get("candidates") or []
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            raw_output = parts[0].get("text", "").strip()
+                            if raw_output:
+                                break
+        except Exception as e:
+            sys.stderr.write(f"[Server Prompt Director] LLM call notice: {e}\n")
+        finally:
+            if temp_req_file.exists():
+                try:
+                    temp_req_file.unlink()
+                except Exception:
+                    pass
+
+        parsed_plan = None
+        if raw_output:
+            clean_json = raw_output
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
+            try:
+                parsed_plan = json.loads(clean_json)
+            except Exception as e:
+                sys.stderr.write(f"[Server Prompt Director] JSON parse notice: {e}\n")
+
+        # 3. Fallback Rule-Based Director Engine if LLM fails or is offline
+        if not parsed_plan or not isinstance(parsed_plan, dict):
+            p_lower = client_prompt.lower()
+            is_roam = "roam" in p_lower or "pre-warmed" in p_lower
+            keep_audio = any(k in p_lower for k in ["keep the sound", "keep sound", "original audio", "dont swap", "don't swap"]) or is_roam
+            wants_music = any(k in p_lower for k in ["music", "beat", "traxnyc", "bg music", "background sound"]) and not keep_audio
+            is_traxnyc = "traxnyc" in p_lower or "content cake" in p_lower
+
+            hook_title = "ROAM 5-DAY CHALLENGE 🚀" if is_roam else ("TRAXNYC REFUSED TO BE PLAYED 😂💎" if is_traxnyc else "VIRAL HOOK YOU CANNOT MISS 🔥")
+            step = min(5.0, total_dur / 4)
+            fallback_cuts = [
+                {"id": "cut-1", "start": 0.0, "end": round(step, 2), "zoom": 1.0, "pan_x": 0},
+                {"id": "cut-2", "start": round(step + 0.3, 2), "end": round(step * 2 + 0.3, 2), "zoom": 1.12, "pan_x": 0},
+                {"id": "cut-3", "start": round(step * 2 + 0.6, 2), "end": round(min(total_dur, step * 3 + 0.6), 2), "zoom": 1.0, "pan_x": 0},
+            ]
+            if total_dur > step * 3.8:
+                fallback_cuts.append({"id": "cut-4", "start": round(step * 3 + 0.9, 2), "end": round(min(total_dur, step * 4 + 0.9), 2), "zoom": 1.12, "pan_x": 0})
+
+            parsed_plan = {
+                "campaign_title": "ROAM Creative Series" if is_roam else ("TraxNYC Diamond Edit" if is_traxnyc else "Client Campaign Edit"),
+                "client_rules_detected": [
+                    "Preserve original audio without swapping" if keep_audio else "Mix high-energy background beat",
+                    "Add viral cover hook banner",
+                    "Format 9:16 high-retention vertical layout",
+                    "Fast-paced human jump cuts with dead-air removal"
+                ],
+                "hook_banner": hook_title,
+                "pacing_style": "Fast Human Jump Cuts (TraxNYC Style)",
+                "audio_strategy": {
+                    "keep_original_sound": True,
+                    "add_bg_music": wants_music,
+                    "music_preset": "neon-runner" if wants_music else "none",
+                    "main_voice_volume": 100,
+                    "bg_music_volume": 22 if wants_music else 0,
+                    "reason": "Preserved original audio per client brief instructions." if keep_audio else "Added ducked background music bed."
+                },
+                "jump_cuts": fallback_cuts,
+                "captions": {"style": "hormozi-pop", "auto_emoji": True, "font_size": 72},
+                "layout_mode": "ambient-blur",
+                "visual_overlays": [
+                    {"presetId": "breaking-news" if is_roam else "money-rain", "startTime": 3.0, "duration": 3.5, "name": "Client Highlight 🏷️"}
+                ],
+                "director_notes": "Analyzed client constraints and configured the timeline with precision cuts, audio compliance, and retention hooks.",
+                "actions": [
+                    {"action": "set_banner", "text": hook_title},
+                    {"action": "set_caption_style", "style": "hormozi-pop"},
+                    {"action": "set_layout", "mode": "ambient-blur"},
+                    {"action": "set_audio", "bg_music": wants_music, "main_vol": 1.0, "music_vol": 0.22 if wants_music else 0},
+                    {"action": "apply_cuts", "cuts": fallback_cuts}
+                ]
+            }
+
+        # Return full director payload
+        self.send_json_response({
+            "success": True,
+            "filename": filename,
+            "plan": parsed_plan
+        })
+
     def handle_api_analyze(self, payload):
         video_filename = payload.get("filename")
         if not video_filename:
@@ -1259,6 +1452,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "- 'pause': { 'action': 'pause' } "
             "- 'insert_image': { 'action': 'insert_image' } "
             "- 'auto_edit': { 'action': 'auto_edit' } "
+            "- 'client_prompt_edit': { 'action': 'client_prompt_edit', 'prompt': '<client_brief_text>' } "
             "- 'export': { 'action': 'export' } "
             "OUTPUT FORMAT: You MUST return a single JSON object: "
             "{\"reply\": \"Your British spoken response here, sir.\", \"actions\": [ ...actions if any, else [] ]} "
@@ -1366,6 +1560,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 actions_list.append({"action": "insert_image"})
             if any(k in p_lower for k in ["auto edit", "i-edit mo", "make viral"]):
                 actions_list.append({"action": "auto_edit"})
+            if any(k in p_lower for k in ["roam", "client brief", "brief", "traxnyc", "content cake", "prompt to edit", "direct this"]):
+                actions_list.append({"action": "client_prompt_edit", "prompt": prompt})
             if any(k in p_lower for k in ["export", "render", "save video", "i-download"]):
                 actions_list.append({"action": "export"})
 

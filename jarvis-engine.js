@@ -584,6 +584,13 @@
           if (aBtn) { aBtn.click(); return true; }
           break;
         }
+        case 'client_prompt_edit': {
+          const prompt = action.prompt || '';
+          if (studio?.executeClientPromptEdit) {
+            return studio.executeClientPromptEdit(prompt);
+          }
+          break;
+        }
         case 'export': {
           if (studio?.openExportModal) return studio.openExportModal();
           const eBtn = document.getElementById('openExportModalBtn');
@@ -698,6 +705,11 @@
       // Export / render
       if (text.includes('export') || text.includes('render') || text.includes('save video') || text.includes('i-download')) {
         localActions.push({ action: 'export' });
+      }
+
+      // Prompt Director / Client Brief
+      if (text.includes('roam') || text.includes('client brief') || text.includes('traxnyc') || text.includes('content cake') || text.includes('prompt to edit') || text.includes('gayahin mo')) {
+        localActions.push({ action: 'client_prompt_edit', prompt: rawText });
       }
 
       // Execute local actions immediately

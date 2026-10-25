@@ -285,6 +285,44 @@
             </div>
           </div>
 
+          <!-- Prompt-to-Edit: Client Brief & Style Director -->
+          <div class="drawer-section" style="border: 1px solid rgba(99, 102, 241, 0.35); background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(15, 15, 30, 0.6)); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <div class="drawer-section-title" style="margin-bottom: 6px;">
+              <span style="color:#818cf8; font-weight:800;">✨ PROMPT-TO-EDIT (CLIENT BRIEF)</span>
+              <span class="status-pill status-cyan">AI DIRECTOR</span>
+            </div>
+            <p style="font-size:10.5px; color:#94a3b8; margin:0 0 8px 0; line-height:1.4;">
+              Paste client campaign requirements, rules, or editing styles (e.g. ROAM bounty rules, TraxNYC jump cuts, Hormozi retention style). AI analyzes requirements and executes the exact edit.
+            </p>
+            <textarea
+              id="clientPromptInput"
+              class="studio-input"
+              rows="4"
+              style="width:100%; font-size:11px; font-family:'JetBrains Mono', monospace; line-height:1.45; resize:vertical; padding:8px; background:#0a0a16; border:1px solid #252545; color:#f1f5f9; border-radius:6px;"
+              placeholder="Paste client brief, campaign rules, or edit instructions here...&#10;&#10;e.g.: 'Pre-warmed accounts: post 5 ROAM videos. Keep original audio without background music, add punchy cover text, clean cuts' OR 'TraxNYC style: fast jump cuts, Hormozi pop captions, hype beat'."
+            ></textarea>
+
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+              <button type="button" class="btn-chip" id="presetRoamBriefBtn" title="Load sample ROAM campaign rules">📋 ROAM Campaign Brief</button>
+              <button type="button" class="btn-chip" id="presetTraxNycStyleBtn" title="Load TraxNYC style prompt">💎 TraxNYC Cut Style</button>
+              <button type="button" class="btn-chip" id="presetHormoziBtn" title="Load Alex Hormozi viral style">🔥 Hormozi Pop Style</button>
+            </div>
+
+            <button
+              type="button"
+              id="executePromptEditBtn"
+              class="btn-primary-glow"
+              style="width:100%; margin-top:8px; padding:9px 12px; font-weight:800; font-size:12px; letter-spacing:0.5px; background:linear-gradient(135deg, #2563eb, #7c3aed); border:none; border-radius:6px; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;"
+            >
+              <span>⚡ Analyze Brief &amp; Execute AI Edit</span>
+            </button>
+
+            <!-- Live Brief Analysis Summary Breakdown -->
+            <div id="promptAnalysisReport" class="hidden" style="margin-top:8px; padding:8px; background:#0f0f22; border:1px solid #334155; border-radius:6px; font-size:10.5px;">
+              <!-- Populated with detected client requirements & applied edit actions -->
+            </div>
+          </div>
+
           <!-- YouTube / Video URL Ingest -->
           <div class="drawer-section">
             <div class="drawer-section-title">

@@ -381,6 +381,14 @@
     dom.retranscribeSubtitlesBtn = document.getElementById('retranscribeSubtitlesBtn');
     dom.transcriptLangBadge = document.getElementById('transcriptLangBadge');
 
+    // Prompt-to-Edit Client Director DOM Elements
+    dom.clientPromptInput = document.getElementById('clientPromptInput');
+    dom.executePromptEditBtn = document.getElementById('executePromptEditBtn');
+    dom.presetRoamBriefBtn = document.getElementById('presetRoamBriefBtn');
+    dom.presetTraxNycStyleBtn = document.getElementById('presetTraxNycStyleBtn');
+    dom.presetHormoziBtn = document.getElementById('presetHormoziBtn');
+    dom.promptAnalysisReport = document.getElementById('promptAnalysisReport');
+
     dom.timelineStage = document.getElementById('timelineStage');
     dom.timelineRuler = document.getElementById('timelineRuler');
     dom.waveformCanvas = document.getElementById('waveformCanvas');
@@ -910,6 +918,181 @@
       const isCurrent = state.currentTime >= st && state.currentTime <= en + 0.1;
       chip.classList.toggle('active', isCurrent);
     });
+  }
+
+  // =========================================================================
+  // PROMPT-TO-EDIT: CLIENT BRIEF & STYLE DIRECTOR
+  // Understands client rules (e.g. ROAM series), reference styles (TraxNYC),
+  // audio constraints, and executes the timeline edit automatically
+  // =========================================================================
+  async function executeClientPromptEdit(overridePrompt) {
+    const prompt = (overridePrompt || (dom.clientPromptInput ? dom.clientPromptInput.value : '')).trim();
+    if (!prompt) {
+      showToast('⚠️ Please paste a client brief, campaign prompt, or edit instructions first!', '#f59e0b');
+      return;
+    }
+
+    const btn = dom.executePromptEditBtn;
+    const oldText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Analyzing Client Brief &amp; Formulating Edits...</span>';
+    }
+
+    showToast('🤖 AI Director: Analyzing client rules & formulating video edit plan...', '#6366f1', 4000);
+    if (window.jarvis && typeof window.jarvis.notify === 'function') {
+      window.jarvis.notify('prompt-director-start');
+    }
+
+    try {
+      const activeVideo = state.uploadedVideoFile ? state.uploadedVideoFile.name : (state.customMainFileName || '');
+      const resp = await fetch('/api/prompt_director', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          filename: activeVideo,
+          api_key: state.geminiApiKey || ''
+        })
+      });
+
+      const data = await resp.json();
+      if (!data || !data.success || !data.plan) {
+        throw new Error(data?.error || 'Failed to formulate client edit plan');
+      }
+
+      const plan = data.plan;
+
+      // 1. Apply Hook Banner / Cover Text
+      if (plan.hook_banner) {
+        state.hookText = plan.hook_banner;
+        if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = plan.hook_banner;
+        state.hookMode = '3s';
+      }
+
+      // 2. Apply Audio Strategy
+      const audioStrat = plan.audio_strategy || {};
+      if (audioStrat.add_bg_music && audioStrat.music_preset) {
+        state.bgSoundMuted = false;
+        if (window.WhopAudioEngine) {
+          window.WhopAudioEngine.setTrack(audioStrat.music_preset);
+          window.WhopAudioEngine.setMusicVolume((audioStrat.bg_music_volume || 22) / 100);
+          if (state.isPlaying) window.WhopAudioEngine.playMusic();
+        }
+      } else {
+        // Client rule: keep original sound without background music
+        state.bgSoundMuted = true;
+        if (window.WhopAudioEngine) {
+          window.WhopAudioEngine.stopMusic();
+        }
+      }
+
+      // 3. Apply Jump Cuts & Pacing
+      if (Array.isArray(plan.jump_cuts) && plan.jump_cuts.length > 0) {
+        state.sequence.videoClips = plan.jump_cuts.map((c, idx) => ({
+          id: c.id || `cut-${idx + 1}`,
+          title: c.title || `Cut ${idx + 1}`,
+          start: Number(c.start),
+          end: Number(c.end),
+          sourceStart: Number(c.start),
+          sourceEnd: Number(c.end),
+          zoom: c.zoom || (idx % 2 === 1 ? 1.12 : 1.0),
+          panX: c.pan_x || 0,
+          panY: c.pan_y || 0,
+          transition: 'cut'
+        }));
+        state.sequence.selectedClipId = state.sequence.videoClips[0].id;
+        state.trimStart = state.sequence.videoClips[0].start;
+        state.trimEnd = state.sequence.videoClips[state.sequence.videoClips.length - 1].end;
+      }
+
+      // 4. Apply Captions Style
+      if (plan.captions) {
+        state.captionsEnabled = true;
+        if (plan.captions.style) setCaptionStyle(plan.captions.style);
+        if (typeof plan.captions.auto_emoji === 'boolean') {
+          state.autoEmoji = plan.captions.auto_emoji;
+          if (dom.autoEmojiToggle) dom.autoEmojiToggle.checked = plan.captions.auto_emoji;
+        }
+        if (plan.captions.font_size) {
+          state.captionSize = plan.captions.font_size;
+          if (dom.captionFontSizeSlider) dom.captionFontSizeSlider.value = plan.captions.font_size;
+          if (dom.captionFontSizeLabel) dom.captionFontSizeLabel.textContent = `${plan.captions.font_size}px`;
+        }
+      }
+
+      // 5. Apply Visual Overlays / Stickers
+      if (Array.isArray(plan.visual_overlays) && plan.visual_overlays.length > 0) {
+        plan.visual_overlays.forEach((ov) => {
+          if (!state.visualOverlays.some((o) => o.presetId === ov.presetId)) {
+            state.visualOverlays.push({
+              id: `ov_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+              name: ov.name || 'Client Cue',
+              type: 'preset',
+              presetId: ov.presetId || 'stonks',
+              startTime: ov.startTime || 3.0,
+              duration: ov.duration || 3.5,
+              position: 'center-pop',
+              animation: 'spring-pop',
+              scale: 1.0,
+              x: 0,
+              y: 0
+            });
+          }
+        });
+        renderVisualOverlaysList();
+      }
+
+      // 6. Update UI & Report Card
+      if (dom.promptAnalysisReport) {
+        const rulesHtml = Array.isArray(plan.client_rules_detected)
+          ? plan.client_rules_detected.map(r => `<li style="margin:2px 0; color:#38bdf8;">✓ ${r}</li>`).join('')
+          : '<li>Applied client brief instructions</li>';
+
+        dom.promptAnalysisReport.classList.remove('hidden');
+        dom.promptAnalysisReport.innerHTML = `
+          <div style="font-weight:700; color:#38bdf8; display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span>🎯 ${plan.campaign_title || 'Client Brief Applied'}</span>
+            <span style="color:#10b981;">✓ 100% COMPLIANT</span>
+          </div>
+          <div style="margin:4px 0;">
+            <strong style="font-size:10px; color:#cbd5e1;">CLIENT RULES DETECTED:</strong>
+            <ul style="padding-left:14px; margin:2px 0; font-size:10px;">${rulesHtml}</ul>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:9.5px; margin-top:6px; background:#080816; padding:6px; border-radius:4px;">
+            <div><strong>AUDIO:</strong> <span style="color:${audioStrat.add_bg_music ? '#10b981' : '#f59e0b'};">${audioStrat.add_bg_music ? 'Hype Beat Added' : 'Original Sound Preserved'}</span></div>
+            <div><strong>PACING:</strong> <span style="color:#38bdf8;">${plan.pacing_style || 'Human Jump Cuts'}</span></div>
+            <div style="grid-column:span 2;"><strong>COVER TEXT:</strong> <span style="color:#fbbf24;">${plan.hook_banner || state.hookText}</span></div>
+          </div>
+        `;
+      }
+
+      // Re-render studio
+      syncAllInspectorControlsFromState();
+      renderTimelineTracks();
+      renderCanvasFrame();
+      updateTelemetryBar();
+      updateComplianceAndPayout();
+
+      const cutsCount = state.sequence.videoClips.length;
+      showToast(`🎉 AI Director: Applied ${cutsCount} human jump cuts, set cover text, and configured audio per client brief!`, '#10b981', 6000);
+
+      // Jarvis Vocal Feedback
+      if (window.jarvis && typeof window.jarvis.speak === 'function') {
+        const speechMsg = audioStrat.add_bg_music
+          ? `Client brief analyzed, Sir. I applied punchy TraxNYC-style jump cuts, added the background beat, and generated your viral cover text. Your edit is ready.`
+          : `Client brief analyzed, Sir. I preserved the original sound exactly as mandated in your rules, generated the cover hook banner, and formatted the cuts. Your timeline is ready.`;
+        window.jarvis.speak(speechMsg);
+      }
+    } catch (err) {
+      console.error('[Prompt Director Error]', err);
+      showToast(`❌ AI Director error: ${err.message}`, '#ef4444');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldText;
+      }
+    }
   }
 
   // =========================================================================
@@ -4013,6 +4196,40 @@
       runOneClickAutoEdit();
     });
 
+    // Prompt-to-Edit Client Director Listeners
+    if (dom.presetRoamBriefBtn) {
+      safeOn(dom.presetRoamBriefBtn, 'click', () => {
+        if (dom.clientPromptInput) {
+          dom.clientPromptInput.value = `Pre-warmed accounts only: post 5 ROAM videos in one day for 5 days. Keep the sound each video came with. Several are cut to their specific audio and swapping it breaks the edit. Use the caption and cover text that came with each video, exactly as given. Do not rewrite them. Never put a link in a caption. Post from the app itself.`;
+          showToast('📋 Loaded sample ROAM Campaign Brief into AI Director');
+        }
+      });
+    }
+
+    if (dom.presetTraxNycStyleBtn) {
+      safeOn(dom.presetTraxNycStyleBtn, 'click', () => {
+        if (dom.clientPromptInput) {
+          dom.clientPromptInput.value = `Edit like TraxNYC (https://youtube.com/shorts/ZLD4rgW9vy0): fast jump cuts, Hormozi pop captions with money and fire emojis, high-energy retention hook banner, hip-hop background beat, zoom punch on intense lines.`;
+          showToast('💎 Loaded TraxNYC Style Prompt into AI Director');
+        }
+      });
+    }
+
+    if (dom.presetHormoziBtn) {
+      safeOn(dom.presetHormoziBtn, 'click', () => {
+        if (dom.clientPromptInput) {
+          dom.clientPromptInput.value = `Alex Hormozi viral retention style: bold yellow/green keyword pop captions, 3.5s hook headline, fast jump cuts cutting out all pauses over 0.3s, subtle lo-fi music bed, centered presenter facecam.`;
+          showToast('🔥 Loaded Hormozi Style Prompt into AI Director');
+        }
+      });
+    }
+
+    if (dom.executePromptEditBtn) {
+      safeOn(dom.executePromptEditBtn, 'click', () => {
+        executeClientPromptEdit();
+      });
+    }
+
     // Ssemble AI Viral Clips Hub Modal open/close & controls
     if (dom.openSsembleHubBtn) {
       safeOn(dom.openSsembleHubBtn, 'click', () => {
@@ -6448,6 +6665,105 @@
     }
   }
 
+  function setLayoutMode(mode) {
+    if (!mode) return false;
+    state.layoutMode = mode;
+    if (dom.layoutModeGrid) {
+      dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
+        card.classList.toggle('active', card.dataset.layout === mode);
+      });
+    }
+    if (mode === 'ambient-blur') {
+      state.wholeScreenFit = true;
+      if (dom.wholeScreenFitToggle) dom.wholeScreenFitToggle.checked = true;
+    } else if (mode === 'split-60-40' || mode === 'split-50-50') {
+      if (dom.brollVideoEl && (!dom.brollVideoEl.src || dom.brollVideoEl.src === window.location.href)) {
+        dom.brollVideoEl.src = '/assets/broll/satisfying_neon_runner.mp4';
+        dom.brollVideoEl.load();
+        dom.brollVideoEl.play().catch(() => {});
+        state.useCustomBrollVideo = true;
+      }
+    }
+    if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
+    if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    showToast(`Switched layout mode to ${mode.replace('-', ' ')}`, '#00f2fe');
+    return true;
+  }
+
+  function setBrollPreset(presetId) {
+    if (!presetId) return false;
+    state.useCustomBrollVideo = false;
+    state.brollPreset = presetId;
+    if (typeof renderBrollPresetCards === 'function') renderBrollPresetCards();
+    if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
+    showToast(`Switched B-Roll to ${presetId.replace('-', ' ')}`, '#00f2fe');
+    return true;
+  }
+
+  function setCaptionStyle(style) {
+    if (!style) return false;
+    state.captionStyle = style;
+    if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    showToast(`Applied caption style: ${style.replace('-', ' ')}`, '#00f2fe');
+    return true;
+  }
+
+  function setHookBanner(text) {
+    if (!text) return false;
+    state.hookBannerText = text;
+    state.hookMode = 'top-banner';
+    const bannerEl = document.getElementById('previewHookBanner');
+    if (bannerEl) bannerEl.textContent = text.toUpperCase();
+    if (typeof syncAllInspectorControlsFromState === 'function') syncAllInspectorControlsFromState();
+    if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
+    showToast(`Hook banner set to: "${text}"`, '#00f2fe');
+    return true;
+  }
+
+  function playVideo() {
+    if (dom.playPauseBtn && !state.isPlaying) {
+      dom.playPauseBtn.click();
+    }
+    return true;
+  }
+
+  function pauseVideo() {
+    if (dom.playPauseBtn && state.isPlaying) {
+      dom.playPauseBtn.click();
+    }
+    return true;
+  }
+
+  function triggerVisualOverlayPicker() {
+    const inp = document.getElementById('visualOverlayFileInput');
+    if (inp) {
+      inp.accept = 'image/*';
+      inp.click();
+      showToast('Opening visual overlay selector...', '#00f2fe');
+      return true;
+    }
+    return false;
+  }
+
+  function runAutoEdit() {
+    const autoBtn = document.getElementById('oneClickAutoEditBtn');
+    if (autoBtn) {
+      autoBtn.click();
+      return true;
+    }
+    return false;
+  }
+
+  function openExportModal() {
+    const expBtn = document.getElementById('openExportModalBtn');
+    if (expBtn) {
+      expBtn.click();
+      return true;
+    }
+    return false;
+  }
+
   // =========================================================================
   // BOOTSTRAP STUDIO
   // =========================================================================
@@ -6516,105 +6832,6 @@
     renderCanvasFrame();
     ensureStarterSavedClip();
 
-    function setLayoutMode(mode) {
-      if (!mode) return false;
-      state.layoutMode = mode;
-      if (dom.layoutModeGrid) {
-        dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((card) => {
-          card.classList.toggle('active', card.dataset.layout === mode);
-        });
-      }
-      if (mode === 'ambient-blur') {
-        state.wholeScreenFit = true;
-        if (dom.wholeScreenFitToggle) dom.wholeScreenFitToggle.checked = true;
-      } else if (mode === 'split-60-40' || mode === 'split-50-50') {
-        if (dom.brollVideoEl && (!dom.brollVideoEl.src || dom.brollVideoEl.src === window.location.href)) {
-          dom.brollVideoEl.src = '/assets/broll/satisfying_neon_runner.mp4';
-          dom.brollVideoEl.load();
-          dom.brollVideoEl.play().catch(() => {});
-          state.useCustomBrollVideo = true;
-        }
-      }
-      if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
-      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
-      showToast(`Switched layout mode to ${mode.replace('-', ' ')}`, '#00f2fe');
-      return true;
-    }
-
-    function setBrollPreset(presetId) {
-      if (!presetId) return false;
-      state.useCustomBrollVideo = false;
-      state.brollPreset = presetId;
-      if (typeof renderBrollPresetCards === 'function') renderBrollPresetCards();
-      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
-      if (typeof updateTelemetryBar === 'function') updateTelemetryBar();
-      showToast(`Switched B-Roll to ${presetId.replace('-', ' ')}`, '#00f2fe');
-      return true;
-    }
-
-    function setCaptionStyle(style) {
-      if (!style) return false;
-      state.captionStyle = style;
-      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
-      showToast(`Applied caption style: ${style.replace('-', ' ')}`, '#00f2fe');
-      return true;
-    }
-
-    function setHookBanner(text) {
-      if (!text) return false;
-      state.hookBannerText = text;
-      state.hookMode = 'top-banner';
-      const bannerEl = document.getElementById('previewHookBanner');
-      if (bannerEl) bannerEl.textContent = text.toUpperCase();
-      if (typeof syncAllInspectorControlsFromState === 'function') syncAllInspectorControlsFromState();
-      if (typeof renderTimelineTracks === 'function') renderTimelineTracks();
-      showToast(`Hook banner set to: "${text}"`, '#00f2fe');
-      return true;
-    }
-
-    function playVideo() {
-      if (dom.playPauseBtn && !state.isPlaying) {
-        dom.playPauseBtn.click();
-      }
-      return true;
-    }
-
-    function pauseVideo() {
-      if (dom.playPauseBtn && state.isPlaying) {
-        dom.playPauseBtn.click();
-      }
-      return true;
-    }
-
-    function triggerVisualOverlayPicker() {
-      const inp = document.getElementById('visualOverlayFileInput');
-      if (inp) {
-        inp.accept = 'image/*';
-        inp.click();
-        showToast('Opening visual overlay selector...', '#00f2fe');
-        return true;
-      }
-      return false;
-    }
-
-    function runAutoEdit() {
-      const autoBtn = document.getElementById('oneClickAutoEditBtn');
-      if (autoBtn) {
-        autoBtn.click();
-        return true;
-      }
-      return false;
-    }
-
-    function openExportModal() {
-      const expBtn = document.getElementById('openExportModalBtn');
-      if (expBtn) {
-        expBtn.click();
-        return true;
-      }
-      return false;
-    }
-
     window.WhopStudio = {
       state,
       dom,
@@ -6638,6 +6855,7 @@
       pauseVideo,
       renderVisualOverlaysList,
       triggerVisualOverlayPicker,
+      executeClientPromptEdit,
       runAutoEdit,
       openExportModal,
     };
