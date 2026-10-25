@@ -40,3 +40,8 @@ references/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local secrets & API keys
+.env
+secret_keys.json
+local_keys.json

@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -282,18 +283,22 @@ def find_viral_peak_window(meta: dict, target_duration: float = 30.0) -> dict:
     subs = info.get("subtitles") or {}
     auto = info.get("automatic_captions") or {}
 
-    def resolve_english_subs(source_dict):
-        # Strictly prioritize English variants (en, en-US, en-GB, en-orig, etc.)
-        for lang_key in ("en", "en-US", "en-GB", "en-orig", "en-CA", "en-AU", "en-IN"):
+    def resolve_best_subs(source_dict):
+        if not source_dict:
+            return None
+        # 1. Check for native Tagalog/Filipino or original language tracks first
+        for lang_key in ("tl", "fil", "tl-PH", "en", "en-US", "en-GB", "en-orig"):
             if lang_key in source_dict:
                 return source_dict[lang_key]
-        # Any key starting with 'en'
+        # 2. Any original non-auto language
         for k, v in source_dict.items():
-            if str(k).lower().startswith("en"):
+            if not str(k).startswith("a."):
                 return v
-        return None
+        # 3. Fallback to any track
+        first_key = next(iter(source_dict), None)
+        return source_dict.get(first_key) if first_key else None
 
-    sub_formats = resolve_english_subs(subs) or resolve_english_subs(auto)
+    sub_formats = resolve_best_subs(subs) or resolve_best_subs(auto)
 
     if sub_formats:
         try:
@@ -531,7 +536,7 @@ def load_wav_16k_mono_float32(wav_path: Path) -> np.ndarray:
 def transcribe_video(
     video_path: Path,
     model_size: str = "base",
-    language: str = "en",
+    language: str | None = None,
     cpu_threads: int = 4,
     use_vad: bool = True,
 ) -> list[dict]:
@@ -540,13 +545,7 @@ def transcribe_video(
         try:
             cached_data = json.loads(cache_path.read_text(encoding="utf-8"))
             if isinstance(cached_data, list) and len(cached_data) > 0:
-                # Check for corrupt foreign text when English requested
-                sample_text = " ".join(s.get("text", "") for s in cached_data[:5])
-                has_foreign = any('\u0600' <= c <= '\u06FF' for c in sample_text)
-                if not has_foreign:
-                    return cached_data
-                else:
-                    sys.stderr.write(f"[Whisper] Discarding corrupt non-English cached transcript for {video_path.name}\n")
+                return cached_data
         except Exception:
             pass
 
@@ -566,12 +565,14 @@ def transcribe_video(
         model = load_whisper_model(model_size, cpu_threads=cpu_threads)
         audio_arr = load_wav_16k_mono_float32(wav_path)
 
-        segments, _ = model.transcribe(
+        segments, info = model.transcribe(
             audio_arr,
-            language=language or "en",
+            language=language, # If None, Faster-Whisper automatically detects the exact spoken language (e.g. 'tl', 'en')!
             vad_filter=use_vad,
             word_timestamps=True,
         )
+        if hasattr(info, 'language') and info.language:
+            sys.stderr.write(f"[Whisper] Detected voiceover language: '{info.language}' (confidence: {getattr(info, 'language_probability', 1.0)*100:.1f}%)\n")
 
         results = []
         for s in segments:

@@ -19,6 +19,7 @@ import os
 import re
 import sys
 import time
+import subprocess
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
@@ -35,6 +36,19 @@ import ai_autovertical
 import ai_multimodal_analyzer
 import image_search
 import auto_clip_pipeline
+
+def load_local_secret(name: str) -> str:
+    val = os.environ.get(name, "")
+    if val:
+        return val.strip()
+    secret_path = ROOT_DIR / "secret_keys.json"
+    if secret_path.exists():
+        try:
+            data = json.loads(secret_path.read_text(encoding="utf-8"))
+            return str(data.get(name.lower(), "") or data.get(name, "")).strip()
+        except Exception:
+            pass
+    return ""
 
 CHUNK_SIZE = 1024 * 1024 * 2  # 2MB chunks for video streaming
 
@@ -85,6 +99,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         elif path == "/api/active_project":
             self.handle_api_active_project(parsed)
             return
+        elif path == "/api/keys":
+            self.send_json_response({
+                "gemini_api_key": load_local_secret("GEMINI_API_KEY"),
+                "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY")
+            })
+            return
 
         # Handle Range Requests for Media Files (/uploads/, /outputs/, /assets/)
         local_file_path = ROOT_DIR / path.lstrip("/")
@@ -121,6 +141,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_save_project(payload)
         elif path in ("/api/command", "/api/mcp_command"):
             self.handle_api_command(payload)
+        elif path in ("/api/jarvis_chat", "/api/jarvis-chat"):
+            self.handle_api_jarvis_chat(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -289,24 +311,24 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         if possible_srts:
             latest_srt = sorted(possible_srts, key=lambda p: p.stat().st_mtime, reverse=True)[0]
             words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
-            # Check if SRT contains Arabic or non-English text
+            # Check if SRT contains Arabic or corrupted non-native characters
             sample_words = " ".join(w.get("word", "") for w in words[:10])
             if any('\u0600' <= c <= '\u06FF' for c in sample_words):
-                sys.stderr.write(f"[Server] Discarding Arabic SRT {latest_srt.name}, generating English transcription...\n")
+                sys.stderr.write(f"[Server] Discarding Arabic SRT {latest_srt.name}, generating native speech transcription...\n")
                 try:
-                    fresh_segs = engine.transcribe_video(engine.UPLOADS / video_filename, language="en")
+                    fresh_segs = engine.transcribe_video(engine.UPLOADS / video_filename, language=None)
                     engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), latest_srt)
                     words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
                 except Exception as e:
-                    sys.stderr.write(f"[Server] English re-transcribe error: {e}\n")
+                    sys.stderr.write(f"[Server] Native re-transcribe error: {e}\n")
 
         # If no words from SRT, try on-the-fly Whisper transcription or generate clean speech chunks
         if not words:
             video_full_path = engine.UPLOADS / video_filename
             if video_full_path.exists():
                 try:
-                    sys.stderr.write(f"[Server] Transcribing {video_filename} on the fly for subtitles...\n")
-                    fresh_segs = engine.transcribe_video(video_full_path, language="en")
+                    sys.stderr.write(f"[Server] Transcribing {video_filename} on the fly for subtitles (auto language detection)...\n")
+                    fresh_segs = engine.transcribe_video(video_full_path, language=None)
                     if fresh_segs:
                         target_srt = engine.OUTPUTS / f"{Path(video_filename).stem}.srt"
                         engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), target_srt)
@@ -527,9 +549,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             meta = engine.probe_video_metadata(video_path)
             duration = float(meta.get("duration", 30.0))
 
-            # Step 1: English Transcription (Faster-Whisper)
+            # Step 1: Speech Transcription (Faster-Whisper Auto-Detection for Tagalog, English, etc.)
             try:
-                segments = engine.transcribe_video(video_path, language="en")
+                segments = engine.transcribe_video(video_path, language=None)
             except Exception as e:
                 sys.stderr.write(f"[Server Auto-Edit] Whisper transcribe notice: {e}\n")
                 segments = []
@@ -799,15 +821,15 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             meta = engine.probe_video_metadata(video_path)
             model_size = payload.get("model_size", "base")
             target_dur = float(payload.get("target_duration", 30.0))
-            gemini_key = payload.get("gemini_api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "")
+            gemini_key = payload.get("gemini_api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
 
             # 1. Fast CV Frame-by-Frame Visual Analysis (< 0.5s for 30s highlight clip)
             sys.stderr.write(f"[AI-Multimodal] Running OpenCV frame-by-frame analysis on {video_filename}...\n")
             vis_data = ai_multimodal_analyzer.analyze_video_frames_cv(video_path)
 
-            # 2. Faster-Whisper Speech Transcription (< 1.5s for 30s clip)
-            sys.stderr.write(f"[AI-Multimodal] Running Whisper speech transcription (English Priority)...\n")
-            segments = engine.transcribe_video(video_path, model_size=model_size, language="en")
+            # 2. Faster-Whisper Speech Transcription (Auto Language Detection for Tagalog, English, etc.)
+            sys.stderr.write(f"[AI-Multimodal] Running Whisper speech transcription (Native Voiceover Auto-Detect)...\n")
+            segments = engine.transcribe_video(video_path, model_size=model_size, language=None)
             if not segments:
                 dur_fb = float(meta.get("duration", 30.0))
                 sample_text = "Experience this viral moment with automated dynamic captions.".split()
@@ -1136,6 +1158,92 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "command": cmd_id,
             "message": msg,
             "project": active_proj,
+        })
+
+    def handle_api_jarvis_chat(self, payload):
+        prompt = str(payload.get("prompt") or payload.get("message") or "").strip()
+        if not prompt:
+            self.send_json_response({"error": "Empty prompt provided"}, status=400)
+            return
+
+        api_key = payload.get("api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+
+        history = payload.get("history") or []
+        context_str = ""
+        if isinstance(history, list) and history:
+            recent = history[-6:]
+            turns = []
+            for h in recent:
+                role = "User" if h.get("role") == "user" else "JARVIS"
+                txt = h.get("text") or h.get("content") or ""
+                if txt:
+                    turns.append(f"{role}: {txt}")
+            if turns:
+                context_str = "\n".join(turns)
+
+        system_directive = (
+            "You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor. "
+            "Always address the user as 'Sir' or 'sir'. "
+            "The user speaks to you in Tagalog (Filipino / Taglish) or English. "
+            "You understand Tagalog and Taglish 100% fluently. "
+            "CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog). "
+            "Never repeat canned phrases. Answer whatever the user says or asks with high intelligence, wit, and helpfulness. "
+            "Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech."
+        )
+
+        full_prompt = (
+            f"[SYSTEM DIRECTIVE: {system_directive}]\n\n"
+            f"{(context_str + chr(10) + chr(10)) if context_str else ''}"
+            f"User: {prompt}\n"
+            f"JARVIS:"
+        )
+
+        req_body = {
+            "contents": [{"parts": [{"text": full_prompt}]}]
+        }
+
+        reply_text = ""
+        temp_req_file = engine.TEMP / f"jarvis_req_{int(time.time() * 1000)}.json"
+        try:
+            temp_req_file.write_text(json.dumps(req_body), encoding="utf-8")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}"
+            file_arg = f"@{str(temp_req_file).replace(chr(92), '/')}"
+            proc = subprocess.run(
+                ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
+                capture_output=True,
+                text=True,
+                timeout=25
+            )
+            if proc.returncode == 0 and proc.stdout:
+                res_data = json.loads(proc.stdout)
+                candidates = res_data.get("candidates") or []
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        reply_text = parts[0].get("text", "").strip()
+        except Exception as e:
+            sys.stderr.write(f"[Server JARVIS] curl query notice: {e}\n")
+        finally:
+            if temp_req_file.exists():
+                try:
+                    temp_req_file.unlink()
+                except Exception:
+                    pass
+
+        if not reply_text:
+            import random
+            varied = [
+                "At your command, sir. All video editing systems, timelines, and neural modules are operational. How may I assist you?",
+                "Always at your service, sir. I am monitoring your timeline and ready for your next creative instruction.",
+                "Indeed, sir. What would you like us to configure next on the workspace?",
+                "Systems are fully synchronized, sir. Tell me what needs to be cut, captioned, or styled.",
+            ]
+            reply_text = random.choice(varied)
+
+        self.send_json_response({
+            "success": True,
+            "reply": reply_text,
+            "model": "gemini-3.1-flash-lite"
         })
 
 

@@ -33,9 +33,9 @@
 
     // Target Duration & AI Model Options
     targetDuration: 30,
-    aiModel: 'gemini-2.5-flash',
-    aiProvider: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_ai_provider') || 'gemini-2.5-flash') : 'gemini-2.5-flash',
-    geminiApiKey: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_gemini_key') || '') : '',
+    aiModel: 'gemini-3.1-flash-lite',
+    aiProvider: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_ai_provider') || 'gemini-3.1-flash-lite') : 'gemini-3.1-flash-lite',
+    geminiApiKey: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_gemini_key') || localStorage.getItem('whop_ai_api_key') || '') : '',
 
     // Ssemble AI Viral Hub Options
     ssembleSort: 'score',
@@ -3691,6 +3691,7 @@
     const oldText = dom.extractUrlBtn.textContent;
     dom.extractUrlBtn.textContent = '🔍 Checking Heatmap...';
     showToast('🔍 Step 1/3: Checking YouTube viewer retention heatmap & viral peaks...', '#38bdf8', 4000);
+    if (window.jarvis) window.jarvis.notify('url-inspect');
 
     try {
       // Step 1: Pre-inspect YouTube Heatmap & Subtitle Transcript (< 1.5s)
@@ -3749,6 +3750,7 @@
       // Step 2: Download ONLY the 30s-60s highlight section (No full video download!)
       dom.extractUrlBtn.textContent = '⚡ Downloading 30s...';
       showToast(`⚡ Step 2/3: Downloading ONLY the ${state.targetDuration}s viral highlight (~2-4s, no full video download)...`, '#38bdf8', 4000);
+      if (window.jarvis) window.jarvis.notify('url-download');
 
       const dlRes = await fetch('/api/download_url', {
         method: 'POST',
@@ -3768,6 +3770,7 @@
       const brainLabel = state.aiModel === 'gemini-2.5-flash' ? 'Google Gemini 2.5 Flash' :
                          state.aiModel === 'qwen-omni' ? 'Qwen 2.5 Omni' : 'Multimodal Vision CV';
       showToast(`👁️ Step 3/3: Running Multimodal AI (${brainLabel})...`, '#a855f7', 4000);
+      if (window.jarvis) window.jarvis.notify('url-transcribe');
 
       const azRes = await fetch('/api/analyze', {
         method: 'POST',
@@ -3799,7 +3802,7 @@
 
       const bannerText = azData.project?.plan?.hook_banner || 'Top Viral Moment';
       showToast(`🎉 0-Click Auto-Edit Complete! "${bannerText}" (${azData.ai_engine || 'AI'})`, '#10b981', 6000);
-      if (window.jarvis) window.jarvis.notify('upload-done');
+      if (window.jarvis) window.jarvis.notify('url-done');
     } catch (err) {
       showToast(`❌ Process failed: ${err.message}`, '#ef4444');
     } finally {
@@ -4166,8 +4169,18 @@
       chip.addEventListener('click', () => {
         const cmd = chip.dataset.cmd;
         if (!cmd) return;
+        let queryText = cmd;
+        if (cmd === 'hello') queryText = 'Hello Jarvis!';
+        else if (cmd === 'kamusta') queryText = 'Kamusta ka, Jarvis?';
+        else if (cmd === 'chitchat') queryText = 'Kwentuhan mo naman ako saglit, Jarvis.';
+        else if (cmd === 'done') queryText = 'Tapos na ba ang video edit natin, Jarvis?';
+        else if (cmd === 'split') queryText = 'split';
+        else if (cmd === 'play') queryText = 'play';
+        else if (cmd === 'picture') queryText = 'picture';
+        else if (cmd === 'auto-edit') queryText = 'auto edit';
+
         if (window.jarvis) {
-          window.jarvis.handleUserCommand(cmd);
+          window.jarvis.handleUserCommand(queryText);
         }
       });
     });
@@ -6212,11 +6225,28 @@
     renderTimelineTracks();
 
     try {
-      const savedKey = localStorage.getItem('whop_ai_api_key');
+      const savedKey = localStorage.getItem('whop_ai_api_key') || localStorage.getItem('whop_gemini_key');
       const savedProvider = localStorage.getItem('whop_ai_provider');
       if (savedKey) state.geminiApiKey = savedKey;
       if (savedProvider) state.aiProvider = savedProvider;
     } catch (_) {}
+
+    fetch('/api/keys')
+      .then((r) => r.json())
+      .then((keys) => {
+        if (keys && keys.gemini_api_key) {
+          if (!state.geminiApiKey) {
+            state.geminiApiKey = keys.gemini_api_key;
+            try { localStorage.setItem('whop_gemini_key', keys.gemini_api_key); } catch (_) {}
+            if (typeof updateAiKeyHeaderBadge === 'function') updateAiKeyHeaderBadge();
+          }
+          if (window.jarvis) window.jarvis.setGoogleKey(keys.gemini_api_key);
+        }
+        if (keys && keys.elevenlabs_api_key && window.jarvis) {
+          window.jarvis.setElevenKey(keys.elevenlabs_api_key);
+        }
+      })
+      .catch(() => {});
     if (typeof updateAiKeyHeaderBadge === 'function') {
       updateAiKeyHeaderBadge();
     }
