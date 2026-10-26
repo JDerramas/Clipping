@@ -303,6 +303,25 @@
             <div id="promptAnalysisReport" class="hidden" style="margin-top:8px; padding:8px; background:#0f0f22; border:1px solid #334155; border-radius:6px; font-size:10.5px;"></div>
           </div>
 
+          <!-- 8-in-1 Viral AI Suite (Highlight Zoom, Face Track, Hook Title, B-Roll, SFX, VFX, Translit) -->
+          <div class="drawer-section viral-ai-suite-card">
+            <div class="drawer-section-title" style="margin-bottom:6px;">
+              <span style="color:#00f2fe; font-weight:800;">🚀 AI VIRAL PRO SUITE</span>
+              <span class="status-pill status-emerald">8 ENGINES</span>
+            </div>
+            <button type="button" id="applyViralSuiteBtn" class="btn-viral-suite-master" title="Apply Highlight Zoom + Face Tracking + Hook Title + Context B-Roll + Synced SFX in 1 Click!">
+              <span>⚡ 1-Click Apply Full Viral Pack</span>
+            </button>
+            <div class="viral-quick-grid">
+              <button type="button" class="btn-chip viral-quick-chip" id="quickToggleHighlightZoomBtn" title="Toggle Auto Keyword Highlight Zoom (1.20×)">🔍 Highlight Zoom</button>
+              <button type="button" class="btn-chip viral-quick-chip" id="quickToggleFaceTrackBtn" title="Toggle AI Speaker Face Tracking + Reticle">🎯 Face Track</button>
+              <button type="button" class="btn-chip viral-quick-chip" id="quickGenHookTitleBtn" title="Generate & Style Viral 3s Hook Title">🔥 Hook Title</button>
+              <button type="button" class="btn-chip viral-quick-chip" id="quickAutoBrollBtn" title="Auto-Insert Context AI B-Roll Cutaways">🎬 Auto B-Roll</button>
+              <button type="button" class="btn-chip viral-quick-chip" id="quickAutoSfxBtn" title="Auto-Sync Whoosh, Pop & Bell SFX on Timeline">🔊 Auto SFX</button>
+              <button type="button" class="btn-chip viral-quick-chip" id="quickTranslitBtn" title="Transliterate Subtitles to Viral Taglish">🌐 Translit</button>
+            </div>
+          </div>
+
           <!-- YouTube / Video URL Ingest -->
           <div class="drawer-section">
             <div class="drawer-section-title">
@@ -354,11 +373,18 @@
             </div>
           </div>
 
-          <!-- AI Viral Candidate Moments -->
+          <!-- AI Auto Curation Hub -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🔥 DETECTED VIRAL CLIPS (<span id="viralCountBadge">5</span>):</span>
-              <span class="tiny-hint">Click to load</span>
+              <span>🧠 AI AUTO CURATION (<span id="viralCountBadge">5</span>):</span>
+              <button type="button" id="runAutoCurationBtn" class="btn-micro" style="background:linear-gradient(135deg,#00f2fe,#6366f1); color:#050510; font-weight:800; border:none;">🧠 Curate AI</button>
+            </div>
+            <div class="curation-filter-row" id="curationFilterRow">
+              <button type="button" class="curation-filter-btn active" data-curate-cat="all">All</button>
+              <button type="button" class="curation-filter-btn" data-curate-cat="hook">🔥 Hooks</button>
+              <button type="button" class="curation-filter-btn" data-curate-cat="money">💰 Money</button>
+              <button type="button" class="curation-filter-btn" data-curate-cat="story">📖 Story</button>
+              <button type="button" class="curation-filter-btn" data-curate-cat="punchy">⚡ &lt;30s</button>
             </div>
             <div id="viralMomentsList" class="viral-moments-list"></div>
           </div>
@@ -424,6 +450,52 @@
               <button type="button" class="btn-chip active" id="drawerFitScreenBtn" style="flex:1; justify-content:center;">Fit All People</button>
               <button type="button" class="btn-chip" id="drawerFillCropBtn" style="flex:1; justify-content:center;">Fill 9:16 Crop</button>
             </div>
+          </div>
+
+          <!-- AI Face Tracking & Smart Speaker Lock -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🎯 AI FACE TRACKING (YuNet / 1€)</span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:10px; cursor:pointer; color:#00f2fe;">
+                <input type="checkbox" id="faceTrackEnabledToggle" />
+                <span>Active</span>
+              </label>
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:6px;">
+              <button type="button" id="scanFaceTrackBtn" class="btn-micro" style="flex:1; padding:7px 10px; background:linear-gradient(135deg,#10b981,#0ea5e9); color:#050510; font-weight:800; border:none;">
+                🎯 Scan &amp; Lock Speaker Faces
+              </button>
+            </div>
+            <label class="toggle-row" style="margin-bottom:4px;">
+              <span>👁️ Show Speaker Tracking Reticle HUD</span>
+              <input type="checkbox" id="faceTrackReticleToggle" checked />
+            </label>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>1€ Camera Smoothing:</span>
+                <span id="faceSmoothVal" class="mono-val">75%</span>
+              </div>
+              <input type="range" id="faceSmoothSlider" min="15" max="95" step="5" value="75" class="drawer-slider" />
+            </div>
+          </div>
+
+          <!-- Smart AI Context B-Roll Cutaways -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🎬 AI CONTEXT B-ROLL CUTAWAYS</span>
+              <span id="brollCutawaysCountBadge" class="status-pill status-emerald">0 CLIPS</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-bottom:6px;">
+              <button type="button" id="autoInsertBrollBtn" class="btn-micro" style="padding:7px 10px; background:linear-gradient(135deg,#8b5cf6,#ec4899); color:#fff; font-weight:800; border:none;">
+                ⚡ Auto-Insert AI B-Roll
+              </button>
+              <select id="brollCutawayModeSelect" class="studio-input" style="font-size:10.5px; padding:4px 6px;" title="How AI B-Roll Cutaways display on canvas">
+                <option value="full-cutaway" selected>Full Cutaway</option>
+                <option value="pip-card">Floating PIP</option>
+              </select>
+            </div>
+            <div id="contextBrollGrid" class="context-broll-grid"></div>
+            <div id="activeBrollCutawaysList" class="visual-overlays-list" style="margin-top:6px;"></div>
           </div>
 
           <!-- Picture & Visual Overlays (CapCut PIP & Stickers) -->
@@ -497,10 +569,10 @@
             </div>
           </div>
 
-          <!-- Top Hook Banner Controls -->
+          <!-- Top Hook Title Studio -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🔥 TOP HOOK BANNER</span>
+              <span>🔥 HOOK TITLE STUDIO</span>
               <button type="button" id="selectHookOnCanvasBtn" class="btn-micro">Edit on Stage</button>
             </div>
             <input
@@ -510,6 +582,20 @@
               value="WAIT FOR THE CRAZY TWIST 🤯👇"
               placeholder="Enter top hook headline..."
             />
+            <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-top:6px;">
+              <select id="hookTitleStyleSelect" class="studio-input" style="font-size:11px; padding:5px 8px;" title="Hook Title Visual Style">
+                <option value="viral-card" selected>🔥 Viral Red Tag + Dark Card</option>
+                <option value="hormozi-tape">⚡ Hormozi Yellow Impact Tape</option>
+                <option value="breaking-news">🚨 Breaking News Live Ticker</option>
+                <option value="neon-glass">💎 Cyber Neon Glass Pill</option>
+                <option value="minimal-white">📝 Clean Creator White Card</option>
+                <option value="kinetic-slam">💥 Giant 2-Tone Kinetic Slam</option>
+              </select>
+              <button type="button" id="generateAiHooksBtn" class="btn-micro" style="background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; font-weight:800; border:none;" title="Generate 4 curiosity-gap Hook Titles from transcript">
+                ✨ AI Hooks
+              </button>
+            </div>
+            <div id="hookSuggestionsList" class="hook-suggestions-list"></div>
             <div class="hook-mode-row" style="margin-top:6px; display:flex; gap:6px;">
               <button type="button" class="btn-chip active" data-hook-mode="3s">First 3.5s</button>
               <button type="button" class="btn-chip" data-hook-mode="always">Always On</button>
@@ -618,7 +704,34 @@
 
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>🌐 SPEECH LANGUAGE &amp; WHISPER AI</span>
+              <span>🌐 TRANSLIT &amp; BILINGUAL SUBS</span>
+              <span id="translitActiveBadge" class="status-pill status-emerald">ORIGINAL</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto auto; gap:5px; margin-top:4px;">
+              <select id="translitModeSelect" class="studio-input" style="font-size:11px; padding:5px 7px; background:#0f0f1e; border:1px solid #252545; color:#f1f5f9;">
+                <option value="taglish" selected>🇵🇭 Taglish Viral Creator</option>
+                <option value="phonetic">🔤 Phonetic / Romanized</option>
+                <option value="tl">🇵🇭 Pure Tagalog</option>
+                <option value="hinglish">🇮🇳 Hinglish (Latin)</option>
+                <option value="romaji">🇯🇵 Japanese Romaji</option>
+                <option value="es">🇪🇸 Español Viral</option>
+              </select>
+              <button type="button" id="applyTranslitBtn" class="btn-mini btn-accent" style="padding:5px 9px; font-weight:800;" title="Convert subtitle script / language while keeping word-level karaoke timing">
+                🌐 Translit
+              </button>
+              <button type="button" id="restoreOrigSubsBtn" class="btn-micro" title="Restore original speech words">
+                ↺ Orig
+              </button>
+            </div>
+            <label class="toggle-row" style="margin-top:6px;">
+              <span>📚 Dual Bilingual Stack (Show Orig + Translit)</span>
+              <input type="checkbox" id="bilingualSubsToggle" />
+            </label>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🎙️ SPEECH LANGUAGE &amp; WHISPER AI</span>
               <span id="transcriptLangBadge" class="status-pill status-cyan">EN (99.5%)</span>
             </div>
             <div style="display:flex; gap:6px; margin-top:6px;">
@@ -650,9 +763,36 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 5: EFFECTS (PRO CINEMA & VFX)
+             DRAWER TAB 5: EFFECTS (HIGHLIGHT ZOOM, PRO CINEMA & TIMED VFX)
              ========================================== -->
         <div id="drawerTab-effects" class="drawer-content">
+          <!-- Highlight Zoom Engine -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>🔍 HIGHLIGHT ZOOM ENGINE</span>
+              <span id="highlightZoomCountBadge" class="status-pill status-cyan">AUTO</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-bottom:6px;">
+              <select id="highlightZoomModeSelect" class="studio-input" style="font-size:11px; padding:5px 8px;">
+                <option value="off">Zoom Mode: Off (Static)</option>
+                <option value="keyword-punch" selected>🔥 Smart Keyword Punch (Auto)</option>
+                <option value="ken-burns">🌊 Smooth Ken Burns Drift</option>
+                <option value="keyframes">🎯 Manual Zoom Keyframes Only</option>
+              </select>
+              <button type="button" id="addHighlightZoomAtPlayheadBtn" class="btn-micro" style="background:linear-gradient(135deg,#00f2fe,#3b82f6); color:#050510; font-weight:800; border:none;" title="Drop a custom Highlight Zoom punch at the current playhead">
+                🔍 + Zoom
+              </button>
+            </div>
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Highlight Zoom Scale:</span>
+                <span id="highlightZoomScaleVal" class="mono-val">1.20×</span>
+              </div>
+              <input type="range" id="highlightZoomScaleSlider" min="1.06" max="1.50" step="0.02" value="1.20" class="drawer-slider" />
+            </div>
+            <div id="highlightZoomList" class="visual-overlays-list" style="margin-top:4px;"></div>
+          </div>
+
           <div class="drawer-section">
             <div class="drawer-section-title">
               <span>PRO VIDEO EFFECTS (VFX)</span>
@@ -699,7 +839,48 @@
                 <strong>Depth Lens Blur</strong>
                 <small>f/1.4 Subject pop</small>
               </button>
+              <button type="button" class="effect-card" data-effect="speedLines">
+                <span class="effect-icon">⚡</span>
+                <strong>Speed Lines</strong>
+                <small>Radial anime velocity</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="impactFlash">
+                <span class="effect-icon">💥</span>
+                <strong>Impact Punch</strong>
+                <small>Crisp beat flash</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="neonGlow">
+                <span class="effect-icon">🔮</span>
+                <strong>Cyber Neon Aura</strong>
+                <small>Electric edge bloom</small>
+              </button>
+              <button type="button" class="effect-card" data-effect="spotlight">
+                <span class="effect-icon">🕵️</span>
+                <strong>Speaker Spotlight</strong>
+                <small>Focus beam on face</small>
+              </button>
             </div>
+          </div>
+
+          <!-- Timed VFX Bursts on Timeline -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>✨ TIMED VFX BURSTS (TIMELINE)</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:6px;">
+              <select id="timedVfxTypeSelect" class="studio-input" style="font-size:11px; padding:5px 8px;">
+                <option value="speedLines">⚡ Speed Lines Burst (1.8s)</option>
+                <option value="impactFlash">💥 Impact Punch Flash (0.8s)</option>
+                <option value="rgbSplit">🌈 RGB Glitch Burst (1.5s)</option>
+                <option value="vhs">📼 VHS Rewind Glitch (2.0s)</option>
+                <option value="spotlight">🕵️ Dramatic Spotlight (2.5s)</option>
+                <option value="neonGlow">🔮 Neon Aura Pulse (2.0s)</option>
+              </select>
+              <button type="button" id="addTimedVfxBtn" class="btn-micro" style="background:linear-gradient(135deg,#ec4899,#8b5cf6); color:#fff; font-weight:800; border:none;">
+                ✨ + Drop VFX
+              </button>
+            </div>
+            <div id="timedVfxList" class="visual-overlays-list" style="margin-top:6px;"></div>
           </div>
 
           <div class="drawer-section">
@@ -899,13 +1080,28 @@
           </div>
 
           <div class="drawer-section">
-            <div class="drawer-section-title"><span>INSTANT SFX TRIGGER PADS</span></div>
+            <div class="drawer-section-title">
+              <span>🔊 STUDIO SFX &amp; TIMELINE SEQUENCER</span>
+              <span id="sfxEventsCountBadge" class="status-pill status-cyan">0 SFX</span>
+            </div>
+            <label class="toggle-row" style="margin-bottom:6px;">
+              <span>📌 Pin SFX onto Timeline at Playhead</span>
+              <input type="checkbox" id="sfxDropOnTimelineToggle" checked />
+            </label>
             <div class="sfx-pad-grid">
-              <button type="button" class="sfx-pad-btn" data-sfx="whoosh">💨 Transition Whoosh</button>
-              <button type="button" class="sfx-pad-btn" data-sfx="cash">💰 Cash Ding</button>
-              <button type="button" class="sfx-pad-btn" data-sfx="bass-drop">🔊 808 Sub Drop</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="whoosh">💨 Whoosh</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="pop">🫧 Bubble Pop</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="cash">💰 Ka-Ching</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="bass-drop">🔊 808 Boom</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="shutter">📸 Shutter</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="glitch">⚡ Glitch Zap</button>
+              <button type="button" class="sfx-pad-btn" data-sfx="riser">📈 Riser</button>
               <button type="button" class="sfx-pad-btn" data-sfx="ding">🔔 Retention Bell</button>
             </div>
+            <button type="button" id="autoSyncSfxBtn" class="btn-micro" style="width:100%; padding:8px; margin-top:8px; background:linear-gradient(135deg,#10b981,#0ea5e9); color:#050510; font-weight:800; border:none; border-radius:6px; cursor:pointer;">
+              ⚡ Auto-Sync SFX to Cuts, Zooms &amp; B-Roll
+            </button>
+            <div id="sfxTimelineList" class="visual-overlays-list" style="margin-top:6px;"></div>
           </div>
         </div>
 
@@ -1523,6 +1719,26 @@
           <span>🖼️ + PIP</span>
         </button>
 
+        <button type="button" id="timelineAddZoomBtn" class="toolbar-btn toolbar-btn-accent" title="Drop Highlight Zoom Keyframe at Playhead">
+          <span>🔍 + Zoom</span>
+        </button>
+
+        <button type="button" id="timelineFaceTrackBtn" class="toolbar-btn" title="Toggle AI Speaker Face Tracking">
+          <span>🎯 Face</span>
+        </button>
+
+        <button type="button" id="timelineAddBrollBtn" class="toolbar-btn toolbar-btn-accent" title="Insert Context AI B-Roll Cutaway at Playhead">
+          <span>🎬 + B-Roll</span>
+        </button>
+
+        <button type="button" id="timelineAddVfxBtn" class="toolbar-btn" title="Drop Timed VFX Burst at Playhead">
+          <span>✨ + VFX</span>
+        </button>
+
+        <button type="button" id="timelineAddSfxBtn" class="toolbar-btn" title="Drop Whoosh / Pop SFX at Playhead">
+          <span>🔊 + SFX</span>
+        </button>
+
         <button type="button" id="duplicateClipBtn" class="toolbar-btn" title="Duplicate Selected Element (Ctrl+D)">
           <span>📄 Copy</span>
         </button>
@@ -1595,19 +1811,20 @@
         </div>
 
         <div class="track-header-item track-h-overlays">
-          <span class="track-name">🖼️ PIP/Stickers</span>
+          <span class="track-name">🖼️ B-Roll/PIP</span>
           <div class="track-controls">
-            <button type="button" class="track-ctrl-btn" id="trackToggleOverlays" title="Show/Hide Overlays">👁️</button>
+            <button type="button" class="track-ctrl-btn" id="trackToggleOverlays" title="Show/Hide B-Roll &amp; PIP Overlays">👁️</button>
             <button type="button" class="track-ctrl-btn" id="trackLockOverlays" title="Lock/Unlock Overlays">🔓</button>
             <button type="button" class="track-ctrl-btn" id="trackAddOvBtn" title="Upload Picture / PIP">➕</button>
           </div>
         </div>
 
         <div class="track-header-item track-h-audio">
-          <span class="track-name">🎵 Audio</span>
+          <span class="track-name">🎵 Audio/SFX</span>
           <div class="track-controls">
             <button type="button" class="track-ctrl-btn" id="trackToggleMainAudio" title="Mute/Unmute Main Audio">🔊</button>
             <button type="button" class="track-ctrl-btn" id="trackLockAudio" title="Lock/Unlock Audio">🔓</button>
+            <button type="button" class="track-ctrl-btn" id="trackAddSfxBtn" title="Add SFX at Playhead">➕</button>
           </div>
         </div>
       </div>

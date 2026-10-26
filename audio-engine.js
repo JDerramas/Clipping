@@ -21,6 +21,17 @@
     { id: 'tension-riser', name: 'Dark Tension Pulse', bpm: 118, style: 'Algorithm Hook Riser' }
   ];
 
+  const SFX_PRESETS = [
+    { id: 'whoosh', name: 'Whoosh Sweep', icon: '💨', color: '#38bdf8', duration: 0.32 },
+    { id: 'pop', name: 'Bubble Pop', icon: '🫧', color: '#34d399', duration: 0.16 },
+    { id: 'cash', name: 'Ka-Ching Cash', icon: '💰', color: '#facc15', duration: 0.48 },
+    { id: 'bass-drop', name: '808 Sub Boom', icon: '🔊', color: '#f43f5e', duration: 0.60 },
+    { id: 'shutter', name: 'Camera Shutter', icon: '📸', color: '#e2e8f0', duration: 0.22 },
+    { id: 'glitch', name: 'Cyber Glitch', icon: '⚡', color: '#c084fc', duration: 0.26 },
+    { id: 'riser', name: 'Tension Riser', icon: '📈', color: '#fb923c', duration: 0.65 },
+    { id: 'ding', name: 'Retention Bell', icon: '🔔', color: '#2dd4bf', duration: 0.45 }
+  ];
+
   // Rich word-by-word scripts for the 3 built-in demo streams (60s total per stream, 4 clips each)
   const DEMO_SCRIPTS = {
     'podcast-millionaire': {
@@ -1608,42 +1619,150 @@
     }
 
     /**
-     * Triggers a viral transition or UI sound effect ('whoosh', 'ding', 'bass-drop', 'cash', 'pop')
+     * Triggers a studio-grade viral transition or timeline SFX
+     * ('whoosh', 'pop', 'cash', 'bass-drop', 'shutter', 'glitch', 'riser', 'ding')
      */
     playSfx(type = 'whoosh') {
       this.init();
       if (!this.audioCtx) return;
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
       const now = this.audioCtx.currentTime;
-      const sfxType = String(type).toLowerCase();
+      const sfxType = String(type || 'whoosh').toLowerCase();
 
-      if (sfxType.includes('ding') || sfxType.includes('cash')) {
+      if (sfxType.includes('cash')) {
+        // Metallic Ka-Ching: dual high bell harmonics + crisp coin shimmer
+        [1046.5, 1567.98, 2093.0].forEach((freq, idx) => {
+          const osc = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+          osc.type = idx === 2 ? 'triangle' : 'sine';
+          const t0 = now + (idx === 0 ? 0 : 0.065);
+          osc.frequency.setValueAtTime(freq, t0);
+          gain.gain.setValueAtTime(idx === 2 ? 0.10 : 0.20, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.46);
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(t0);
+          osc.stop(t0 + 0.48);
+        });
+      } else if (sfxType.includes('ding') || sfxType.includes('bell')) {
+        // Warm Crystal Retention Bell (C6 + G6)
+        [1046.5, 1567.98].forEach((f, idx) => {
+          const osc = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now);
+          gain.gain.setValueAtTime(idx === 0 ? 0.24 : 0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        });
+      } else if (sfxType.includes('bass') || sfxType.includes('drop') || sfxType.includes('boom')) {
+        this._synthKick808(now, 44, 0.62);
+      } else if (sfxType.includes('pop')) {
+        // Crisp CapCut / Submagic Bubble Pop
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(987.77, now); // B5
-        osc.frequency.setValueAtTime(1318.51, now + 0.07); // E6
-        gain.gain.setValueAtTime(0.22, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(980, now + 0.035);
+        osc.frequency.exponentialRampToValueAtTime(240, now + 0.13);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
         osc.connect(gain);
         gain.connect(this.sfxGain);
         osc.start(now);
-        osc.stop(now + 0.46);
-      } else if (sfxType.includes('bass') || sfxType.includes('drop')) {
-        this._synthKick808(now, 38, 0.55);
+        osc.stop(now + 0.15);
+      } else if (sfxType.includes('shutter') || sfxType.includes('snap')) {
+        // Double Mechanical Camera Shutter Click (for Freeze-Frame / Proof)
+        [0, 0.075].forEach((offset) => {
+          if (this.noiseBuffer) {
+            const src = this.audioCtx.createBufferSource();
+            src.buffer = this.noiseBuffer;
+            const bp = this.audioCtx.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.setValueAtTime(2400, now + offset);
+            bp.Q.setValueAtTime(2.2, now + offset);
+            const g = this.audioCtx.createGain();
+            g.gain.setValueAtTime(0.32, now + offset);
+            g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.045);
+            src.connect(bp);
+            bp.connect(g);
+            g.connect(this.sfxGain);
+            src.start(now + offset);
+            src.stop(now + offset + 0.05);
+          }
+        });
+      } else if (sfxType.includes('glitch') || sfxType.includes('zap')) {
+        // Digital Cyber Glitch Stutter
+        [0, 0.05, 0.11, 0.16].forEach((offset, i) => {
+          const osc = this.audioCtx.createOscillator();
+          const g = this.audioCtx.createGain();
+          osc.type = i % 2 === 0 ? 'sawtooth' : 'square';
+          osc.frequency.setValueAtTime(220 + i * 310, now + offset);
+          osc.frequency.setValueAtTime(140 + i * 190, now + offset + 0.025);
+          g.gain.setValueAtTime(0.14, now + offset);
+          g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.045);
+          osc.connect(g);
+          g.connect(this.sfxGain);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.048);
+        });
+      } else if (sfxType.includes('riser') || sfxType.includes('sweep')) {
+        // 0.65s Filtered Tension Riser Sweep
+        const osc = this.audioCtx.createOscillator();
+        const g = this.audioCtx.createGain();
+        osc.type = 'sawtooth';
+        const lp = this.audioCtx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(280, now);
+        lp.frequency.exponentialRampToValueAtTime(3400, now + 0.62);
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.62);
+        g.gain.setValueAtTime(0.02, now);
+        g.gain.linearRampToValueAtTime(0.22, now + 0.56);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc.connect(lp);
+        lp.connect(g);
+        g.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.66);
       } else {
-        // High-retention 'whoosh' / 'pop' transition
+        // Authentic Bandpass Air Whoosh + Sub Swoosh
+        if (this.noiseBuffer) {
+          const nSrc = this.audioCtx.createBufferSource();
+          nSrc.buffer = this.noiseBuffer;
+          const bp = this.audioCtx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.Q.setValueAtTime(1.8, now);
+          bp.frequency.setValueAtTime(260, now);
+          bp.frequency.exponentialRampToValueAtTime(1850, now + 0.13);
+          bp.frequency.exponentialRampToValueAtTime(220, now + 0.30);
+          const ng = this.audioCtx.createGain();
+          ng.gain.setValueAtTime(0.02, now);
+          ng.gain.linearRampToValueAtTime(0.32, now + 0.11);
+          ng.gain.exponentialRampToValueAtTime(0.001, now + 0.31);
+          nSrc.connect(bp);
+          bp.connect(ng);
+          ng.connect(this.sfxGain);
+          nSrc.start(now);
+          nSrc.stop(now + 0.32);
+        }
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.exponentialRampToValueAtTime(620, now + 0.09);
-        osc.frequency.exponentialRampToValueAtTime(110, now + 0.18);
-        gain.gain.setValueAtTime(0.18, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(380, now + 0.10);
+        osc.frequency.exponentialRampToValueAtTime(85, now + 0.28);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.29);
         osc.connect(gain);
         gain.connect(this.sfxGain);
         osc.start(now);
-        osc.stop(now + 0.2);
+        osc.stop(now + 0.30);
       }
     }
 
@@ -1895,6 +2014,7 @@
   const defaultInstance = new WhopAudioEngine();
 
   WhopAudioEngine.MUSIC_PRESETS = MUSIC_PRESETS;
+  WhopAudioEngine.SFX_PRESETS = SFX_PRESETS;
   WhopAudioEngine.DEMO_SCRIPTS = DEMO_SCRIPTS;
   WhopAudioEngine.instance = defaultInstance;
   WhopAudioEngine.create = function () {

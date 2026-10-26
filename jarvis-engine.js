@@ -660,6 +660,87 @@
           if (eBtn) { eBtn.click(); return true; }
           break;
         }
+        case 'highlight_zoom': {
+          if (studio?.addHighlightZoomAtPlayhead) {
+            return studio.addHighlightZoomAtPlayhead(action.scale || 1.24, action.duration || 1.6);
+          }
+          break;
+        }
+        case 'auto_curate': {
+          if (studio?.runAiAutoCuration) {
+            studio.runAiAutoCuration();
+            return true;
+          }
+          break;
+        }
+        case 'translit': {
+          if (studio?.applySubtitleTranslit) {
+            if (action.bilingual !== undefined && studio.state) {
+              studio.state.bilingualSubs = !!action.bilingual;
+            }
+            studio.applySubtitleTranslit(action.mode || 'taglish');
+            return true;
+          }
+          break;
+        }
+        case 'add_sfx': {
+          const sfx = action.sfx || 'whoosh';
+          if (sfx === 'auto-sync' && studio?.autoSyncTimelineSfx) {
+            studio.autoSyncTimelineSfx();
+            return true;
+          }
+          if (studio?.addSfxEventAtTime) {
+            studio.addSfxEventAtTime(sfx, studio.state?.currentTime || 0, true);
+            return true;
+          }
+          break;
+        }
+        case 'face_track': {
+          if (studio?.scanAndEnableFaceTracking && action.enabled !== false) {
+            studio.scanAndEnableFaceTracking();
+            return true;
+          } else if (studio?.toggleFaceTracking) {
+            studio.toggleFaceTracking(action.enabled);
+            return true;
+          }
+          break;
+        }
+        case 'hook_title': {
+          if (action.style && studio?.setHookTitleStyle) {
+            studio.setHookTitleStyle(action.style);
+          }
+          if (action.text && studio?.setHookBanner) {
+            studio.setHookBanner(action.text, true);
+          } else if (studio?.generateAiHookSuggestions) {
+            studio.generateAiHookSuggestions(true);
+          }
+          return true;
+        }
+        case 'add_vfx': {
+          const vfx = action.vfx || 'speedLines';
+          if (studio?.addTimedVfxAtPlayhead) {
+            studio.addTimedVfxAtPlayhead(vfx);
+            return true;
+          }
+          break;
+        }
+        case 'auto_broll': {
+          if ((!action.topic || action.topic === 'auto') && studio?.autoInsertContextBroll) {
+            studio.autoInsertContextBroll();
+            return true;
+          } else if (studio?.addBrollCutaway) {
+            studio.addBrollCutaway(action.topic || 'money-counter', studio.state?.currentTime || 0, 2.6);
+            return true;
+          }
+          break;
+        }
+        case 'viral_pack': {
+          if (studio?.applyFullViralSuitePack) {
+            studio.applyFullViralSuitePack();
+            return true;
+          }
+          break;
+        }
         default:
           console.warn('[JARVIS] Unknown action type:', type);
           return false;
@@ -815,6 +896,43 @@
         localActions.push({ action: 'client_prompt_edit', prompt: rawText });
       }
 
+      // 8-Feature Viral AI Pro Suite Fast Reflex Intents
+      if (text.includes('viral pack') || text.includes('viral suite') || text.includes('8 engine') || text.includes('full viral')) {
+        localActions.push({ action: 'viral_pack' });
+      } else {
+        if (text.includes('highlight zoom') || text.includes('punch zoom') || text.includes('auto zoom') || text.includes('zoom in')) {
+          localActions.push({ action: 'highlight_zoom', scale: 1.25 });
+        }
+        if (text.includes('curate') || text.includes('auto curation') || text.includes('best clips')) {
+          localActions.push({ action: 'auto_curate' });
+        }
+        if (text.includes('translit') || text.includes('taglish') || text.includes('bilingual') || text.includes('romanize')) {
+          const mode = text.includes('romaji') ? 'romaji' : (text.includes('hinglish') ? 'hinglish' : (text.includes('spanish') ? 'es' : 'taglish'));
+          localActions.push({ action: 'translit', mode, bilingual: text.includes('bilingual') || text.includes('dual') });
+        }
+        if (text.includes('sfx') || text.includes('whoosh') || text.includes('sound effect') || text.includes('ka-ching') || text.includes('bass drop')) {
+          const sfx = (text.includes('auto') || text.includes('sync')) ? 'auto-sync'
+            : (text.includes('cash') || text.includes('ching') ? 'cash'
+            : (text.includes('bass') ? 'bass-drop'
+            : (text.includes('pop') ? 'pop' : 'whoosh')));
+          localActions.push({ action: 'add_sfx', sfx });
+        }
+        if (text.includes('face track') || text.includes('track face') || text.includes('speaker lock') || text.includes('follow face')) {
+          localActions.push({ action: 'face_track', enabled: !text.includes('off') });
+        }
+        if (text.includes('hook title') || text.includes('ai hook') || text.includes('generate hook') || text.includes('kinetic slam')) {
+          const style = text.includes('kinetic') ? 'kinetic-slam' : (text.includes('breaking') ? 'breaking-news' : 'hormozi-tape');
+          localActions.push({ action: 'hook_title', style });
+        }
+        if (text.includes('vfx') || text.includes('speed lines') || text.includes('spotlight') || text.includes('impact flash')) {
+          const vfx = text.includes('spot') ? 'spotlight' : (text.includes('impact') || text.includes('flash') ? 'impactFlash' : 'speedLines');
+          localActions.push({ action: 'add_vfx', vfx });
+        }
+        if (text.includes('auto b-roll') || text.includes('insert b-roll') || text.includes('context b-roll') || text.includes('cutaway')) {
+          localActions.push({ action: 'auto_broll', topic: 'auto' });
+        }
+      }
+
       // Execute local actions immediately
       if (localActions.length > 0) {
         this.executeActionList(localActions);
@@ -822,7 +940,7 @@
 
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
-        (text.length < 28 && localActions.length > 0) ||
+        (text.length < 34 && localActions.length > 0) ||
         ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark'].includes(text)
       );
 
@@ -855,6 +973,24 @@
           msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage, sir.`;
         } else if (first.action === 'set_caption_style') {
           msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
+        } else if (first.action === 'highlight_zoom') {
+          msg = "Pinned a smooth highlight zoom punch at the playhead, sir.";
+        } else if (first.action === 'auto_curate') {
+          msg = "Running four-pillar AI virality curation across your footage, sir.";
+        } else if (first.action === 'translit') {
+          msg = `Transliterated your subtitles into ${first.mode}, sir.`;
+        } else if (first.action === 'add_sfx') {
+          msg = first.sfx === 'auto-sync' ? "Auto-synchronized studio sound effects across your timeline, sir." : `Pinned a ${first.sfx} sound effect onto the audio track, sir.`;
+        } else if (first.action === 'face_track') {
+          msg = "Locked AI speaker face tracking with one-euro camera stabilization, sir.";
+        } else if (first.action === 'hook_title') {
+          msg = "Generated high-retention curiosity hook titles and styled the banner, sir.";
+        } else if (first.action === 'add_vfx') {
+          msg = `Dropped a timed ${first.vfx} visual effect burst onto your timeline, sir.`;
+        } else if (first.action === 'auto_broll') {
+          msg = "Inserted context-aware AI B-roll cutaways across your timeline, sir.";
+        } else if (first.action === 'viral_pack') {
+          msg = "Activated the full eight-engine viral suite across your sequence, sir.";
         }
         const latencyMs = Math.max(1, Math.round(performance.now() - startTs));
         this.addChatMessage('user', rawText);

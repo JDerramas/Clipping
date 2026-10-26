@@ -2293,6 +2293,232 @@
     ctx.restore();
   }
 
+  const CONTEXT_BROLL_PRESETS = [
+    { id: 'money-counter', name: 'Cash Revenue Ticker', icon: '💰', keywords: ['money', 'dollar', 'thousand', 'million', 'cash', 'paid', 'payout', 'price', 'cost', 'buy', 'rich', 'pera', 'kita'], accent: '#10b981' },
+    { id: 'bull-chart', name: 'Viral Growth Chart', icon: '📈', keywords: ['grow', 'growth', 'views', 'scale', 'double', 'retention', 'chart', 'numbers', 'stats', 'viral', 'results'], accent: '#38bdf8' },
+    { id: 'neural-ai', name: 'AI Neural Matrix', icon: '🧠', keywords: ['ai', 'algorithm', 'secret', 'system', 'brain', 'smart', 'hack', 'formula', 'model', 'tech'], accent: '#a855f7' },
+    { id: 'countdown-timer', name: 'High-Stakes Clock', icon: '⏱️', keywords: ['second', 'seconds', 'minute', 'day', 'days', 'hour', 'wait', 'fast', 'time', 'now', 'stop'], accent: '#f59e0b' },
+    { id: 'code-terminal', name: 'Algorithm Engine', icon: '💻', keywords: ['account', 'post', 'video', 'edit', 'cut', 'platform', 'tiktok', 'youtube', 'link', 'app'], accent: '#00f2fe' },
+    { id: 'global-reach', name: 'Global Distribution', icon: '🌍', keywords: ['world', 'everyone', 'people', 'everywhere', 'audience', 'followers', 'creator', 'market'], accent: '#f43f5e' }
+  ];
+
+  function renderContextBrollCutaway(ctx, rect, timeSec = 0, topicId = 'bull-chart', customLabel = '') {
+    if (!ctx) return;
+    const r = normalizeRect(ctx, rect);
+    const t = Number.isFinite(timeSec) ? timeSec : 0;
+    const id = String(topicId || 'bull-chart').toLowerCase();
+
+    // If user selected one of the 6 gaming/ASMR presets as a cutaway, delegate cleanly
+    if (BROLL_PRESETS.some((p) => p.id === id)) {
+      renderBrollPreset(ctx, r, t, id, { showBadge: false });
+      return;
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.clip();
+
+    // Deep cinema backdrop + subtle animated grid
+    const bg = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    bg.addColorStop(0, '#060814');
+    bg.addColorStop(0.55, '#0b1228');
+    bg.addColorStop(1, '#05070f');
+    ctx.fillStyle = bg;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+
+    const gridStep = Math.max(28, Math.round(r.w / 12));
+    const scrollOff = (t * 28) % gridStep;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.lineWidth = 1;
+    for (let gx = r.x - gridStep + scrollOff; gx < r.x + r.w + gridStep; gx += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(gx, r.y);
+      ctx.lineTo(gx, r.y + r.h);
+      ctx.stroke();
+    }
+    for (let gy = r.y; gy < r.y + r.h; gy += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(r.x, gy);
+      ctx.lineTo(r.x + r.w, gy);
+      ctx.stroke();
+    }
+
+    const cx = r.x + r.w * 0.5;
+    const cy = r.y + r.h * 0.5;
+    const minDim = Math.min(r.w, r.h);
+
+    if (id.includes('money') || id.includes('cash')) {
+      // Animated Revenue Ticker + Rising Emerald Bars
+      const amount = Math.floor(4200 + ((t * 3850) % 24000));
+      const barCount = 8;
+      const chartW = r.w * 0.76;
+      const startX = cx - chartW * 0.5;
+      for (let i = 0; i < barCount; i++) {
+        const bw = (chartW / barCount) * 0.68;
+        const bx = startX + i * (chartW / barCount);
+        const bh = minDim * (0.14 + (i / barCount) * 0.34 + Math.sin(t * 5 + i) * 0.03);
+        const by = cy + minDim * 0.28 - bh;
+        const bGrad = ctx.createLinearGradient(bx, by, bx, by + bh);
+        bGrad.addColorStop(0, '#34d399');
+        bGrad.addColorStop(1, 'rgba(16, 185, 129, 0.18)');
+        ctx.fillStyle = bGrad;
+        drawRoundedRect(ctx, bx, by, bw, bh, 6);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#10b981';
+      ctx.font = `900 ${Math.round(minDim * 0.14)}px "Montserrat", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(16, 185, 129, 0.65)';
+      ctx.shadowBlur = 24;
+      ctx.fillText(`+$${amount.toLocaleString()}`, cx, cy - minDim * 0.08);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `700 ${Math.round(minDim * 0.038)}px "JetBrains Mono", monospace`;
+      ctx.fillText('VERIFIED CREATOR REVENUE FLOW', cx, cy - minDim * 0.22);
+    } else if (id.includes('neural') || id.includes('ai')) {
+      // Glowing AI Neural Matrix Nodes
+      const nodes = [];
+      const count = 9;
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2 + t * 0.55;
+        const rad = minDim * (i % 2 === 0 ? 0.26 : 0.16);
+        nodes.push({ x: cx + Math.cos(ang) * rad, y: cy + Math.sin(ang) * rad });
+      }
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.42)';
+      ctx.lineWidth = 2;
+      nodes.forEach((n, idx) => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(n.x, n.y);
+        ctx.lineTo(nodes[(idx + 1) % nodes.length].x, nodes[(idx + 1) % nodes.length].y);
+        ctx.stroke();
+      });
+      nodes.forEach((n) => {
+        ctx.fillStyle = '#c084fc';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, Math.max(5, minDim * 0.018), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 22;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(12, minDim * 0.055), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (id.includes('countdown') || id.includes('timer')) {
+      // High-Stakes Urgency Ring
+      const progress = 1 - ((t * 0.35) % 1);
+      const ringR = minDim * 0.24;
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.18)';
+      ctx.lineWidth = Math.max(8, minDim * 0.028);
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.6)';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringR, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * progress);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 ${Math.round(minDim * 0.11)}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`00:0${Math.max(1, Math.ceil(progress * 9))}`, cx, cy + minDim * 0.038);
+    } else if (id.includes('code') || id.includes('terminal')) {
+      // Live Algorithm Engine Telemetry Lines
+      const cardW = r.w * 0.82;
+      const cardH = minDim * 0.52;
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.92)';
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 2;
+      drawRoundedRect(ctx, cx - cardW * 0.5, cy - cardH * 0.5, cardW, cardH, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      const lines = [
+        '> ANALYZING HOOK RETENTION... 99.2%',
+        '> WATCH-TIME VELOCITY: +340% SPIKE',
+        '> ALGORITHM DISTRIBUTION: UNLOCKED',
+        `> LIVE IMPRESSIONS: ${(Math.floor(125000 + (t * 48200) % 850000)).toLocaleString()}`
+      ];
+      ctx.textAlign = 'left';
+      ctx.font = `700 ${Math.max(12, Math.round(minDim * 0.032))}px "JetBrains Mono", monospace`;
+      lines.forEach((ln, idx) => {
+        ctx.fillStyle = idx === 3 ? '#34d399' : '#38bdf8';
+        ctx.fillText(ln, cx - cardW * 0.44, cy - cardH * 0.24 + idx * (cardH * 0.21));
+      });
+    } else if (id.includes('global') || id.includes('reach')) {
+      // Concentric Viral Distribution Radar
+      for (let ring = 1; ring <= 3; ring++) {
+        ctx.strokeStyle = `rgba(244, 63, 94, ${0.42 - ring * 0.1})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, minDim * 0.09 * ring, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const sweep = t * 2.6;
+      ctx.strokeStyle = '#fb7185';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(sweep) * minDim * 0.27, cy + Math.sin(sweep) * minDim * 0.27);
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.font = `900 ${Math.round(minDim * 0.06)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillText('GLOBAL VIRAL REACH', cx, cy + minDim * 0.36);
+    } else {
+      // Bull Chart: Exponential Viral Growth Curve
+      const pts = 14;
+      const chartW = r.w * 0.78;
+      const chartH = minDim * 0.44;
+      const sx = cx - chartW * 0.5;
+      const sy = cy + chartH * 0.45;
+      ctx.beginPath();
+      for (let i = 0; i <= pts; i++) {
+        const px = sx + (i / pts) * chartW;
+        const norm = Math.pow(i / pts, 1.85);
+        const wave = Math.sin(t * 4 + i * 0.9) * (minDim * 0.018);
+        const py = sy - norm * chartH + wave;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = Math.max(4, minDim * 0.012);
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'center';
+      ctx.font = `900 ${Math.round(minDim * 0.085)}px "Montserrat", sans-serif`;
+      ctx.fillText('+420% RETENTION', cx, cy - chartH * 0.45);
+    }
+
+    // Sleek Context B-Roll pill tag at top-left
+    const meta = CONTEXT_BROLL_PRESETS.find((p) => p.id === id) || CONTEXT_BROLL_PRESETS[1];
+    const tagText = (customLabel || `${meta.icon} AI B-ROLL • ${meta.name}`).toUpperCase();
+    ctx.font = `800 ${Math.max(11, Math.round(minDim * 0.026))}px "Plus Jakarta Sans", sans-serif`;
+    const tw = ctx.measureText(tagText).width + 26;
+    ctx.fillStyle = 'rgba(8, 12, 26, 0.85)';
+    ctx.strokeStyle = meta.accent;
+    ctx.lineWidth = 2;
+    drawRoundedRect(ctx, r.x + 18, r.y + 18, tw, 32, 10);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#f8fafc';
+    ctx.textAlign = 'left';
+    ctx.fillText(tagText, r.x + 31, r.y + 39);
+
+    ctx.restore();
+  }
+
   /**
    * Constructor / Namespace hybrid so `window.WhopBrollEngine` works both
    * via static methods (`WhopBrollEngine.renderBrollPreset(...)`) AND `new WhopBrollEngine()`.
@@ -2302,15 +2528,20 @@
   const api = {
     DEMO_STREAMS,
     BROLL_PRESETS,
+    CONTEXT_BROLL_PRESETS,
     getDemoStreams: function () {
       return DEMO_STREAMS.slice();
     },
     getBrollPresets: function () {
       return BROLL_PRESETS.slice();
     },
+    getContextBrollPresets: function () {
+      return CONTEXT_BROLL_PRESETS.slice();
+    },
     getSpeechEnvelope,
     renderDemoMainFeed,
-    renderBrollPreset
+    renderBrollPreset,
+    renderContextBrollCutaway
   };
 
   Object.assign(WhopBrollEngine, api);
