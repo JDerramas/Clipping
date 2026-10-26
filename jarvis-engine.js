@@ -38,6 +38,16 @@
       this.selectedWebVoice = null;
       this.selectedFilipinoVoice = null;
       this.siriWave = null;
+      this.silenceTimeoutMs = 2000;
+      this.silenceInterval = null;
+      this.silenceTimer = null;
+      this.accumulatedTranscript = '';
+      this.currentInterim = '';
+
+      if (typeof localStorage !== 'undefined') {
+        const savedDelay = localStorage.getItem('whop_jarvis_silence_delay');
+        if (savedDelay) this.silenceTimeoutMs = parseInt(savedDelay, 10) || 2000;
+      }
 
       this.initWebVoice();
 
@@ -54,7 +64,67 @@
       if (typeof window !== 'undefined') {
         window.addEventListener('DOMContentLoaded', () => {
           this.initSiriWave();
+          const delaySelect = document.getElementById('jarvisSilenceDelaySelect');
+          if (delaySelect) {
+            delaySelect.value = String(this.silenceTimeoutMs);
+            delaySelect.addEventListener('change', (e) => {
+              this.setSilenceTimeout(e.target.value);
+            });
+          }
+          const doneBtn = document.getElementById('jarvisDoneSpeakingBtn');
+          if (doneBtn) {
+            doneBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              this.finishListeningAndSubmit();
+            });
+          }
+          const cancelBtn = document.getElementById('jarvisCancelListenBtn');
+          if (cancelBtn) {
+            cancelBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              this.cancelListening();
+            });
+          }
         });
+      }
+    }
+
+    clearSilenceCountdown() {
+      if (this.silenceTimer) {
+        clearTimeout(this.silenceTimer);
+        this.silenceTimer = null;
+      }
+      if (this.silenceInterval) {
+        clearInterval(this.silenceInterval);
+        this.silenceInterval = null;
+      }
+    }
+
+    finishListeningAndSubmit(overrideText = null) {
+      this.clearSilenceCountdown();
+      const timerBar = document.getElementById('jarvisListeningTimerBar');
+      if (timerBar) timerBar.classList.add('hidden');
+      const finalText = (overrideText !== null ? overrideText : (this.accumulatedTranscript + ' ' + (this.currentInterim || ''))).trim();
+      this.stopListening();
+      if (finalText) {
+        if (typeof this.onTextCallback === 'function') this.onTextCallback(finalText);
+        this.handleUserCommand(finalText);
+      }
+    }
+
+    cancelListening() {
+      this.clearSilenceCountdown();
+      const timerBar = document.getElementById('jarvisListeningTimerBar');
+      if (timerBar) timerBar.classList.add('hidden');
+      this.stopListening();
+      this.showVisualSpeechIndicator('Cancelled');
+      setTimeout(() => this.hideVisualSpeechIndicator(), 1200);
+    }
+
+    setSilenceTimeout(ms) {
+      this.silenceTimeoutMs = Math.max(800, parseInt(ms, 10) || 2000);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('whop_jarvis_silence_delay', String(this.silenceTimeoutMs));
       }
     }
 
@@ -415,59 +485,98 @@
           } catch (e) {}
         }
 
+        const delaySelect = document.getElementById('jarvisSilenceDelaySelect');
+        if (delaySelect && delaySelect.value) {
+          this.silenceTimeoutMs = parseInt(delaySelect.value, 10) || 2000;
+        } else if (typeof localStorage !== 'undefined') {
+          const savedDelay = localStorage.getItem('whop_jarvis_silence_delay');
+          if (savedDelay) this.silenceTimeoutMs = parseInt(savedDelay, 10) || 2000;
+        }
+
         this.recognition = new SpeechRec();
-        this.recognition.continuous = false;
+        this.recognition.continuous = true;
         this.recognition.interimResults = true;
         this.recognition.lang = this.recognitionLang || 'fil-PH';
 
         const reactor = document.getElementById('jarvisReactor');
         if (reactor) reactor.classList.add('listening-active');
         this.isListening = true;
-        this.showVisualSpeechIndicator('🎙️ Listening...');
+        this.accumulatedTranscript = '';
+        this.currentInterim = '';
+        this.onTextCallback = onTextCallback;
+
+        const timerBar = document.getElementById('jarvisListeningTimerBar');
+        const statusEl = document.getElementById('jarvisListeningStatus');
+        const countdownEl = document.getElementById('jarvisSilenceCountdown');
+        const progressFill = document.getElementById('jarvisSilenceProgressBar');
+
+        if (timerBar) timerBar.classList.remove('hidden');
+        if (statusEl) statusEl.textContent = 'Listening... Speak naturally';
+        if (countdownEl) countdownEl.textContent = `⏱️ ${(this.silenceTimeoutMs / 1000).toFixed(1)}s pause`;
+        if (progressFill) progressFill.style.width = '100%';
+
+        const resetSilenceCountdown = () => {
+          this.clearSilenceCountdown();
+          const duration = this.silenceTimeoutMs;
+          const startTime = Date.now();
+          if (statusEl) statusEl.textContent = 'Speaking detected... ⏱️';
+
+          this.silenceInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remainingMs = Math.max(0, duration - elapsed);
+            const pct = Math.max(0, Math.min(100, (remainingMs / duration) * 100));
+            if (countdownEl) {
+              countdownEl.textContent = `⏱️ ${(remainingMs / 1000).toFixed(1)}s pause`;
+            }
+            if (progressFill) {
+              progressFill.style.width = `${pct}%`;
+            }
+            if (remainingMs <= 0) {
+              this.clearSilenceCountdown();
+              this.finishListeningAndSubmit();
+            }
+          }, 40);
+        };
 
         this.recognition.onresult = (event) => {
           let interim = '';
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
+          let finalSegments = '';
+          for (let i = 0; i < event.results.length; i++) {
             const res = event.results[i];
             if (res.isFinal) {
-              finalTranscript += res[0].transcript;
+              finalSegments += res[0].transcript + ' ';
             } else {
-              interim += res[0].transcript;
+              interim += res[0].transcript + ' ';
             }
           }
-          if (interim) {
-            this.showVisualSpeechIndicator(`🎙️ ${interim}...`);
-            if (typeof onTextCallback === 'function') onTextCallback(interim);
-            return;
-          }
-          if (finalTranscript) {
-            const transcript = finalTranscript.trim();
-            this.isListening = false;
-            if (reactor) reactor.classList.remove('listening-active');
-            if (this.siriWave) {
-              try {
-                this.siriWave.setSpeed(0.12);
-                this.siriWave.setAmplitude(0.25);
-              } catch (e) {}
-            }
-            if (typeof onTextCallback === 'function') onTextCallback(transcript);
-            this.handleUserCommand(transcript);
+          this.accumulatedTranscript = finalSegments.trim();
+          this.currentInterim = interim.trim();
+
+          const candidate = (this.accumulatedTranscript + ' ' + this.currentInterim).trim();
+          if (candidate) {
+            this.showVisualSpeechIndicator(`🎙️ ${candidate}`);
+            if (typeof onTextCallback === 'function') onTextCallback(candidate);
+            resetSilenceCountdown();
           }
         };
 
-        this.recognition.onerror = () => {
+        this.recognition.onerror = (e) => {
+          console.warn('[JARVIS] Speech recognition error event:', e);
+          this.clearSilenceCountdown();
+          if (timerBar) timerBar.classList.add('hidden');
           this.isListening = false;
           if (reactor) reactor.classList.remove('listening-active');
           if (this.siriWave) {
             try {
               this.siriWave.setSpeed(0.12);
               this.siriWave.setAmplitude(0.25);
-            } catch (e) {}
+            } catch (err) {}
           }
         };
 
         this.recognition.onend = () => {
+          this.clearSilenceCountdown();
+          if (timerBar) timerBar.classList.add('hidden');
           this.isListening = false;
           if (reactor) reactor.classList.remove('listening-active');
           if (this.siriWave) {
@@ -475,6 +584,10 @@
               this.siriWave.setSpeed(0.12);
               this.siriWave.setAmplitude(0.25);
             } catch (e) {}
+          }
+          const candidate = (this.accumulatedTranscript + ' ' + this.currentInterim).trim();
+          if (candidate) {
+            this.finishListeningAndSubmit(candidate);
           }
         };
 
@@ -489,6 +602,12 @@
 
     stopListening() {
       this.isListening = false;
+      if (typeof this.clearSilenceCountdown === 'function') {
+        this.clearSilenceCountdown();
+      }
+      const timerBar = document.getElementById('jarvisListeningTimerBar');
+      if (timerBar) timerBar.classList.add('hidden');
+
       if (this.recognition) {
         try { this.recognition.stop(); } catch (e) {}
         this.recognition = null;
@@ -517,6 +636,16 @@
         setTimeout(() => reactor.classList.remove('glowing-active'), 1500);
       }
 
+      const actionTaskId = `jarvis_${type}_${Date.now()}`;
+      if (studio?.updateTaskChecklistStep && type !== 'auto_edit' && type !== 'viral_pack') {
+        studio.updateTaskChecklistStep(actionTaskId, {
+          status: 'running',
+          name: `J.A.R.V.I.S.: ${action.label || type.replace(/_/g, ' ').toUpperCase()}`,
+          properties: { Mode: 'Voice/AI Command' }
+        });
+      }
+
+      let res = false;
       switch (type) {
         case 'split': {
           const t = action.time !== undefined && action.time !== null ? Number(action.time) : null;
@@ -642,6 +771,10 @@
           break;
         }
         case 'auto_edit': {
+          if (studio?.applyFullViralSuitePack) {
+            studio.applyFullViralSuitePack();
+            return true;
+          }
           if (studio?.runAutoEdit) return studio.runAutoEdit();
           const aBtn = document.getElementById('oneClickAutoEditBtn');
           if (aBtn) { aBtn.click(); return true; }
@@ -743,9 +876,24 @@
         }
         default:
           console.warn('[JARVIS] Unknown action type:', type);
+          if (studio?.updateTaskChecklistStep) {
+            studio.updateTaskChecklistStep(actionTaskId, {
+              status: 'error',
+              properties: { Reason: 'Unknown action type' }
+            });
+          }
           return false;
       }
-      return false;
+      if (studio?.updateTaskChecklistStep && type !== 'auto_edit' && type !== 'viral_pack') {
+        studio.updateTaskChecklistStep(actionTaskId, {
+          status: 'done',
+          properties: {
+            Target: String(action.preset || action.text || action.style || action.mode || 'Timeline'),
+            Status: 'Executed Successfully'
+          }
+        });
+      }
+      return true;
     }
 
     executeActionList(actions) {

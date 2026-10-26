@@ -320,6 +320,23 @@
               <button type="button" class="btn-chip viral-quick-chip" id="quickAutoSfxBtn" title="Auto-Sync Whoosh, Pop & Bell SFX on Timeline">🔊 Auto SFX</button>
               <button type="button" class="btn-chip viral-quick-chip" id="quickTranslitBtn" title="Transliterate Subtitles to Viral Taglish">🌐 Translit</button>
             </div>
+            <label class="toggle-row" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.08);" title="When enabled, uploading or extracting any video automatically applies all 8 viral features in 0-clicks!">
+              <span style="font-size:10.5px; font-weight:700; color:#38bdf8;">⚡ 100% 0-Click Auto Viral Suite on Upload/Ingest</span>
+              <input type="checkbox" id="zeroClickAutoViralSuiteToggle" checked />
+            </label>
+          </div>
+
+          <!-- Live AI Execution Pipeline & Properties Checklist HUD -->
+          <div class="drawer-section ai-task-checklist-section" id="studioAiTaskChecklistCard">
+            <div class="drawer-section-title" style="margin-bottom:6px;">
+              <span style="color:#a855f7; font-weight:800;">📋 AI EXECUTION PIPELINE</span>
+              <span id="aiChecklistOverallStatus" class="status-pill status-cyan">READY</span>
+            </div>
+            <div id="aiExecutionChecklistItems" class="ai-task-checklist-list">
+              <div class="ai-task-placeholder">
+                Upload video or click <b>⚡ 1-Click Apply Full Viral Pack</b> to view real-time task progress and applied properties.
+              </div>
+            </div>
           </div>
 
           <!-- YouTube / Video URL Ingest -->
@@ -2077,6 +2094,34 @@
             <span class="status-pill"><span class="pill-dot purple"></span> HOTKEY: CTRL+J</span>
           </div>
           <div id="jarvisSiriContainer" class="jarvis-siri-container"></div>
+
+          <!-- Real-Time Speech Listening Countdown & Progress HUD -->
+          <div id="jarvisListeningTimerBar" class="jarvis-listening-timer-bar hidden">
+            <div class="jlt-status-row">
+              <span class="jlt-indicator"><span class="jlt-pulse-dot"></span> <span id="jarvisListeningStatus">Listening... Speak freely</span></span>
+              <span id="jarvisSilenceCountdown" class="jlt-countdown-pill">⏱️ 2.0s</span>
+            </div>
+            <div class="jlt-progress-track">
+              <div id="jarvisSilenceProgressBar" class="jlt-progress-fill" style="width: 100%;"></div>
+            </div>
+            <div class="jlt-actions-row">
+              <button type="button" id="jarvisDoneSpeakingBtn" class="jlt-btn jlt-btn-done" title="Submit speech immediately without waiting for pause timer">
+                ✓ Done Speaking
+              </button>
+              <button type="button" id="jarvisCancelListenBtn" class="jlt-btn jlt-btn-cancel" title="Cancel listening">
+                ✕ Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live AI Execution Checklist & Properties HUD (Inside JARVIS) -->
+        <div id="jarvisTaskChecklistCard" class="jarvis-task-checklist-card hidden">
+          <div class="drawer-section-title" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:#00f2fe; font-weight:800; font-size:11px;">⚡ JARVIS EXECUTION PIPELINE</span>
+            <span id="jarvisChecklistOverallStatus" class="status-pill status-cyan">ACTIVE</span>
+          </div>
+          <div id="jarvisTaskChecklistItems" class="ai-task-checklist-list"></div>
         </div>
 
         <div id="jarvisChatMessages" class="jarvis-chat-stream">
@@ -2123,6 +2168,15 @@
               <select id="jarvisLangSelect" class="studio-select">
                 <option value="fil-PH">🇵🇭 Filipino / Tagalog (Taglish Bilingual)</option>
                 <option value="en-US">🇺🇸 English (United States)</option>
+              </select>
+            </div>
+            <div>
+              <label class="jarvis-field-label">Speech Pause Timer (Debounce):</label>
+              <select id="jarvisSilenceDelaySelect" class="studio-select">
+                <option value="1500">1.5s (Fast)</option>
+                <option value="2000" selected>2.0s (Recommended / Natural)</option>
+                <option value="2500">2.5s (Relaxed Speaking)</option>
+                <option value="3000">3.0s (Thoughtful Speaker)</option>
               </select>
             </div>
           </div>

@@ -1793,8 +1793,6 @@ input[type="range"] {
   border-radius: 6px;
 }
 
-
-
 .inline-switch {
   display: inline-flex;
   align-items: center;
@@ -6518,5 +6516,293 @@ input[type="range"] {
   border: 1px dashed #252b48;
   border-radius: 6px;
 }
+
+/* ===================================================================
+   JARVIS SPEECH LISTENING COUNTDOWN & PROGRESS HUD
+   =================================================================== */
+.jarvis-listening-timer-bar {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 242, 254, 0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.jlt-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.jlt-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #38bdf8;
+}
+
+.jlt-pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00f2fe;
+  box-shadow: 0 0 8px #00f2fe;
+  animation: jltPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes jltPulse {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.25); opacity: 1; }
+}
+
+.jlt-countdown-pill {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(0, 242, 254, 0.16);
+  border: 1px solid rgba(0, 242, 254, 0.45);
+  color: #00f2fe;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.jlt-progress-track {
+  height: 4px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+.jlt-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f2fe, #10b981);
+  border-radius: 2px;
+  transition: width 0.08s linear;
+}
+
+.jlt-actions-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.jlt-btn {
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.jlt-btn-done {
+  background: #10b981;
+  color: #022c22;
+  border: none;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+
+.jlt-btn-done:hover {
+  background: #34d399;
+  transform: translateY(-1px);
+}
+
+.jlt-btn-cancel {
+  background: rgba(244, 63, 94, 0.14);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fb7185;
+}
+
+.jlt-btn-cancel:hover {
+  background: #f43f5e;
+  color: #ffffff;
+}
+
+/* ===================================================================
+   AI TASK EXECUTION CHECKLIST & PROPERTIES HUD
+   =================================================================== */
+.ai-task-checklist-section,
+.jarvis-task-checklist-card {
+  background: rgba(12, 16, 30, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.jarvis-task-checklist-card {
+  border-color: rgba(0, 242, 254, 0.3);
+  margin-bottom: 10px;
+}
+
+.ai-task-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.ai-task-placeholder {
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.5;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.ai-task-item {
+  background: rgba(20, 25, 45, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.ai-task-item.status-running {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(14, 165, 233, 0.09);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+}
+
+.ai-task-item.status-done {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.ai-task-item.status-error {
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.06);
+}
+
+.task-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.task-item-title-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-status-icon {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.task-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(56, 189, 248, 0.25);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: taskSpin 0.7s linear infinite;
+}
+
+@keyframes taskSpin {
+  to { transform: rotate(360deg); }
+}
+
+.task-item-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-status-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.task-status-badge.badge-waiting {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.task-status-badge.badge-running {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.task-status-badge.badge-done {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.task-status-badge.badge-error {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
+.task-properties-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.prop-badge {
+  font-size: 9.5px;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.prop-key {
+  color: #94a3b8;
+}
+
+.prop-val {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
 
 
