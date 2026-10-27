@@ -303,6 +303,72 @@
             <div id="promptAnalysisReport" class="hidden" style="margin-top:8px; padding:8px; background:#0f0f22; border:1px solid #334155; border-radius:6px; font-size:10.5px;"></div>
           </div>
 
+          <!-- WHOP CLIPPING COURSE ARCHETYPES: REACTION, GAMING, TOP MOMENTS, TEXT ON SCREEN -->
+          <div class="drawer-section clipping-archetypes-card" id="clippingArchetypesCard">
+            <div class="drawer-section-title" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#f59e0b; font-weight:800; display:flex; align-items:center; gap:5px;">
+                <span>🎬 CLIPPING ARCHETYPES</span>
+                <span class="status-pill status-amber" style="font-size:9px;">WHOP UGC</span>
+              </span>
+              <span id="activeArchetypeBadge" class="status-pill status-cyan">REACTION</span>
+            </div>
+            <p style="font-size:10px; color:#94a3b8; margin:0 0 8px 0; line-height:1.4;">
+              Select the clipping formula from KosherPlug's Whop Course. AI auto-configures layout, facecam framing, hook headline, and SFX!
+            </p>
+
+            <div class="clipping-archetypes-grid" id="clippingArchetypesGrid">
+              <!-- Archetype 1: Reaction -->
+              <button type="button" class="archetype-card active" data-archetype="reaction" title="Top Content + Bottom Reactor Facecam with Emotion Highlight Zoom">
+                <div class="arch-header">
+                  <span class="arch-icon">🎭</span>
+                  <span class="arch-name">Reaction</span>
+                </div>
+                <span class="arch-badge">Split 60/40 • Gasp Zoom</span>
+                <p class="arch-desc">Top reacted video + bottom facecam with shock punch zoom &amp; vine boom SFX.</p>
+              </button>
+
+              <!-- Archetype 2: Gaming -->
+              <button type="button" class="archetype-card" data-archetype="gaming" title="Gameplay Focus + Corner RGB Facecam PIP + Kill Shake & Hitmarkers">
+                <div class="arch-header">
+                  <span class="arch-icon">🎮</span>
+                  <span class="arch-name">Gaming</span>
+                </div>
+                <span class="arch-badge">RGB Webcam • Clutch VFX</span>
+                <p class="arch-desc">Gameplay 9:16 + neon webcam border, kill shake bursts &amp; hitmarker SFX.</p>
+              </button>
+
+              <!-- Archetype 3: Top Moments -->
+              <button type="button" class="archetype-card" data-archetype="top-moments" title="Ranked Highlights Compilation (#3, #2, #1) with Heatmap Retention Peaks">
+                <div class="arch-header">
+                  <span class="arch-icon">🏆</span>
+                  <span class="arch-name">Top Moments</span>
+                </div>
+                <span class="arch-badge">#3 #2 #1 • Heatmap Top 3</span>
+                <p class="arch-desc">Top 3 rewatch density peaks with ranking stickers, timer &amp; transition whooshes.</p>
+              </button>
+
+              <!-- Archetype 4: Text on Screen -->
+              <button type="button" class="archetype-card" data-archetype="text-on-screen" title="Kinetic Word-by-Word Subtitles + Top Hook Banner + Storytime Formatting">
+                <div class="arch-header">
+                  <span class="arch-icon">📝</span>
+                  <span class="arch-name">Text on Screen</span>
+                </div>
+                <span class="arch-badge">Kinetic Pop • Hook Banner</span>
+                <p class="arch-desc">High-contrast word-by-word active pop subtitles + curiosity headline tape.</p>
+              </button>
+            </div>
+
+            <!-- Instant Archetype Action Buttons -->
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button type="button" id="applyArchetypeClipBtn" class="btn-primary-glow" style="flex:1; justify-content:center; padding:7px 10px; font-size:11px; font-weight:800; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; border:none; border-radius:6px; cursor:pointer;" title="Apply the selected clipping archetype formula now!">
+                <span>⚡ Auto-Generate <span id="archetypeNameBtnLabel">Reaction</span> Clip</span>
+              </button>
+              <button type="button" id="switchArchetypeLayoutBtn" class="btn-chip" style="font-size:10.5px; border-color:#f59e0b; color:#f59e0b;" title="Instantly switch canvas stage to this archetype's layout">
+                📐 Layout
+              </button>
+            </div>
+          </div>
+
           <!-- 8-in-1 Viral AI Suite (Highlight Zoom, Face Track, Hook Title, B-Roll, SFX, VFX, Translit) -->
           <div class="drawer-section viral-ai-suite-card">
             <div class="drawer-section-title" style="margin-bottom:6px;">

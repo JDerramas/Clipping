@@ -6804,5 +6804,85 @@ input[type="range"] {
   font-weight: 700;
 }
 
+/* ===================================================================
+   WHOP CLIPPING COURSE ARCHETYPES: REACTION, GAMING, TOP MOMENTS, TEXT ON SCREEN
+   =================================================================== */
+.clipping-archetypes-card {
+  background: rgba(15, 18, 35, 0.88);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.clipping-archetypes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.archetype-card {
+  background: rgba(22, 28, 52, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: all 0.18s ease;
+}
+
+.archetype-card:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(30, 38, 70, 0.85);
+  transform: translateY(-1px);
+}
+
+.archetype-card.active {
+  border-color: #f59e0b;
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.18), rgba(22, 28, 52, 0.9));
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.22);
+}
+
+.arch-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.arch-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.arch-name {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.arch-badge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.14);
+  padding: 1px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+.arch-desc {
+  font-size: 9.5px;
+  color: #94a3b8;
+  margin: 2px 0 0 0;
+  line-height: 1.35;
+}
+
+
 
 

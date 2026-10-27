@@ -45,6 +45,9 @@
     videoTemplate: 'hormozi1',
     originalUrl: '',
 
+    // Whop UGC Course Clipping Archetype: 'reaction' | 'gaming' | 'top-moments' | 'text-on-screen'
+    clippingType: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_clipping_type') || 'reaction') : 'reaction',
+
     // Layout & Framing (Default: Unzoomed Fit - ALL PEOPLE VISIBLE!)
     videoFitMode: 'fit', // 'fit' (Unzoomed • All People Visible) | 'fill' (9:16 Cropped)
     layoutMode: 'full-main', // 'full-main' (Default, No Split!) | 'ambient-blur' | 'split-60-40' | 'split-50-50' | 'pip-facecam'
@@ -780,6 +783,14 @@
     dom.jarvisTaskChecklistCard = document.getElementById('jarvisTaskChecklistCard');
     dom.jarvisChecklistOverallStatus = document.getElementById('jarvisChecklistOverallStatus');
     dom.jarvisTaskChecklistItems = document.getElementById('jarvisTaskChecklistItems');
+
+    // Whop UGC Course Clipping Archetype Controls
+    dom.clippingArchetypesCard = document.getElementById('clippingArchetypesCard');
+    dom.clippingArchetypesGrid = document.getElementById('clippingArchetypesGrid');
+    dom.activeArchetypeBadge = document.getElementById('activeArchetypeBadge');
+    dom.archetypeNameBtnLabel = document.getElementById('archetypeNameBtnLabel');
+    dom.applyArchetypeClipBtn = document.getElementById('applyArchetypeClipBtn');
+    dom.switchArchetypeLayoutBtn = document.getElementById('switchArchetypeLayoutBtn');
   }
 
   // =========================================================================
@@ -2049,6 +2060,10 @@
   // =========================================================================
   function getCommandPaletteCatalog() {
     return [
+      { label: '🎭 Clipping Archetype: Reaction Style (Split 60/40 + Gasp Zoom)', shortcut: 'Reaction', run: () => setClippingType('reaction', true) },
+      { label: '🎮 Clipping Archetype: Gaming Style (Gameplay + RGB Webcam)', shortcut: 'Gaming', run: () => setClippingType('gaming', true) },
+      { label: '🏆 Clipping Archetype: Top Moments (Heatmap Top 3 Countdown)', shortcut: 'TopMoments', run: () => setClippingType('top-moments', true) },
+      { label: '📝 Clipping Archetype: Text on Screen (Kinetic Pop + Headline)', shortcut: 'TextOnScreen', run: () => setClippingType('text-on-screen', true) },
       { label: '🚀 1-Click Apply Full 8-Engine Viral Pack', shortcut: 'Viral', run: () => applyFullViralSuitePack() },
       { label: '🔍 Add Highlight Zoom Keyframe at Playhead', shortcut: 'Zoom', run: () => addHighlightZoomAtPlayhead() },
       { label: '🎯 Scan & Lock AI Speaker Face Tracking', shortcut: 'Face', run: () => scanAndEnableFaceTracking() },
@@ -3629,6 +3644,9 @@
     // 4b. Draw Custom CapCut Text Layers ("T" Tool)
     drawTextLayersOnCanvas(ctx, W, H, state.currentTime);
 
+    // 4c. Draw Whop Clipping Course Archetype Overlays (Top Moments, Reaction, Gaming, Text-on-Screen)
+    drawArchetypeOverlaysOnCanvas(ctx, W, H, state.currentTime);
+
     // 5. Draw Top Pattern-Interrupt Hook Banner (first 3.5s of clip, Always On, or when selected)
     const clipElapsed = Math.max(0, state.currentTime - state.trimStart);
     const hookDur = state.hookDuration || 3.5;
@@ -3956,8 +3974,13 @@
     }
 
     if (rect.isPip) {
-      ctx.strokeStyle = '#6366f1';
+      const isGaming = state.clippingType === 'gaming';
+      ctx.strokeStyle = isGaming ? '#00f2fe' : '#6366f1';
       ctx.lineWidth = 6;
+      if (isGaming) {
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 18;
+      }
       ctx.stroke();
     }
     ctx.restore();
@@ -4160,6 +4183,117 @@
       cx,
       cy
     });
+  }
+
+  // --- WHOP CLIPPING COURSE ARCHETYPE CANVAS OVERLAYS ---
+  function drawArchetypeOverlaysOnCanvas(ctx, W, H, timeSec) {
+    if (state.trackVisibility?.text === false) return;
+    const type = state.clippingType || 'reaction';
+
+    if (type === 'top-moments') {
+      const clipElapsed = Math.max(0, timeSec - (state.trimStart || 0));
+      const totalDur = Math.max(1, (state.trimEnd || 30) - (state.trimStart || 0));
+      const progressPct = clamp(clipElapsed / totalDur, 0, 1);
+
+      // 1. Top countdown retention progress bar
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(0, 0, W, 12);
+      const grad = ctx.createLinearGradient(0, 0, W, 0);
+      grad.addColorStop(0, '#f59e0b');
+      grad.addColorStop(0.5, '#ef4444');
+      grad.addColorStop(1, '#10b981');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W * progressPct, 12);
+      ctx.restore();
+
+      // 2. Ranking badge e.g. "🏆 #1 TOP MOMENT" in upper-left
+      ctx.save();
+      const rankText = progressPct < 0.35 ? '⚡ #3 WILD MOMENT' : progressPct < 0.70 ? '🔥 #2 INSANE PLAY' : '🏆 #1 TOP MOMENT';
+      ctx.font = '900 24px "Montserrat", "Plus Jakarta Sans", sans-serif';
+      const textW = ctx.measureText(rankText).width;
+      const badgeW = textW + 28;
+      const badgeH = 44;
+      const badgeX = 36;
+      const badgeY = 32;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(rankText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+      ctx.restore();
+    } else if (type === 'reaction') {
+      ctx.save();
+      const tagText = '🔴 REACTION CAM';
+      ctx.font = '900 20px "Montserrat", "Plus Jakarta Sans", sans-serif';
+      const textW = ctx.measureText(tagText).width;
+      const badgeW = textW + 24;
+      const badgeH = 38;
+      const badgeX = 36;
+      const badgeY = 32;
+
+      ctx.fillStyle = 'rgba(225, 29, 72, 0.90)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tagText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+      ctx.restore();
+    } else if (type === 'gaming') {
+      ctx.save();
+      const tagText = '🎮 PRO GAMEPLAY';
+      ctx.font = '900 20px "Montserrat", "Plus Jakarta Sans", sans-serif';
+      const textW = ctx.measureText(tagText).width;
+      const badgeW = textW + 24;
+      const badgeH = 38;
+      const badgeX = 36;
+      const badgeY = 32;
+
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.90)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tagText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+      ctx.restore();
+    } else if (type === 'text-on-screen') {
+      const clipElapsed = Math.max(0, timeSec - (state.trimStart || 0));
+      if (clipElapsed <= 4.0) {
+        ctx.save();
+        const storyText = '📖 STORY TIME';
+        ctx.font = '900 22px "Montserrat", "Plus Jakarta Sans", sans-serif';
+        const textW = ctx.measureText(storyText).width;
+        const badgeW = textW + 26;
+        const badgeH = 40;
+        const badgeX = 36;
+        const badgeY = 32;
+
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(storyText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+        ctx.restore();
+      }
+    }
   }
 
   // =========================================================================
@@ -10758,6 +10892,27 @@
     }
 
     // =====================================================================
+    // WHOP CLIPPING COURSE ARCHETYPES WIRING
+    // =====================================================================
+    if (dom.clippingArchetypesGrid) {
+      dom.clippingArchetypesGrid.querySelectorAll('.archetype-card').forEach((card) => {
+        safeOn(card, 'click', () => {
+          setClippingType(card.dataset.archetype, false);
+        });
+      });
+    }
+    safeOn(dom.applyArchetypeClipBtn, 'click', () => {
+      applyClippingArchetype(state.clippingType || 'reaction', false);
+    });
+    safeOn(dom.switchArchetypeLayoutBtn, 'click', () => {
+      const arch = CLIPPING_ARCHETYPES[state.clippingType || 'reaction'];
+      if (arch) {
+        setLayoutMode(arch.layoutMode);
+        showToast(`📐 Switched stage to ${arch.name} layout (${arch.layoutMode})`, '#f59e0b');
+      }
+    });
+
+    // =====================================================================
     // 8-FEATURE VIRAL AI SUITE CONTROLS WIRING
     // =====================================================================
     safeOn(dom.applyViralSuiteBtn, 'click', () => applyFullViralSuitePack());
@@ -11820,17 +11975,19 @@
     list.forEach((ev, idx) => {
       const row = document.createElement('div');
       row.className = 'viral-mini-item';
+      const evTime = Number(ev.time !== undefined ? ev.time : (ev.start || 0));
+      const evLabel = ev.label || ev.type || ev.name || 'SFX';
       row.innerHTML = `
         <button type="button" class="viral-mini-jump" title="Seek & preview SFX">
-          <span>${ev.icon || '🔊'} ${ev.label || ev.type}</span>
-          <small>@ ${ev.time.toFixed(2)}s</small>
+          <span>${ev.icon || '🔊'} ${evLabel}</span>
+          <small>@ ${evTime.toFixed(2)}s</small>
         </button>
         <button type="button" class="viral-mini-del" title="Remove SFX pin">✕</button>
       `;
       row.querySelector('.viral-mini-jump').addEventListener('click', () => {
         state.selectedTimelineItem = `sfx-${ev.id}`;
-        seekToTime(ev.time);
-        if (window.WhopAudioEngine) window.WhopAudioEngine.playSfx(ev.type);
+        seekToTime(evTime);
+        if (window.WhopAudioEngine) window.WhopAudioEngine.playSfx(ev.type || ev.name || 'whoosh');
         renderTimelineTracks();
       });
       row.querySelector('.viral-mini-del').addEventListener('click', () => {
@@ -11946,7 +12103,37 @@
     const hasCreator = /youtube|video|viral|views|mrbeast|channel|audience|content/i.test(fullText);
 
     let hooks = [];
-    if (hasMoney && hasCreator) {
+    const curArch = state.clippingType || 'reaction';
+
+    if (curArch === 'reaction') {
+      hooks = [
+        'HIS REACTION IS PRICELESS 💀',
+        'BRO WAS COMPLETELY SPEECHLESS...',
+        'WAIT FOR HIS REACTION AT THE END 😳',
+        'NEVER SEEN HIM REACT LIKE THIS 🔥'
+      ];
+    } else if (curArch === 'gaming') {
+      hooks = [
+        'HE PULLED THE IMPOSSIBLE 1v5 CLUTCH 🔥',
+        'HOW IS THIS AIM EVEN LEGAL?! 🎯',
+        'THE CLEANEST PLAY IN GAMING HISTORY 💀',
+        'BRO WENT ABSOLUTE GOD MODE 😱'
+      ];
+    } else if (curArch === 'top-moments') {
+      hooks = [
+        'TOP 3 WILDEST STREAM MOMENTS 🚨',
+        '#1 WILL ACTUALLY SHOCK YOU 🏆',
+        'RANKING THE CRAZIEST HIGHLIGHTS 🔥',
+        'MOMENT #3 WAS ALREADY UNREAL...'
+      ];
+    } else if (curArch === 'text-on-screen') {
+      hooks = [
+        'WATCH UNTIL THE VERY END 😱',
+        'STORY TIME: YOU WON\'T BELIEVE THIS...',
+        'THE 1 THING NOBODY TELLS YOU 🤫',
+        'DO NOT MAKE THIS MISTAKE ⚠️'
+      ];
+    } else if (hasMoney && hasCreator) {
       hooks = [
         'HOW THIS SECRET PRINTED MILLIONS 🤯💰',
         '99% OF CREATORS MISS THIS 1 RULE ⚡👇',
@@ -12348,206 +12535,353 @@
     }
   }
 
-  // --- MASTER 1-CLICK / 0-CLICK 8-ENGINE VIRAL PACK ---
-  async function applyFullViralSuitePack(isZeroClick = false) {
-    pushUndoState('Apply Full 8-Engine Viral Pack');
+  // =========================================================================
+  // WHOP CLIPPING COURSE ARCHETYPES ENGINE (KOSHERPLUG UGC)
+  // REACTION • GAMING • TOP MOMENTS • TEXT ON SCREEN
+  // =========================================================================
+  const CLIPPING_ARCHETYPES = {
+    'reaction': {
+      id: 'reaction',
+      name: 'Reaction Style',
+      icon: '🎭',
+      badge: 'Split 60/40 • Gasp Zoom',
+      description: 'Top reacted video + bottom facecam with shock punch zoom & vine boom SFX.',
+      layoutMode: 'split-60-40',
+      captionStyle: 'hormozi-pop',
+      hookTitleStyle: 'hormozi-tape',
+      hookBanner: 'HIS REACTION IS PRICELESS 💀',
+      highlightZoomMode: 'keyword-punch',
+      highlightZoomScale: 1.30,
+      faceTrackMode: 'speaker-lock',
+      brollCutawayMode: 'pip-card',
+      sfxSet: ['vine-boom', 'whoosh', 'gasp', 'pop'],
+      vfxType: 'impactFlash',
+      defaultPrompt: 'Edit as a high-energy REACTION clip: Keep main reacted content on top, creator facecam on bottom with face tracking. Add dramatic highlight zoom (1.30x) on gasps and punchlines. Sync shock whoosh & vine boom sound effects. Center viral captions.'
+    },
+    'gaming': {
+      id: 'gaming',
+      name: 'Gaming Style',
+      icon: '🎮',
+      badge: 'RGB Webcam • Clutch VFX',
+      description: 'Gameplay 9:16 + neon webcam border, kill shake bursts & hitmarker SFX.',
+      layoutMode: 'pip-facecam',
+      captionStyle: 'neon-cyber',
+      hookTitleStyle: 'neon-glow',
+      hookBanner: 'HE PULLED THE IMPOSSIBLE CLUTCH 🔥',
+      highlightZoomMode: 'action-surge',
+      highlightZoomScale: 1.25,
+      faceTrackMode: 'corner-pip',
+      brollCutawayMode: 'pip-card',
+      sfxSet: ['hitmarker', 'victory-bell', 'whoosh', 'riser'],
+      vfxType: 'speedLines',
+      defaultPrompt: 'Edit as an intense GAMING stream clip: Frame gameplay in center, place streamer facecam in corner with glowing gamer border. Detect clutch peaks with speed lines & impact shake. Sync hitmarker pop and victory bell SFX. Add energetic neon captions.'
+    },
+    'top-moments': {
+      id: 'top-moments',
+      name: 'Top Moments',
+      icon: '🏆',
+      badge: '#3 #2 #1 • Heatmap Top 3',
+      description: 'Top 3 rewatch density peaks with ranking stickers, timer & transition whooshes.',
+      layoutMode: 'full-main',
+      captionStyle: 'hormozi-pop',
+      hookTitleStyle: 'hormozi-tape',
+      hookBanner: 'TOP 3 WILDEST STREAM MOMENTS 🚨',
+      highlightZoomMode: 'keyword-punch',
+      highlightZoomScale: 1.22,
+      faceTrackMode: 'speaker-lock',
+      brollCutawayMode: 'pip-card',
+      sfxSet: ['whoosh', 'ding', 'riser', 'pop'],
+      vfxType: 'speedLines',
+      defaultPrompt: 'Edit as a TOP MOMENTS compilation: Extract the top 3 highest retention rewatch moments from the heatmap. Sequence them with #3, #2, #1 ranking stickers, fast transition whooshes, silence jump-cuts, and a top progress countdown bar. Add bold curiosity headline.'
+    },
+    'text-on-screen': {
+      id: 'text-on-screen',
+      name: 'Text on Screen',
+      icon: '📝',
+      badge: 'Kinetic Pop • Hook Banner',
+      description: 'High-contrast word-by-word active pop subtitles + curiosity headline tape.',
+      layoutMode: 'ambient-blur',
+      captionStyle: 'hormozi-pop',
+      hookTitleStyle: 'hormozi-tape',
+      hookBanner: 'WATCH UNTIL THE VERY END 😱',
+      highlightZoomMode: 'keyword-punch',
+      highlightZoomScale: 1.18,
+      faceTrackMode: 'speaker-lock',
+      brollCutawayMode: 'pip-card',
+      sfxSet: ['pop', 'whoosh', 'ding'],
+      vfxType: 'speedLines',
+      defaultPrompt: 'Edit as a TEXT-ON-SCREEN viral short: Keep vertical 9:16 layout with ambient blur fit. Add prominent top headline banner tape ("STORY TIME..."), bold word-by-word active pop subtitles in middle, and commentary question pills. Emphasize visual readability for viewers watching without audio.'
+    }
+  };
+
+  function syncArchetypeUI() {
+    const curType = state.clippingType || 'reaction';
+    const arch = CLIPPING_ARCHETYPES[curType] || CLIPPING_ARCHETYPES['reaction'];
+
+    if (dom.clippingArchetypesGrid) {
+      dom.clippingArchetypesGrid.querySelectorAll('.archetype-card').forEach((card) => {
+        card.classList.toggle('active', card.dataset.archetype === curType);
+      });
+    }
+    if (dom.activeArchetypeBadge) {
+      dom.activeArchetypeBadge.textContent = arch.name.toUpperCase();
+    }
+    if (dom.archetypeNameBtnLabel) {
+      dom.archetypeNameBtnLabel.textContent = arch.name.replace(' Style', '');
+    }
+  }
+
+  function setClippingType(type, autoApply = false) {
+    if (!CLIPPING_ARCHETYPES[type]) type = 'reaction';
+    state.clippingType = type;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('whop_clipping_type', type);
+    }
+    syncArchetypeUI();
+
+    const arch = CLIPPING_ARCHETYPES[type];
+    if (dom.clientPromptInput && (!dom.clientPromptInput.value.trim() || Object.values(CLIPPING_ARCHETYPES).some(a => dom.clientPromptInput.value.includes(a.name)))) {
+      dom.clientPromptInput.value = arch.defaultPrompt;
+    }
+
+    if (autoApply) {
+      return applyClippingArchetype(type);
+    } else {
+      showToast(`🎬 Selected ${arch.name} (${arch.badge})`, '#f59e0b', 3000);
+      renderCanvasFrame();
+      return true;
+    }
+  }
+
+  // --- MASTER CLIPPING ARCHETYPE GENERATOR ---
+  async function applyClippingArchetype(type = 'reaction', isZeroClick = false) {
+    const arch = CLIPPING_ARCHETYPES[type] || CLIPPING_ARCHETYPES['reaction'];
+    state.clippingType = arch.id;
+    pushUndoState(`Apply ${arch.name} Clipping Archetype`);
+
     const sStart = state.trimStart || 0;
     const dur = dom.mainVideoEl?.duration || state.streamDuration || 58.05;
 
     initTaskChecklist(AI_VIRAL_SUITE_TASKS);
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // 1. Multimodal Video & Audio Scan
+    // 1. Multimodal Video Scan & Archetype Profiling
     updateTaskChecklistStep('scan_video', {
       status: 'running',
-      properties: { Engine: 'Whisper + OpenCV YuNet', Status: 'Decoding stream' }
+      properties: { Engine: 'Whisper + OpenCV YuNet', Archetype: arch.name }
     });
-    await sleep(70);
+    await sleep(60);
     updateTaskChecklistStep('scan_video', {
       status: 'done',
       properties: {
-        Source: state.customMainFileName ? state.customMainFileName.slice(0, 22) + '...' : 'Master Stream',
+        Archetype: arch.name,
+        Layout: arch.layoutMode,
         Duration: `${dur.toFixed(1)}s`,
-        Resolution: '1080p 60fps',
-        Audio: '16kHz Intact'
+        Resolution: '1080p 60fps'
       }
     });
 
-    // 2. Viral Clip Auto-Curation (Grade S+)
+    // 2. Archetype Layout & Composition
+    state.layoutMode = arch.layoutMode;
+    if (arch.layoutMode === 'ambient-blur') {
+      state.wholeScreenFit = true;
+    }
+    if (dom.layoutModeGrid) {
+      dom.layoutModeGrid.querySelectorAll('.layout-card').forEach((c) => {
+        c.classList.toggle('active', c.dataset.layout === arch.layoutMode);
+      });
+    }
+
+    // 3. Auto-Curation (Grade S+ tailored to Archetype)
     updateTaskChecklistStep('auto_curate', {
       status: 'running',
-      properties: { Algorithm: '4-Pillar Retention Engine', Target: `${state.targetDuration || 30}s` }
+      properties: { Profile: arch.name, Pacing: arch.id === 'top-moments' ? 'Countdown Chaining' : 'High Retention' }
     });
-    await sleep(70);
+    await sleep(60);
     runAiAutoCuration();
     updateTaskChecklistStep('auto_curate', {
       status: 'done',
       properties: {
+        Archetype: arch.name,
         Score: state.aiCurationScore?.grade || 'Grade S+ (97%)',
         HookRet: `${state.aiCurationScore?.hookScore || 96}%`,
-        Pacing: 'TikTok Fast-Paced',
-        Moments: `${state.curationMoments?.length || 4} peaks`
+        Pacing: arch.id === 'top-moments' ? 'Top 3 Countdown' : 'Viral Fast-Paced'
       }
     });
 
-    // 3. OpenCV Face Tracking & Framing
+    // 4. Face Tracking & Framing
     updateTaskChecklistStep('face_track', {
       status: 'running',
-      properties: { Tracker: 'YuNet Deep Neural Net', Mode: 'Speaker Lock' }
+      properties: { Tracker: 'YuNet Deep Neural Net', Mode: arch.faceTrackMode }
     });
-    await sleep(70);
+    await sleep(60);
     scanAndEnableFaceTracking(false);
     updateTaskChecklistStep('face_track', {
       status: 'done',
       properties: {
-        Tracking: 'Speaker Locked',
+        Tracking: arch.id === 'gaming' ? 'Gamer Webcam PIP' : 'Speaker Locked',
         Keyframes: `${state.faceTrackKeyframes?.length || 31} kf`,
         Filter: '1€ Euro Filter',
-        Framing: '9:16 Center Crop'
+        Framing: arch.layoutMode
       }
     });
 
-    // 4. Dynamic Viral Hook Headline
+    // 5. Dynamic Viral Hook Headline
     updateTaskChecklistStep('hook_title', {
       status: 'running',
-      properties: { Engine: 'Gemini Viral Headline Generator', Style: 'Hormozi Tape' }
+      properties: { Engine: 'Gemini Viral Headline', Style: arch.hookTitleStyle }
     });
-    await sleep(70);
-    state.hookTitleStyle = 'hormozi-tape';
+    await sleep(60);
+    state.hookTitleStyle = arch.hookTitleStyle;
     state.hookMode = '3s';
     const hooks = generateAiHookSuggestions(false);
-    if (hooks[0]) {
-      state.hookText = hooks[0];
-      state.hookBannerText = hooks[0];
-      if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = hooks[0];
-      if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = hooks[0];
-    }
+    const selectedHook = hooks[0] || arch.hookBanner;
+    state.hookText = selectedHook;
+    state.hookBannerText = selectedHook;
+    if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = selectedHook;
+    if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = selectedHook;
     updateTaskChecklistStep('hook_title', {
       status: 'done',
       properties: {
-        Headline: `"${(state.hookBannerText || 'Top Secret').slice(0, 18)}..."`,
-        Style: 'Hormozi Yellow Tape',
+        Headline: `"${selectedHook.slice(0, 18)}..."`,
+        Style: arch.hookTitleStyle,
         Duration: '3.0s',
         Punch: 'Dynamic Bounce'
       }
     });
 
-    // 5. Subtitles & Taglish Transliteration
+    // 6. Subtitles & Typography
     updateTaskChecklistStep('subtitles_translit', {
       status: 'running',
-      properties: { Style: 'Hormozi Pop', Dictionary: 'Taglish Translit Dictionary' }
+      properties: { Style: arch.captionStyle, Mode: 'Word-by-Word Active Pop' }
     });
-    await sleep(70);
+    await sleep(60);
     state.captionsEnabled = true;
-    state.captionStyle = 'hormozi-pop';
+    state.captionStyle = arch.captionStyle;
     renderCaptionPresetsGrid();
     updateTaskChecklistStep('subtitles_translit', {
       status: 'done',
       properties: {
-        Preset: 'Hormozi Pop Karaoke',
+        Preset: arch.captionStyle,
         Vocabulary: 'Taglish Bilingual',
         Words: `${state.captions?.length || 18} words`,
         Sync: 'Zero-Seek Precision'
       }
     });
 
-    // 6. Action & Highlight Zoom Keyframes
+    // 7. Highlight Zoom Keyframes
     updateTaskChecklistStep('highlight_zoom', {
       status: 'running',
-      properties: { Mode: 'Keyword Punch', Scale: '1.26×' }
+      properties: { Mode: arch.highlightZoomMode, Scale: `${arch.highlightZoomScale.toFixed(2)}×` }
     });
-    await sleep(70);
-    state.highlightZoomMode = 'keyword-punch';
-    state.highlightZoomScale = 1.22;
+    await sleep(60);
+    state.highlightZoomMode = arch.highlightZoomMode;
+    state.highlightZoomScale = arch.highlightZoomScale;
     state.highlightZooms = [
       {
-        id: `zoom_pack_${Date.now()}`,
+        id: `zoom_${arch.id}_${Date.now()}`,
         start: Number((sStart + 0.6).toFixed(2)),
         duration: 1.8,
-        scale: 1.26,
-        label: 'Hook Punch 1.26×',
+        scale: arch.highlightZoomScale,
+        label: `${arch.name} Punch ${arch.highlightZoomScale.toFixed(2)}×`,
         ease: 'spring'
       }
     ];
     updateTaskChecklistStep('highlight_zoom', {
       status: 'done',
       properties: {
-        Mode: 'Keyword Punch',
-        Scale: '1.26× Hero Zoom',
+        Mode: arch.highlightZoomMode,
+        Scale: `${arch.highlightZoomScale.toFixed(2)}×`,
         Ease: 'Spring Bounce',
         Keyframes: `${state.highlightZooms.length} zooms`
       }
     });
 
-    // 7. Attention Bursts & Punch VFX
+    // 8. Timed VFX Bursts
     updateTaskChecklistStep('vfx_burst', {
       status: 'running',
-      properties: { Type: 'Speed Lines', Placement: 'Hook Transition' }
+      properties: { Type: arch.vfxType, Placement: 'Hook Transition' }
     });
-    await sleep(70);
+    await sleep(60);
     state.vfxEvents = [
       {
-        id: `vfx_pack_${Date.now()}`,
-        type: 'speedLines',
-        label: 'Speed Lines',
+        id: `vfx_${arch.id}_${Date.now()}`,
+        type: arch.vfxType,
+        label: arch.vfxType,
         start: Number((sStart + 0.15).toFixed(2)),
         duration: 1.5
       }
     ];
+    if (state.effects && arch.vfxType) state.effects[arch.vfxType] = true;
+    if (!state.vfxEnabled) state.vfxEnabled = {};
+    if (arch.vfxType) state.vfxEnabled[arch.vfxType] = true;
     updateTaskChecklistStep('vfx_burst', {
       status: 'done',
       properties: {
-        Effect: 'Speed Lines Burst',
+        Effect: arch.vfxType,
         Sync: 'Playhead Entry',
         Duration: '1.5s',
         CanvasBlend: 'Overlay Screen'
       }
     });
 
-    // 8. Cutaway B-Roll & Visual Context
+    // 9. Context B-Roll Cutaways
     updateTaskChecklistStep('context_broll', {
       status: 'running',
-      properties: { Mode: 'Floating PIP Card', Context: 'AI Visual Match' }
+      properties: { Mode: arch.brollCutawayMode, Context: 'AI Visual Match' }
     });
-    await sleep(70);
-    state.brollCutawayMode = 'pip-card';
+    await sleep(60);
+    state.brollCutawayMode = arch.brollCutawayMode;
     autoInsertContextBroll();
     updateTaskChecklistStep('context_broll', {
       status: 'done',
       properties: {
-        Mode: 'Floating PIP Card',
+        Mode: arch.brollCutawayMode,
         Cutaways: `${state.brollEvents?.length || 3} clips`,
         Position: 'Top-Right (Speaker Free)',
         Border: 'Cyan Neon Glow'
       }
     });
 
-    // 9. Multi-Track SFX Audio Alignment
+    // 10. Multi-Track SFX Audio Alignment
     updateTaskChecklistStep('sfx_sync', {
       status: 'running',
-      properties: { Synthesizer: 'Web Audio API Synth Buses', Alignment: 'Cuts, Zooms & B-Roll' }
+      properties: { ArchetypeSFX: arch.sfxSet.join(', '), Alignment: 'Cuts, Zooms & B-Roll' }
     });
-    await sleep(70);
-    autoSyncTimelineSfx();
+    await sleep(60);
+    const s1 = arch.sfxSet[0] || 'whoosh';
+    const s2 = arch.sfxSet[1] || 'pop';
+    const s3 = arch.sfxSet[2] || 'ding';
+    state.sfxEvents = [
+      { id: `sfx_1_${Date.now()}`, type: s1, time: Number((sStart + 0.1).toFixed(2)), icon: SFX_META_MAP[s1]?.icon || '🔊', label: SFX_META_MAP[s1]?.label || s1, volume: 0.9 },
+      { id: `sfx_2_${Date.now()}`, type: s2, time: Number((sStart + 0.6).toFixed(2)), icon: SFX_META_MAP[s2]?.icon || '🔊', label: SFX_META_MAP[s2]?.label || s2, volume: 0.9 },
+      { id: `sfx_3_${Date.now()}`, type: s3, time: Number((sStart + 1.6).toFixed(2)), icon: SFX_META_MAP[s3]?.icon || '🔊', label: SFX_META_MAP[s3]?.label || s3, volume: 0.9 }
+    ];
     updateTaskChecklistStep('sfx_sync', {
       status: 'done',
       properties: {
-        SFXBuses: 'Pop, Whoosh, Bell',
-        TotalCues: `${state.sfxEvents?.length || 3} cues`,
+        SFXBuses: arch.sfxSet.slice(0, 3).join(', '),
+        TotalCues: `${state.sfxEvents.length} cues`,
         AudioTrack: 'Synced on Timeline Track 5'
       }
     });
 
     seekToTime(sStart + 0.35);
     syncViralSuiteControlsUI();
+    syncArchetypeUI();
     renderTimelineTracks();
     renderCanvasFrame();
 
     const msg = isZeroClick
-      ? '⚡ 100% 0-Click Auto Viral Suite Applied! All 8 features ready and editable.'
-      : '🚀 Applied Full 8-Engine Viral Suite! (Everything is 100% editable & Ctrl+Z undoable)';
-    showToast(msg, '#10b981');
+      ? `⚡ 100% 0-Click ${arch.name} Clip Generated! (${arch.badge})`
+      : `🚀 Applied ${arch.name} Clipping Formula! (${arch.description})`;
+    showToast(msg, '#f59e0b', 5000);
     return true;
+  }
+
+  // --- MASTER 1-CLICK / 0-CLICK 8-ENGINE VIRAL PACK ---
+  async function applyFullViralSuitePack(isZeroClick = false) {
+    return applyClippingArchetype(state.clippingType || 'reaction', isZeroClick);
   }
 
   // =========================================================================
@@ -12585,6 +12919,7 @@
     initRepoEnginesStatus();
     syncAllInspectorControlsFromState();
     syncViralSuiteControlsUI();
+    syncArchetypeUI();
     generateAiHookSuggestions(false);
     renderVisualOverlaysList();
     bindEvents();
@@ -12692,6 +13027,10 @@
       executeClientPromptEdit,
       runAutoEdit,
       openExportModal,
+      syncArchetypeUI,
+      setClippingType,
+      applyClippingArchetype,
+      CLIPPING_ARCHETYPES,
     };
     window.WhopState = state;
     window.getActiveClip = getActiveClip;

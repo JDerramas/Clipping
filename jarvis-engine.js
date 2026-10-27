@@ -874,6 +874,14 @@
           }
           break;
         }
+        case 'set_clipping_type': {
+          const archType = action.archetype || 'reaction';
+          if (studio?.setClippingType) {
+            studio.setClippingType(archType, action.autoApply !== false);
+            return true;
+          }
+          break;
+        }
         default:
           console.warn('[JARVIS] Unknown action type:', type);
           if (studio?.updateTaskChecklistStep) {
@@ -1044,6 +1052,17 @@
         localActions.push({ action: 'client_prompt_edit', prompt: rawText });
       }
 
+      // Clipping Archetypes Fast Reflex Intents (KosherPlug UGC Course: reaction, gaming, top-moments, text-on-screen)
+      if (text.includes('reaction') || text.includes('reactor') || text.includes('facecam split')) {
+        localActions.push({ action: 'set_clipping_type', archetype: 'reaction', autoApply: true });
+      } else if (text.includes('gaming') || text.includes('gameplay clip') || text.includes('gamer style') || text.includes('game play')) {
+        localActions.push({ action: 'set_clipping_type', archetype: 'gaming', autoApply: true });
+      } else if (text.includes('top moment') || text.includes('top moments') || text.includes('top 3') || text.includes('top three') || text.includes('countdown clip')) {
+        localActions.push({ action: 'set_clipping_type', archetype: 'top-moments', autoApply: true });
+      } else if (text.includes('text on screen') || text.includes('text-on-screen') || text.includes('story time') || text.includes('storytime') || text.includes('silent clip') || text.includes('text onscreen')) {
+        localActions.push({ action: 'set_clipping_type', archetype: 'text-on-screen', autoApply: true });
+      }
+
       // 8-Feature Viral AI Pro Suite Fast Reflex Intents
       if (text.includes('viral pack') || text.includes('viral suite') || text.includes('8 engine') || text.includes('full viral')) {
         localActions.push({ action: 'viral_pack' });
@@ -1088,8 +1107,8 @@
 
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
-        (text.length < 34 && localActions.length > 0) ||
-        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark'].includes(text)
+        (text.length < 50 && localActions.length > 0) ||
+        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen'].includes(text)
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -1139,6 +1158,14 @@
           msg = "Inserted context-aware AI B-roll cutaways across your timeline, sir.";
         } else if (first.action === 'viral_pack') {
           msg = "Activated the full eight-engine viral suite across your sequence, sir.";
+        } else if (first.action === 'set_clipping_type') {
+          const names = {
+            'reaction': 'Reaction Clip formula with 60/40 Split and Face Tracking',
+            'gaming': 'Gaming Clip formula with RGB Neon Border and Speed Lines VFX',
+            'top-moments': 'Top Moments Countdown formula with #1/#2/#3 Stickers and Progress Bar',
+            'text-on-screen': 'Text-On-Screen formula with Kinetic Subtitles and Story Time Badge'
+          };
+          msg = `Applied the ${names[first.archetype] || 'Clipping Archetype'} formula across your sequence, sir.`;
         }
         const latencyMs = Math.max(1, Math.round(performance.now() - startTs));
         this.addChatMessage('user', rawText);

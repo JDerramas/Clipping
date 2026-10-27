@@ -1498,6 +1498,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "- 'undo': { 'action': 'undo' } "
             "- 'redo': { 'action': 'redo' } "
             "- 'auto_edit': { 'action': 'auto_edit' } "
+            "- 'set_clipping_type': { 'action': 'set_clipping_type', 'archetype': 'reaction' | 'gaming' | 'top-moments' | 'text-on-screen', 'autoApply': true } "
             "- 'client_prompt_edit': { 'action': 'client_prompt_edit', 'prompt': '<client_brief_text>' } "
             "- 'export': { 'action': 'export' } "
             "OUTPUT FORMAT: You MUST return a single JSON object: "
