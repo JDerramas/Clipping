@@ -2064,6 +2064,7 @@
       { label: '🎮 Clipping Archetype: Gaming Style (Gameplay + RGB Webcam)', shortcut: 'Gaming', run: () => setClippingType('gaming', true) },
       { label: '🏆 Clipping Archetype: Top Moments (Heatmap Top 3 Countdown)', shortcut: 'TopMoments', run: () => setClippingType('top-moments', true) },
       { label: '📝 Clipping Archetype: Text on Screen (Kinetic Pop + Headline)', shortcut: 'TextOnScreen', run: () => setClippingType('text-on-screen', true) },
+      { label: '🎵 Clipping Archetype: Music Edit (Phonk 808 Beat-Sync & RGB Split)', shortcut: 'MusicEdit', run: () => setClippingType('music-edit', true) },
       { label: '🚀 1-Click Apply Full 8-Engine Viral Pack', shortcut: 'Viral', run: () => applyFullViralSuitePack() },
       { label: '🔍 Add Highlight Zoom Keyframe at Playhead', shortcut: 'Zoom', run: () => addHighlightZoomAtPlayhead() },
       { label: '🎯 Scan & Lock AI Speaker Face Tracking', shortcut: 'Face', run: () => scanAndEnableFaceTracking() },
@@ -4293,6 +4294,44 @@
         ctx.fillText(storyText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
         ctx.restore();
       }
+    } else if (type === 'music-edit') {
+      ctx.save();
+      const beatBpm = 140;
+      const beatSec = 60 / beatBpm;
+      const beatPulse = (Math.sin(timeSec * (Math.PI * 2 / beatSec)) + 1) * 0.5;
+
+      // 1. Equalizer audio visualizer bars in top-left
+      const barCount = 5;
+      const startX = 36;
+      const startY = 32;
+      const barW = 6;
+      const barGap = 4;
+      const maxH = 26;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.beginPath();
+      ctx.roundRect(startX - 8, startY - 6, (barW + barGap) * barCount + 185, 42, 6);
+      ctx.fill();
+      ctx.strokeStyle = '#ec4899';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      for (let i = 0; i < barCount; i++) {
+        const barH = 8 + Math.abs(Math.sin(timeSec * 7 + i * 1.3)) * (maxH - 8) * (0.6 + 0.4 * beatPulse);
+        const grad = ctx.createLinearGradient(0, startY + maxH, 0, startY + maxH - barH);
+        grad.addColorStop(0, '#a855f7');
+        grad.addColorStop(1, '#ec4899');
+        ctx.fillStyle = grad;
+        ctx.fillRect(startX + i * (barW + barGap), startY + maxH - barH, barW, barH);
+      }
+
+      // 2. Neon Music Tag
+      ctx.font = '900 18px "Montserrat", "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = '#f43f5e';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🎧 PHONK 808 SYNC', startX + barCount * (barW + barGap) + 10, startY + 15);
+      ctx.restore();
     }
   }
 
@@ -12133,6 +12172,13 @@
         'THE 1 THING NOBODY TELLS YOU 🤫',
         'DO NOT MAKE THIS MISTAKE ⚠️'
       ];
+    } else if (curArch === 'music-edit') {
+      hooks = [
+        'WAIT FOR THE BEAT DROP 🎧🔥',
+        'WHEN THE 808 BASS DROPS AT 0:15 🤯💥',
+        'THIS PHONK TRANSITION GOES CRAZY 🔊⚡',
+        'BRO WAS IN FULL DEMON MODE 😈🔥'
+      ];
     } else if (hasMoney && hasCreator) {
       hooks = [
         'HOW THIS SECRET PRINTED MILLIONS 🤯💰',
@@ -12611,6 +12657,26 @@
       sfxSet: ['pop', 'whoosh', 'ding'],
       vfxType: 'speedLines',
       defaultPrompt: 'Edit as a TEXT-ON-SCREEN viral short: Keep vertical 9:16 layout with ambient blur fit. Add prominent top headline banner tape ("STORY TIME..."), bold word-by-word active pop subtitles in middle, and commentary question pills. Emphasize visual readability for viewers watching without audio.'
+    },
+    'music-edit': {
+      id: 'music-edit',
+      name: 'Music Edit',
+      icon: '🎵',
+      badge: 'Beat-Sync • Bass Shake',
+      description: 'Phonk/808 beat drop, audio-reactive canvas pump, RGB split & strobe flash.',
+      layoutMode: 'full-main',
+      captionStyle: 'neon-cyber',
+      hookTitleStyle: 'neon-glow',
+      hookBanner: 'WAIT FOR THE BEAT DROP 🎧🔥',
+      highlightZoomMode: 'action-surge',
+      highlightZoomScale: 1.28,
+      faceTrackMode: 'speaker-lock',
+      brollCutawayMode: 'ambient',
+      sfxSet: ['bass-drop', 'riser', 'glitch', 'whoosh'],
+      vfxType: 'rgbSplit',
+      musicPreset: 'phonk-drive',
+      musicVolume: 0.40,
+      defaultPrompt: 'Edit as a high-octane MUSIC EDIT: Sync video cuts and velocity zoom pumps to the 140 BPM phonk beat drops. Trigger chromatic RGB split and impact strobe flash on heavy 808 sub bass kicks. Render glowing neon cyber subtitles and tension risers.'
     }
   };
 
@@ -12815,6 +12881,14 @@
     if (state.effects && arch.vfxType) state.effects[arch.vfxType] = true;
     if (!state.vfxEnabled) state.vfxEnabled = {};
     if (arch.vfxType) state.vfxEnabled[arch.vfxType] = true;
+    if (arch.id === 'music-edit') {
+      if (state.effects) {
+        state.effects.rgbSplit = true;
+        state.effects.impactFlash = true;
+      }
+      state.vfxEnabled.rgbSplit = true;
+      state.vfxEnabled.impactFlash = true;
+    }
     updateTaskChecklistStep('vfx_burst', {
       status: 'done',
       properties: {
@@ -12867,6 +12941,18 @@
     });
 
     seekToTime(sStart + 0.35);
+    if (arch.id === 'music-edit') {
+      state.musicPreset = arch.musicPreset || 'phonk-drive';
+      state.musicVolume = arch.musicVolume || 0.40;
+      if (dom.inspMusicPresetSelect) dom.inspMusicPresetSelect.value = state.musicPreset;
+      if (dom.inspMusicVolSlider) dom.inspMusicVolSlider.value = String(Math.round(state.musicVolume * 100));
+      if (dom.inspMusicVolLabel) dom.inspMusicVolLabel.textContent = `${Math.round(state.musicVolume * 100)}%`;
+      if (window.WhopAudioEngine) {
+        window.WhopAudioEngine.setMusicPreset(state.musicPreset);
+        window.WhopAudioEngine.setMusicVolume(state.musicVolume);
+      }
+      if (typeof renderMusicPresetCards === 'function') renderMusicPresetCards();
+    }
     syncViralSuiteControlsUI();
     syncArchetypeUI();
     renderTimelineTracks();

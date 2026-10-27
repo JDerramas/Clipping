@@ -1061,6 +1061,8 @@
         localActions.push({ action: 'set_clipping_type', archetype: 'top-moments', autoApply: true });
       } else if (text.includes('text on screen') || text.includes('text-on-screen') || text.includes('story time') || text.includes('storytime') || text.includes('silent clip') || text.includes('text onscreen')) {
         localActions.push({ action: 'set_clipping_type', archetype: 'text-on-screen', autoApply: true });
+      } else if (text.includes('music edit') || text.includes('beat sync') || text.includes('phonk edit') || text.includes('bass drop edit') || text.includes('music clip') || text.includes('music video') || text.includes('phonk')) {
+        localActions.push({ action: 'set_clipping_type', archetype: 'music-edit', autoApply: true });
       }
 
       // 8-Feature Viral AI Pro Suite Fast Reflex Intents
@@ -1108,7 +1110,7 @@
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
         (text.length < 50 && localActions.length > 0) ||
-        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen'].includes(text)
+        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit'].includes(text)
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -1163,7 +1165,8 @@
             'reaction': 'Reaction Clip formula with 60/40 Split and Face Tracking',
             'gaming': 'Gaming Clip formula with RGB Neon Border and Speed Lines VFX',
             'top-moments': 'Top Moments Countdown formula with #1/#2/#3 Stickers and Progress Bar',
-            'text-on-screen': 'Text-On-Screen formula with Kinetic Subtitles and Story Time Badge'
+            'text-on-screen': 'Text-On-Screen formula with Kinetic Subtitles and Story Time Badge',
+            'music-edit': 'Music Edit formula with 140 BPM Phonk beat-sync, bass shake, and RGB split VFX'
           };
           msg = `Applied the ${names[first.archetype] || 'Clipping Archetype'} formula across your sequence, sir.`;
         }

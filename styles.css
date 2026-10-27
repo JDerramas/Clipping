@@ -6822,6 +6822,10 @@ input[type="range"] {
   gap: 8px;
 }
 
+.clipping-archetypes-grid .archetype-card:last-child:nth-child(odd) {
+  grid-column: span 2;
+}
+
 .archetype-card {
   background: rgba(22, 28, 52, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
