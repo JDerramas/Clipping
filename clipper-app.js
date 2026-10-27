@@ -3208,6 +3208,7 @@
   function getHighlightZoomFactorAtTime(timeSec) {
     const mode = state.highlightZoomMode || 'off';
     const maxScale = clamp(Number(state.highlightZoomScale) || 1.20, 1.04, 1.65);
+    let baseFactor = 1.0;
 
     // 1. Check explicit manual Highlight Zoom keyframes first (unless mode === 'off')
     if (mode !== 'off' && Array.isArray(state.highlightZooms) && state.highlightZooms.length > 0) {
@@ -3226,57 +3227,65 @@
           } else if (zEnd - timeSec < rampOut) {
             env = easeInOutCubic((zEnd - timeSec) / Math.max(0.05, rampOut));
           }
-          return 1.0 + (targetSc - 1.0) * env;
+          baseFactor = 1.0 + (targetSc - 1.0) * env;
+          break;
         }
       }
-    }
-
-    if (mode === 'off' || mode === 'keyframes') return 1.0;
-
-    if (mode === 'ken-burns') {
+    } else if (mode === 'ken-burns') {
       const rel = Math.max(0, timeSec - (state.trimStart || 0));
       const wave = 0.5 - 0.5 * Math.cos((rel / 7.5) * Math.PI * 2);
-      return 1.0 + (maxScale - 1.0) * 0.55 * wave;
-    }
-
-    // 'keyword-punch': Smooth emphasis punch on power/number words spaced >= 4.2s apart
-    const clip = getActiveClip();
-    const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
-      ? clip.transcript
-      : (state.analysis?.transcript || []);
-    if (words.length > 0) {
-      let lastPunchT = -10;
-      for (let i = 0; i < words.length; i++) {
-        const w = words[i];
-        if (!w || w.deleted) continue;
-        const txt = String(w.origWord || w.word || '');
-        const isPower = Boolean(w.emphasis) || /(\d|\$|%|million|billion|secret|crazy|money|viral|never|truth|hack|revenue|payout|first|shock|wait)/i.test(txt);
-        if (!isPower) continue;
-        const wStart = Number(w.start) || 0;
-        if (wStart - lastPunchT < 4.2) continue;
-        lastPunchT = wStart;
-        const pStart = Math.max(0, wStart - 0.08);
-        const pDur = 1.48;
-        const pEnd = pStart + pDur;
+      baseFactor = 1.0 + (maxScale - 1.0) * 0.55 * wave;
+    } else if (mode === 'keyword-punch' || mode === 'action-surge') {
+      const clip = getActiveClip();
+      const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+        ? clip.transcript
+        : (state.analysis?.transcript || []);
+      if (words.length > 0) {
+        let lastPunchT = -10;
+        for (let i = 0; i < words.length; i++) {
+          const w = words[i];
+          if (!w || w.deleted) continue;
+          const txt = String(w.origWord || w.word || '');
+          const isPower = Boolean(w.emphasis) || /(\d|\$|%|million|billion|secret|crazy|money|viral|never|truth|hack|revenue|payout|first|shock|wait)/i.test(txt);
+          if (!isPower) continue;
+          const wStart = Number(w.start) || 0;
+          if (wStart - lastPunchT < 4.2) continue;
+          lastPunchT = wStart;
+          const pStart = Math.max(0, wStart - 0.08);
+          const pDur = 1.48;
+          const pEnd = pStart + pDur;
+          if (timeSec >= pStart && timeSec <= pEnd) {
+            let env = 1.0;
+            if (timeSec - pStart < 0.24) env = easeInOutCubic((timeSec - pStart) / 0.24);
+            else if (pEnd - timeSec < 0.30) env = easeInOutCubic((pEnd - timeSec) / 0.30);
+            baseFactor = 1.0 + (maxScale - 1.0) * env;
+            break;
+          }
+        }
+      } else {
+        const pStart = (state.trimStart || 0) + 1.1;
+        const pEnd = pStart + 1.5;
         if (timeSec >= pStart && timeSec <= pEnd) {
           let env = 1.0;
-          if (timeSec - pStart < 0.24) env = easeInOutCubic((timeSec - pStart) / 0.24);
+          if (timeSec - pStart < 0.25) env = easeInOutCubic((timeSec - pStart) / 0.25);
           else if (pEnd - timeSec < 0.30) env = easeInOutCubic((pEnd - timeSec) / 0.30);
-          return 1.0 + (maxScale - 1.0) * env;
+          baseFactor = 1.0 + (maxScale - 1.0) * env;
         }
       }
-    } else {
-      // Fallback punch at clip hook peak (t = trimStart + 1.2s) if transcript not yet loaded
-      const pStart = (state.trimStart || 0) + 1.1;
-      const pEnd = pStart + 1.5;
-      if (timeSec >= pStart && timeSec <= pEnd) {
-        let env = 1.0;
-        if (timeSec - pStart < 0.25) env = easeInOutCubic((timeSec - pStart) / 0.25);
-        else if (pEnd - timeSec < 0.30) env = easeInOutCubic((pEnd - timeSec) / 0.30);
-        return 1.0 + (maxScale - 1.0) * env;
+    }
+
+    // Audio-reactive Car Phonk 140 BPM 808 Bass Pump (Micro-bounce on kick drum)
+    if (state.clippingType === 'music-edit') {
+      const beatSec = 60 / 140; // 0.42857s per beat
+      const elapsed = Math.max(0, timeSec - (state.trimStart || 0));
+      const beatPhase = (elapsed % beatSec) / beatSec;
+      if (beatPhase < 0.22) {
+        const pump = Math.pow(1 - (beatPhase / 0.22), 2);
+        baseFactor *= (1.0 + pump * 0.048);
       }
     }
-    return 1.0;
+
+    return baseFactor;
   }
 
   // Engine 5: Real-Time Speaker Face Tracking Interpolator + Offscreen Saliency Fallback
@@ -4297,40 +4306,56 @@
     } else if (type === 'music-edit') {
       ctx.save();
       const beatBpm = 140;
-      const beatSec = 60 / beatBpm;
-      const beatPulse = (Math.sin(timeSec * (Math.PI * 2 / beatSec)) + 1) * 0.5;
+      const beatSec = 60 / beatBpm; // 0.42857s per beat
+      const beatProgress = ((timeSec - (state.trimStart || 0)) % beatSec) / beatSec;
+      const beatPulse = Math.max(0, 1 - (beatProgress / 0.25));
 
-      // 1. Equalizer audio visualizer bars in top-left
-      const barCount = 5;
+      // 1. Digital RPM Tachometer & JDM Drift HUD
       const startX = 36;
       const startY = 32;
-      const barW = 6;
-      const barGap = 4;
-      const maxH = 26;
+      const hudW = 285;
+      const hudH = 46;
 
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(startX - 8, startY - 6, (barW + barGap) * barCount + 185, 42, 6);
+      ctx.roundRect(startX, startY, hudW, hudH, 8);
       ctx.fill();
-      ctx.strokeStyle = '#ec4899';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = beatPulse > 0.4 ? '#f43f5e' : 'rgba(236, 72, 153, 0.55)';
+      ctx.lineWidth = 1.8;
       ctx.stroke();
 
+      // Equalizer / Turbo Boost Spectrum Bars
+      const barCount = 6;
+      const barW = 5;
+      const barGap = 3;
+      const maxH = 22;
       for (let i = 0; i < barCount; i++) {
-        const barH = 8 + Math.abs(Math.sin(timeSec * 7 + i * 1.3)) * (maxH - 8) * (0.6 + 0.4 * beatPulse);
-        const grad = ctx.createLinearGradient(0, startY + maxH, 0, startY + maxH - barH);
-        grad.addColorStop(0, '#a855f7');
-        grad.addColorStop(1, '#ec4899');
+        const barH = 6 + Math.abs(Math.sin(timeSec * 8 + i * 1.1)) * (maxH - 6) * (0.5 + 0.5 * beatPulse);
+        const grad = ctx.createLinearGradient(0, startY + hudH - 12, 0, startY + hudH - 12 - barH);
+        grad.addColorStop(0, '#38bdf8');
+        grad.addColorStop(0.6, '#ec4899');
+        grad.addColorStop(1, '#f43f5e');
         ctx.fillStyle = grad;
-        ctx.fillRect(startX + i * (barW + barGap), startY + maxH - barH, barW, barH);
+        ctx.fillRect(startX + 14 + i * (barW + barGap), startY + hudH - 12 - barH, barW, barH);
       }
 
-      // 2. Neon Music Tag
-      ctx.font = '900 18px "Montserrat", "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = '#f43f5e';
+      // Title & RPM readout
+      const curRpm = Math.round(5400 + beatPulse * 3400);
+      ctx.font = '900 13px "Montserrat", "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🎧 PHONK 808 SYNC', startX + barCount * (barW + barGap) + 10, startY + 15);
+      ctx.textBaseline = 'top';
+      ctx.fillText('🏎️ JDM CAR PHONK', startX + 66, startY + 8);
+
+      ctx.font = '800 11px "JetBrains Mono", monospace';
+      ctx.fillStyle = curRpm > 8000 ? '#f43f5e' : '#38bdf8';
+      ctx.fillText(`140 BPM • ${curRpm} RPM`, startX + 66, startY + 26);
+
+      // Shift light / beat drop indicator
+      ctx.fillStyle = beatPulse > 0.4 ? '#ef4444' : '#10b981';
+      ctx.beginPath();
+      ctx.arc(startX + hudW - 18, startY + hudH / 2, 6, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }
@@ -11504,7 +11529,9 @@
     'shutter': { icon: '📸', label: 'Shutter' },
     'glitch': { icon: '⚡', label: 'Glitch' },
     'riser': { icon: '🚀', label: 'Riser' },
-    'ding': { icon: '🔔', label: 'Bell' }
+    'ding': { icon: '🔔', label: 'Bell' },
+    'exhaust-pop': { icon: '🏎️', label: 'Anti-Lag 2-Step' },
+    'turbo-spool': { icon: '💨', label: 'Turbo Spool' }
   };
 
   const TIMED_VFX_META_MAP = {
@@ -12174,10 +12201,11 @@
       ];
     } else if (curArch === 'music-edit') {
       hooks = [
-        'WAIT FOR THE BEAT DROP 🎧🔥',
-        'WHEN THE 808 BASS DROPS AT 0:15 🤯💥',
-        'THIS PHONK TRANSITION GOES CRAZY 🔊⚡',
-        'BRO WAS IN FULL DEMON MODE 😈🔥'
+        'WAIT FOR THE BEAT DROP 🏎️💨',
+        'POV: HIGHWAY AT 3 AM WITH PHONK 😈⚡',
+        'WHEN THE 808 BASS & TURBO SPOOL TOGETHER 🤯🔥',
+        'THIS DRIFT TRANSITION WILL MELT YOUR BRAIN 💀🔊',
+        'JDM LEGENDS NEVER DIE 🏎️✨'
       ];
     } else if (hasMoney && hasCreator) {
       hooks = [
@@ -12660,23 +12688,24 @@
     },
     'music-edit': {
       id: 'music-edit',
-      name: 'Music Edit',
-      icon: '🎵',
-      badge: 'Beat-Sync • Bass Shake',
-      description: 'Phonk/808 beat drop, audio-reactive canvas pump, RGB split & strobe flash.',
+      name: 'Car Phonk Edit',
+      icon: '🏎️',
+      badge: 'Drift Phonk • Beat-Sync Cuts',
+      description: 'Cuts strictly on 140 BPM phonk beats, smooth velocity ramp, audio-reactive 808 bass pump & anti-lag pop SFX.',
       layoutMode: 'full-main',
+      brollPreset: 'synthwave-drive',
       captionStyle: 'neon-cyber',
       hookTitleStyle: 'neon-glow',
-      hookBanner: 'WAIT FOR THE BEAT DROP 🎧🔥',
+      hookBanner: 'WAIT FOR THE BEAT DROP 🏎️💨',
       highlightZoomMode: 'action-surge',
       highlightZoomScale: 1.28,
       faceTrackMode: 'speaker-lock',
       brollCutawayMode: 'ambient',
-      sfxSet: ['bass-drop', 'riser', 'glitch', 'whoosh'],
+      sfxSet: ['exhaust-pop', 'bass-drop', 'turbo-spool', 'whoosh'],
       vfxType: 'rgbSplit',
       musicPreset: 'phonk-drive',
-      musicVolume: 0.40,
-      defaultPrompt: 'Edit as a high-octane MUSIC EDIT: Sync video cuts and velocity zoom pumps to the 140 BPM phonk beat drops. Trigger chromatic RGB split and impact strobe flash on heavy 808 sub bass kicks. Render glowing neon cyber subtitles and tension risers.'
+      musicVolume: 0.45,
+      defaultPrompt: 'Edit as a high-octane CAR + PHONK DRIFT EDIT: Strictly lock video cuts and velocity transitions to 140 BPM phonk beat drops. Trigger chromatic RGB split, impact flash, and audio-reactive 808 bass pump on kick drums. Sync 2-step anti-lag exhaust backfire and turbo spool SFX.'
     }
   };
 
@@ -12942,8 +12971,70 @@
 
     seekToTime(sStart + 0.35);
     if (arch.id === 'music-edit') {
+      const bpm = 140;
+      const beatSec = 60 / bpm; // 0.42857s per beat
+      const barSec = Number((beatSec * 4).toFixed(3)); // ~1.714s per 4-beat bar
+      const totalDur = Math.min(30, (state.trimEnd || 30) - sStart);
+
+      // Reset sequence clips to uncut master clip before beat slicing
+      state.sequence.videoClips = [{
+        id: 'clip-master-phonk',
+        title: 'Master Track',
+        start: sStart,
+        end: sStart + totalDur,
+        sourceStart: sStart,
+        sourceEnd: sStart + totalDur,
+        zoom: 1.0,
+        panX: 0,
+        panY: 0,
+        volume: 1.0
+      }];
+
+      // Cut strictly on 4-beat bar boundaries for buttery-smooth flow
+      const cutTimes = [];
+      for (let t = sStart + barSec; t < sStart + totalDur - 1.0; t += barSec) {
+        cutTimes.push(Number(t.toFixed(2)));
+      }
+
+      cutTimes.forEach((cutT) => {
+        splitClipAtPlayhead(cutT);
+      });
+
+      // Alternating velocity zooms and smooth whip transitions on each beat cut
+      if (Array.isArray(state.sequence.videoClips)) {
+        state.sequence.videoClips.forEach((c, idx) => {
+          c.zoom = idx % 2 === 0 ? 1.0 : 1.15;
+          c.transition = idx % 2 === 0 ? 'whip-pan' : 'cross-zoom';
+        });
+      }
+
+      // Sync highlight zooms on beat drops
+      state.highlightZooms = cutTimes.map((t, idx) => ({
+        id: `zoom_beat_${idx}_${Date.now()}`,
+        start: t,
+        duration: 0.85,
+        scale: idx % 2 === 0 ? 1.28 : 1.18,
+        label: `Beat Drop Bar #${idx + 1} (1.28x)`,
+        ease: 'spring'
+      }));
+
+      // Timed VFX bursts on drops
+      state.vfxEvents = [
+        { id: `vfx_1_${Date.now()}`, type: 'rgbSplit', label: 'RGB Glitch Drop', start: Number((sStart + barSec).toFixed(2)), duration: 1.2 },
+        { id: `vfx_2_${Date.now()}`, type: 'impactFlash', label: 'Impact Strobe', start: Number((sStart + barSec * 2).toFixed(2)), duration: 0.7 },
+        { id: `vfx_3_${Date.now()}`, type: 'speedLines', label: 'Drift Speed Lines', start: Number((sStart + barSec * 3).toFixed(2)), duration: 1.4 }
+      ];
+
+      // Anti-Lag Exhaust Gunshot Pops + 808 Bass Drops on the beat drops
+      state.sfxEvents = [
+        { id: `sfx_drop_1_${Date.now()}`, type: 'turbo-spool', time: Number((sStart + 0.1).toFixed(2)), icon: '💨', label: 'Turbo Spool', volume: 0.9 },
+        { id: `sfx_drop_2_${Date.now()}`, type: 'exhaust-pop', time: Number((sStart + barSec).toFixed(2)), icon: '🏎️', label: 'Anti-Lag 2-Step', volume: 1.0 },
+        { id: `sfx_drop_3_${Date.now()}`, type: 'bass-drop', time: Number((sStart + barSec * 2).toFixed(2)), icon: '💣', label: '808 Sub Boom', volume: 1.0 },
+        { id: `sfx_drop_4_${Date.now()}`, type: 'exhaust-pop', time: Number((sStart + barSec * 3).toFixed(2)), icon: '🏎️', label: 'Anti-Lag 2-Step', volume: 1.0 }
+      ];
+
       state.musicPreset = arch.musicPreset || 'phonk-drive';
-      state.musicVolume = arch.musicVolume || 0.40;
+      state.musicVolume = arch.musicVolume || 0.45;
       if (dom.inspMusicPresetSelect) dom.inspMusicPresetSelect.value = state.musicPreset;
       if (dom.inspMusicVolSlider) dom.inspMusicVolSlider.value = String(Math.round(state.musicVolume * 100));
       if (dom.inspMusicVolLabel) dom.inspMusicVolLabel.textContent = `${Math.round(state.musicVolume * 100)}%`;

@@ -29,7 +29,9 @@
     { id: 'shutter', name: 'Camera Shutter', icon: '📸', color: '#e2e8f0', duration: 0.22 },
     { id: 'glitch', name: 'Cyber Glitch', icon: '⚡', color: '#c084fc', duration: 0.26 },
     { id: 'riser', name: 'Tension Riser', icon: '📈', color: '#fb923c', duration: 0.65 },
-    { id: 'ding', name: 'Retention Bell', icon: '🔔', color: '#2dd4bf', duration: 0.45 }
+    { id: 'ding', name: 'Retention Bell', icon: '🔔', color: '#2dd4bf', duration: 0.45 },
+    { id: 'exhaust-pop', name: 'Anti-Lag 2-Step', icon: '🏎️', color: '#ef4444', duration: 0.35 },
+    { id: 'turbo-spool', name: 'Turbo Whistle', icon: '💨', color: '#06b6d4', duration: 0.46 }
   ];
 
   // Rich word-by-word scripts for the 3 built-in demo streams (60s total per stream, 4 clips each)
@@ -1730,6 +1732,40 @@
         g.connect(this.sfxGain);
         osc.start(now);
         osc.stop(now + 0.66);
+      } else if (sfxType.includes('exhaust') || sfxType.includes('anti-lag') || sfxType.includes('backfire')) {
+        // High-Power JDM 2-Step Anti-Lag Exhaust Gunshot Pop
+        [0, 0.08, 0.17].forEach((offset, idx) => {
+          if (this.noiseBuffer) {
+            const src = this.audioCtx.createBufferSource();
+            src.buffer = this.noiseBuffer;
+            const hp = this.audioCtx.createBiquadFilter();
+            hp.type = 'highpass';
+            hp.frequency.setValueAtTime(950, now + offset);
+            const g = this.audioCtx.createGain();
+            g.gain.setValueAtTime(idx === 0 ? 0.44 : 0.26, now + offset);
+            g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.06);
+            src.connect(hp);
+            hp.connect(g);
+            g.connect(this.sfxGain);
+            src.start(now + offset);
+            src.stop(now + offset + 0.07);
+          }
+        });
+        this._synthKick808(now, 58, 0.35);
+      } else if (sfxType.includes('turbo') || sfxType.includes('spool')) {
+        // High-pitched Turbo Whistle Spool + Blow-Off Flutter
+        const osc = this.audioCtx.createOscillator();
+        const g = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(3800, now + 0.32);
+        g.gain.setValueAtTime(0.02, now);
+        g.gain.linearRampToValueAtTime(0.18, now + 0.26);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+        osc.connect(g);
+        g.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.46);
       } else {
         // Authentic Bandpass Air Whoosh + Sub Swoosh
         if (this.noiseBuffer) {
