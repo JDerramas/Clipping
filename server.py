@@ -64,7 +64,14 @@ def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "",
     if system_directive:
         body["systemInstruction"] = {"parts": [{"text": system_directive}]}
 
-    models_to_try = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
+    models_to_try = [
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-latest",
+        "gemini-3-flash-preview",
+        "gemini-3.5-flash",
+    ]
     json_bytes = json.dumps(body).encode("utf-8")
 
     # Method 1: Direct urllib.request (fastest, zero process-spawning overhead)
@@ -631,22 +638,29 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         clip_end = float(plan.get("clip_end", 30.0))
         clip_dur = max(1.0, clip_end - clip_start)
 
-        # Check for matching SRT in outputs
-        possible_srts = list(engine.OUTPUTS.glob(f"{Path(video_filename).stem}*.srt"))
+        # Check for matching SRT in outputs (prioritize exact master file over subclips)
+        video_stem = Path(video_filename).stem
+        exact_master = engine.OUTPUTS / f"{video_stem}.srt"
         words = []
-        if possible_srts:
-            latest_srt = sorted(possible_srts, key=lambda p: p.stat().st_mtime, reverse=True)[0]
-            words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
-            # Check if SRT contains Arabic or corrupted non-native characters
-            sample_words = " ".join(w.get("word", "") for w in words[:10])
-            if any('\u0600' <= c <= '\u06FF' for c in sample_words):
-                sys.stderr.write(f"[Server] Discarding Arabic SRT {latest_srt.name}, generating native speech transcription...\n")
-                try:
-                    fresh_segs = engine.transcribe_video(engine.UPLOADS / video_filename, language=None)
-                    engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), latest_srt)
-                    words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
-                except Exception as e:
-                    sys.stderr.write(f"[Server] Native re-transcribe error: {e}\n")
+        if exact_master.exists():
+            words = engine.parse_srt_to_karaoke_words(exact_master, clip_start=0.0)
+        else:
+            possible_srts = [p for p in engine.OUTPUTS.glob(f"{video_stem}*.srt") if "_clip_" not in p.stem]
+            if not possible_srts:
+                possible_srts = list(engine.OUTPUTS.glob(f"{video_stem}*.srt"))
+            if possible_srts:
+                latest_srt = sorted(possible_srts, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+                words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
+                # Check if SRT contains Arabic or corrupted non-native characters
+                sample_words = " ".join(w.get("word", "") for w in words[:10])
+                if any('\u0600' <= c <= '\u06FF' for c in sample_words):
+                    sys.stderr.write(f"[Server] Discarding Arabic SRT {latest_srt.name}, generating native speech transcription...\n")
+                    try:
+                        fresh_segs = engine.transcribe_video(engine.UPLOADS / video_filename, language=None)
+                        engine.write_clip_srt(fresh_segs, 0.0, float(meta.get("duration", 3600.0)), latest_srt)
+                        words = engine.parse_srt_to_karaoke_words(latest_srt, clip_start=0.0)
+                    except Exception as e:
+                        sys.stderr.write(f"[Server] Native re-transcribe error: {e}\n")
 
         # If no words from SRT, try on-the-fly Whisper transcription or generate clean speech chunks
         if not words:
@@ -689,6 +703,15 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         if dur <= 0:
             dur = 30.0
         dur_rounded = round(dur, 2)
+
+        # Default to full continuous master track when target duration was 60s or video duration <= 65s
+        if dur_rounded <= 65.0 or clip_dur >= dur_rounded * 0.75:
+            plan["clip_start"] = 0.0
+            plan["clip_end"] = dur_rounded
+            plan["duration"] = dur_rounded
+            clip_start = 0.0
+            clip_end = dur_rounded
+            clip_dur = dur_rounded
 
         # Proportional candidate windows adapted to actual video duration
         w1_en = min(dur_rounded, 28.5)
@@ -944,22 +967,43 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 duration=duration,
                 target_clip_len=target_dur
             )
-            top_moment = viral_moments[0] if viral_moments else {
-                "id": "clip_auto_1",
-                "title": "Viral Highlight Moment",
-                "start": 0.0,
-                "end": min(duration, target_dur),
-                "score": 96.0,
-                "hook_score": 98.0,
-                "retention_score": 94.0,
-                "pacing_score": 95.0,
-                "keep_ranges": [[0.0, min(duration, target_dur)]],
-                "words": all_words,
-            }
-
-            clip_start = float(top_moment["start"])
-            clip_end = float(top_moment["end"])
-            keep_ranges = top_moment.get("keep_ranges") or [[clip_start, clip_end]]
+            # If target duration is ~60s or >= 45s or covers most of video, preserve full uncut master track
+            if target_dur >= 45.0 or duration <= target_dur + 5.0 or target_dur >= duration * 0.75:
+                clip_start = 0.0
+                clip_end = duration
+                keep_ranges = [[0.0, duration]]
+                top_moment = {
+                    "id": "clip-viral-0",
+                    "title": f"MASTER VIDEO (CONTINUOUS {int(duration)}s) 🎬",
+                    "tag": "⭐ FULL MASTER TRACK",
+                    "start": 0.0,
+                    "end": round(duration, 2),
+                    "duration": round(duration, 2),
+                    "score": 100.0,
+                    "hook_score": 99.0,
+                    "retention_score": 98.0,
+                    "pacing_score": 97.0,
+                    "keep_ranges": [[0.0, duration]],
+                    "words": all_words,
+                }
+                if not any(m.get("id") == "clip-viral-0" for m in viral_moments):
+                    viral_moments.insert(0, top_moment)
+            else:
+                top_moment = viral_moments[0] if viral_moments else {
+                    "id": "clip_auto_1",
+                    "title": "Viral Highlight Moment",
+                    "start": 0.0,
+                    "end": min(duration, target_dur),
+                    "score": 96.0,
+                    "hook_score": 98.0,
+                    "retention_score": 94.0,
+                    "pacing_score": 95.0,
+                    "keep_ranges": [[0.0, min(duration, target_dur)]],
+                    "words": all_words,
+                }
+                clip_start = float(top_moment["start"])
+                clip_end = float(top_moment["end"])
+                keep_ranges = top_moment.get("keep_ranges") or [[clip_start, clip_end]]
 
             # Step 3: Neural Face Tracking & Smooth 9:16 Reframe (bridgeclip YuNet + Autoclip OneEuroFilter)
             reframe_res = auto_clip_pipeline.compute_neural_reframe_path(
@@ -2730,19 +2774,27 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         cues_plan = []
         if gemini_key:
             prompt = (
-                "You are a senior short-form video editor adding stock B-roll cutaway footage to a talking-head video.\n\n"
+                "You are a master short-form viral video editor adding high-accuracy stock B-roll cutaway footage to a talking-head video.\n\n"
                 f"Transcript (each word prefixed by index):\n{indexed_str}\n\n"
-                "Pick 2 to 4 moments where a visual cutaway genuinely strengthens the message and viewer retention.\n"
-                "Rules:\n"
-                "- Be SPARING: ~1 visual every 8 to 15 seconds of speech.\n"
-                "- ONLY for concrete, visualizable nouns/concepts/actions (a thing, place, object, action) — NEVER abstract filler.\n"
-                "- query: 2 to 4 word concrete English stock search (e.g. 'heavy steel vault', 'stacks of cash', 'sports car drift', 'crowd cheering reaction').\n"
-                "- mode: 'fullscreen' (cutaway hides face ~2s), 'inset' (small corner), or 'top' (upper half).\n"
-                "- startIdx and endIdx: word-index range to show it over (~1.5 to 3.5 seconds duration).\n\n"
+                "Analyze the spoken dialogue and select 3 to 6 key visual moments where stock B-roll cutaways directly elevate viewer retention and illustrate what the speakers are talking about.\n\n"
+                "MANDATORY RULES:\n"
+                "1. TOPIC-SPECIFIC CONTEXT ACCURACY:\n"
+                "   - FOOD & EATING: If dialogue mentions food (e.g. 'chicken', 'chicken nuggets', 'fried chicken', 'jollibee', \"mickey d's\", 'mcdonalds', 'sauce', 'barbecue', 'cheese'):\n"
+                "     * Queries MUST be concrete prepared food: e.g. 'crispy fried chicken meal', 'fast food chicken nuggets', 'fried chicken', 'french fries burger fast food'.\n"
+                "     * NEVER query live animals, birds, farms, or roosters when food/dining is discussed!\n"
+                "   - COMPARISONS / VERSUS ('A vs B', 'X versus Y', e.g. 'Philippines versus the U.S.'):\n"
+                "     * Generate TWO sequential B-roll cues (one for entity A, immediately followed by one for entity B) so BOTH sides are visually represented!\n"
+                "     * For example:\n"
+                "       - Cue 1: startIdx for Philippines, query: 'philippines flag', reason: 'Philippines flag for comparison'\n"
+                "       - Cue 2: startIdx for USA/U.S., query: 'american flag', reason: 'USA flag for comparison'\n"
+                "2. DURATION & SPACING:\n"
+                "   - Each cutaway should last ~1.5 to 3.5 seconds (word index range).\n"
+                "   - Space cues out naturally across the transcript (every 8-15 seconds).\n"
+                "3. MODES: 'fullscreen', 'inset', or 'top'. Default to 'fullscreen'.\n\n"
                 "Output ONLY a raw JSON array of objects with keys: startIdx, endIdx, query, mode, reason.\n"
                 "Do NOT wrap in markdown quotes. Just return the JSON array."
             )
-            raw = query_gemini_api(prompt, gemini_key, timeout=12)
+            raw = query_gemini_api(prompt, gemini_key, timeout=25)
             if raw:
                 try:
                     clean = raw.strip()
@@ -2756,13 +2808,55 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     sys.stderr.write(f"[Auto Broll Gemini parse notice] {e}\n")
 
+        # Post-process cues_plan: expand comparisons like "philippines vs usa" into two consecutive cues
+        expanded_cues = []
+        for c in cues_plan:
+            cq = str(c.get("query", "")).lower()
+            if ("philippines" in cq and any(u in cq for u in ("usa", "us", "america"))) or (" vs " in cq) or (" versus " in cq):
+                # Split into paired consecutive B-rolls so both sides are visually represented
+                st_idx = c.get("startIdx", 0)
+                end_idx = c.get("endIdx", st_idx + 4)
+                mid_idx = (st_idx + end_idx) // 2
+                expanded_cues.append({
+                    "startIdx": st_idx,
+                    "endIdx": mid_idx,
+                    "query": "philippines flag",
+                    "mode": c.get("mode", "fullscreen"),
+                    "reason": "Philippines flag for versus comparison"
+                })
+                expanded_cues.append({
+                    "startIdx": mid_idx + 1,
+                    "endIdx": end_idx,
+                    "query": "american flag",
+                    "mode": c.get("mode", "fullscreen"),
+                    "reason": "American flag for versus comparison"
+                })
+            else:
+                # Refine food queries to prevent live animals
+                if "nugget" in cq:
+                    c["query"] = "fast food chicken nuggets"
+                elif "fried chicken" in cq or ("chicken" in cq and "meal" not in cq):
+                    c["query"] = "crispy fried chicken"
+                expanded_cues.append(c)
+        cues_plan = expanded_cues
+
         # Fallback if Gemini returned nothing or empty
         if not cues_plan:
             # Fallback heuristic: search for concrete keywords in transcript
             kw_hits = []
             for i, w in enumerate(words):
                 txt = str(w.get("origWord") or w.get("word", "")).lower()
-                if any(k in txt for k in ("vault", "safe", "lock", "bank")):
+                if "philippines" in txt:
+                    kw_hits.append((i, "philippines flag", "fullscreen"))
+                elif any(k in txt for k in ("u .s.", "u.s.", "usa", "america")):
+                    kw_hits.append((i, "american flag", "fullscreen"))
+                elif any(k in txt for k in ("nugget", "nuggets")):
+                    kw_hits.append((i, "fast food chicken nuggets", "fullscreen"))
+                elif any(k in txt for k in ("chicken", "jollibee", "jolly", "mickey")):
+                    kw_hits.append((i, "crispy fried chicken", "fullscreen"))
+                elif any(k in txt for k in ("cheese", "nacho")):
+                    kw_hits.append((i, "melted nacho cheese", "fullscreen"))
+                elif any(k in txt for k in ("vault", "safe", "lock", "bank")):
                     kw_hits.append((i, "heavy steel vault", "fullscreen"))
                 elif any(k in txt for k in ("money", "cash", "dollar", "thousand", "rich", "paid", "milyon")):
                     kw_hits.append((i, "stacks of cash", "fullscreen"))
@@ -2773,8 +2867,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
             if kw_hits:
                 seen_idx = set()
-                for idx, q, m in kw_hits[:3]:
-                    if not any(abs(idx - s) < 8 for s in seen_idx):
+                for idx, q, m in kw_hits[:6]:
+                    if not any(abs(idx - s) < 5 for s in seen_idx):
                         seen_idx.add(idx)
                         end_i = min(len(words) - 1, idx + 4)
                         cues_plan.append({"startIdx": idx, "endIdx": end_i, "query": q, "mode": m, "reason": f"Matches keyword in speech: {q}"})
@@ -2789,7 +2883,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         final_brolls = []
-        for idx, cue in enumerate(cues_plan[:4]):
+        for idx, cue in enumerate(cues_plan[:6]):
             q = str(cue.get("query", "action")).strip()
             # Calculate word-synchronized start and duration
             if "startIdx" in cue and "endIdx" in cue and isinstance(cue["startIdx"], int) and isinstance(cue["endIdx"], int):
@@ -2806,20 +2900,49 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             hits = []
             queries_to_try = [q]
             words_in_q = q.split()
+            if "nugget" in q.lower():
+                queries_to_try.extend(["fast food chicken", "chicken wings crispy", "french fries"])
+            elif "chicken" in q.lower() and "fried" not in q.lower():
+                queries_to_try.extend(["crispy fried chicken", "fried chicken meal", "fast food chicken"])
+            elif "philippines" in q.lower():
+                queries_to_try.extend(["philippines", "philippines flag waving"])
+            elif "american" in q.lower() or "usa" in q.lower():
+                queries_to_try.extend(["american flag", "usa flag waving", "united states flag"])
+
             if len(words_in_q) > 2:
                 queries_to_try.append(" ".join(words_in_q[:2]))
-                queries_to_try.append(words_in_q[-1])
+
+            is_food_query = any(k in q.lower() for k in ("food", "chicken", "nugget", "meal", "burger", "fries", "fried", "cheese", "nacho", "snack"))
+            is_flag_query = "flag" in q.lower() or "philippines" in q.lower() or "american" in q.lower()
 
             for trial_q in queries_to_try:
                 try:
                     encoded_q = urllib.parse.quote(trial_q)
-                    p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page=5"
-                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                    with urllib.request.urlopen(req, timeout=8) as r:
+                    p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page=10"
+                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+                    with urllib.request.urlopen(req, timeout=10) as r:
                         d = json.loads(r.read().decode("utf-8"))
-                        hits = d.get("hits", [])
-                        if hits:
-                            break
+                        raw_hits = d.get("hits", [])
+                        if raw_hits:
+                            # Filter and rank hits to guarantee context accuracy
+                            filtered = []
+                            for h in raw_hits:
+                                tags = (h.get("tags") or "").lower()
+                                if is_food_query:
+                                    # STRICT RULE: Reject live animals, birds, roosters, hens, farms!
+                                    if any(bad in tags for bad in ("rooster", "hen", "bird", "farm", "animal", "poultry", "wildlife", "zoo", "pet", "feather", "chick")):
+                                        continue
+                                if is_flag_query:
+                                    if "philippines" in q.lower() and "philippines" not in tags:
+                                        continue
+                                    if ("american" in q.lower() or "usa" in q.lower()) and not any(f in tags for f in ("american", "usa", "united states", "america")):
+                                        continue
+                                filtered.append(h)
+                            if filtered:
+                                hits = filtered
+                                break
+                            elif not hits:
+                                hits = raw_hits
                 except Exception as e:
                     sys.stderr.write(f"[Pixabay fetch trial '{trial_q}' notice] {e}\n")
 
@@ -2828,7 +2951,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 fallback_q = "sports car drift" if "car" in q.lower() or "drift" in q.lower() else "counting money cash"
                 try:
                     p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={urllib.parse.quote(fallback_q)}&per_page=3"
-                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0"})
+                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
                     with urllib.request.urlopen(req, timeout=8) as r:
                         hits = json.loads(r.read().decode("utf-8")).get("hits", [])
                 except Exception:

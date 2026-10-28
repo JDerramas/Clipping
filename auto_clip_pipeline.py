@@ -335,6 +335,26 @@ def score_viral_moments_multifactor(
 
     # Filter overlapping candidates (non-maximum suppression with 50% IoU limit)
     selected: List[Dict[str, Any]] = []
+    
+    # Always create a Full Master Video Track candidate covering complete duration with all words
+    master_cand = {
+        "id": "clip-viral-0",
+        "title": f"MASTER VIDEO (CONTINUOUS {int(duration)}s) 🎬",
+        "tag": "⭐ FULL MASTER TRACK",
+        "start": 0.0,
+        "end": round(duration, 2),
+        "duration": round(duration, 2),
+        "score": 100.0,
+        "hookScore": 99.0,
+        "pacingScore": 98.0,
+        "retentionScore": 99.0,
+        "words": words,
+        "keep_ranges": [[0.0, duration]],
+        "reasons": [f"Complete {int(duration)}s master sequence with all synchronized karaoke captions."],
+    }
+    if target_clip_len >= 45.0 or duration <= target_clip_len + 5.0 or target_clip_len >= duration * 0.75:
+        selected.append(master_cand)
+
     for cand in candidates:
         overlap = False
         for s in selected:

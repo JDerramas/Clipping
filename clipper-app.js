@@ -2566,9 +2566,13 @@
     const clip = getActiveClip();
     if (!dom.transcriptWordCloud) return;
     dom.transcriptWordCloud.innerHTML = '';
-    const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+    const masterWords = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0)
+      ? state.analysis.transcript
+      : (Array.isArray(state.words) && state.words.length > 0 ? state.words : []);
+    const clipWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
       ? clip.transcript
-      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
+      : [];
+    const words = (masterWords.length >= clipWords.length) ? masterWords : clipWords;
 
     if (words.length === 0) {
       dom.transcriptWordCloud.innerHTML = '<span class="text-xs text-slate-400" style="padding: 12px; display: inline-block;">Generating word-by-word karaoke captions...</span>';
@@ -5227,7 +5231,11 @@
     const clip = getActiveClip();
     if (!window.WhopAudioEngine) return;
 
-    const capState = window.WhopAudioEngine.getCaptionStateAtTime(clip || state.analysis, timeSec, 4);
+    const sourceObj = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > (clip?.transcript?.length || 0))
+      ? { ...state.analysis, transcript: state.analysis.transcript }
+      : (clip || state.analysis);
+
+    const capState = window.WhopAudioEngine.getCaptionStateAtTime(sourceObj, timeSec, 4);
     if (!capState || !capState.chunkWords || capState.chunkWords.length === 0) return;
 
     const visibleWords = capState.chunkWords.filter((w) => !w.deleted);
@@ -5842,9 +5850,13 @@
 
     const clip = getActiveClip();
     let segments = [];
-    const rawWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
+    const masterWords = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0)
+      ? state.analysis.transcript
+      : (Array.isArray(state.words) && state.words.length > 0 ? state.words : []);
+    const clipWords = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
       ? clip.transcript
-      : (state.analysis && Array.isArray(state.analysis.transcript) ? state.analysis.transcript : []);
+      : [];
+    const rawWords = (masterWords.length >= clipWords.length) ? masterWords : clipWords;
     const capWords = rawWords.filter((w) => !w.deleted);
 
     if (capWords.length > 0) {
@@ -6377,11 +6389,11 @@
 
   function getActiveVideoCutAtTime(time) {
     const clips = state.sequence?.videoClips || [];
-    if (!clips.length) return null;
+    if (!clips.length) return { id: 'master-fallback', start: 0, end: state.streamDuration || 60, sourceStart: 0, sourceEnd: state.streamDuration || 60 };
     for (const c of clips) {
       if (time >= c.start && time < c.end) return c;
     }
-    return null; // Return null if in a gap between cuts or beyond end!
+    return clips[0] || { id: 'master-fallback', start: 0, end: state.streamDuration || 60, sourceStart: 0, sourceEnd: state.streamDuration || 60 };
   }
 
   function getActiveVisualOverlayAtTime(time) {
@@ -7116,6 +7128,25 @@
     state.customMainFileName = data.filename;
     state.streamDuration = data.duration || 60;
     state.analysis = data.analysis;
+    if (!state.sequence) state.sequence = {};
+    if (data.sequence && Array.isArray(data.sequence.video) && data.sequence.video.length > 0) {
+      state.sequence.videoClips = data.sequence.video;
+    } else {
+      state.sequence.videoClips = [{
+        id: 'master-clip-1',
+        title: 'Master Video Track',
+        start: 0,
+        end: state.streamDuration,
+        sourceStart: 0,
+        sourceEnd: state.streamDuration,
+        zoom: 1.0,
+        panX: 0,
+        panY: 0,
+        volume: 1.0,
+        effect: 'normal',
+        transition: 'none'
+      }];
+    }
     if (state.analysis && Array.isArray(state.analysis.viralMoments) && state.analysis.viralMoments.length > 0) {
       state.analysis.viralMoments.forEach((m) => {
         if ((!Array.isArray(m.transcript) || m.transcript.length === 0) && Array.isArray(state.analysis.transcript)) {
@@ -7143,6 +7174,10 @@
       if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookBannerText;
       state.trimStart = typeof p.clip_start === 'number' ? p.clip_start : 0;
       state.trimEnd = typeof p.clip_end === 'number' ? p.clip_end : state.streamDuration;
+      if (state.streamDuration >= 45 && (state.trimEnd - state.trimStart < 25) && (state.analysis?.viralMoments?.[0]?.id === 'clip-viral-0')) {
+        state.trimStart = 0;
+        state.trimEnd = state.streamDuration;
+      }
     } else {
       state.trimStart = 0;
       state.trimEnd = state.streamDuration;
@@ -7576,7 +7611,11 @@
   }
 
   async function autoFetchPixabayBrollWithGemini(userInitiated = false, suppressAnnouncement = false) {
-    const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
+    const masterWords = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0)
+      ? state.analysis.transcript
+      : (Array.isArray(state.words) && state.words.length > 0 ? state.words : []);
+    const clipWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
+    const rawWords = (masterWords.length >= clipWords.length) ? masterWords : clipWords;
     const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
     if (!words || words.length === 0) {
       const noWordsMsg = "I cannot detect a speech transcript to match B-roll against, sir. Please load video audio or speech first.";
@@ -12131,13 +12170,18 @@
 
   function getActiveTranscriptWords() {
     const clip = getActiveClip();
+    if (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0) {
+      if (!clip || !clip.transcript || clip.transcript.length === 0 || clip.id === 'clip-viral-0' || clip.id === 'clip-fallback' || (state.trimStart === 0 && state.trimEnd >= state.streamDuration * 0.85)) {
+        return state.analysis.transcript;
+      }
+    }
     if (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0) {
       return clip.transcript;
     }
     if (state.analysis && Array.isArray(state.analysis.transcript)) {
       return state.analysis.transcript;
     }
-    return [];
+    return state.words || [];
   }
 
   function syncViralSuiteControlsUI() {
