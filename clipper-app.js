@@ -24,15 +24,15 @@
     uppercaseCaptions: true,
     fontFamily: 'Inter',
 
-    // Timeline Assets & Clips
+    // Timeline Assets & Clips (Real working video)
     clips: [
       {
         id: 'clip-1',
-        label: 'Take 1 — Kai Cenat Hook',
-        src: '/uploads/clip_20261024_182745_MrBeast_Interview_Hook_0s_58s.mp4',
+        label: 'Take 1 — Kai Cenat Viral Highlight',
+        src: '/uploads/clip_20261027_152821_How_1_Person_Solved_A__1_000_0_1040s_1067s.mp4',
         inSec: 0.0,
-        outSec: 30.0,
-        sourceDurationSec: 58.05,
+        outSec: 27.0,
+        sourceDurationSec: 27.066,
         speed: 1.0,
         volume: 1.0,
         muted: false,
@@ -71,26 +71,34 @@
       }
     ],
 
-    // B-Roll Cutaways
+    // B-Roll Cutaways (Real active B-roll)
     brolls: [
       {
         id: 'broll-1',
         clipId: 'clip-1',
         startMs: 1500,
-        endMs: 3800,
+        endMs: 4500,
         kind: 'video',
         mode: 'inset',
-        query: 'Kai Cenat stream setup',
-        src: '/assets/broll/satisfying_runner.mp4',
+        query: 'Satisfying Neon Runner',
+        src: '/assets/broll/satisfying_neon_runner.mp4',
         scale: 1.0
       }
     ],
 
-    // Creator's Uploaded B-Roll Pool
+    // Creator's Uploaded & Pixabay Saved B-Roll Pool
     brollAssets: [
-      { id: 'asset-1', label: 'Satisfying Runner', src: '/assets/broll/satisfying_runner.mp4', kind: 'video' },
-      { id: 'asset-2', label: 'Minecraft Parkour', src: '/assets/broll/minecraft_parkour.mp4', kind: 'video' }
+      { id: 'asset-1', label: 'Satisfying Neon Runner', src: '/assets/broll/satisfying_neon_runner.mp4', kind: 'video' }
     ],
+
+    // AI Edit Suggestions & 100/100 Hook Candidates
+    suggestions: {
+      archetypes: [],
+      candidates: []
+    },
+
+    // Live Pixabay Search Cache
+    pixabayVideos: [],
 
     // Background Audio Track
     music: {
@@ -156,6 +164,7 @@
     dom.removeDuplicatesBtn = document.getElementById('removeDuplicatesBtn');
 
     // Left Assets Sidebar
+    dom.sidebarOpenSuggestionsBtn = document.getElementById('sidebarOpenSuggestionsBtn');
     dom.addClipFileBtn = document.getElementById('addClipFileBtn');
     dom.browseClipsBtn = document.getElementById('browseClipsBtn');
     dom.importDropZone = document.getElementById('importDropZone');
@@ -200,12 +209,25 @@
     // Inspector
     dom.tabBtnCaptions = document.getElementById('tabBtnCaptions');
     dom.tabBtnBroll = document.getElementById('tabBtnBroll');
+    dom.tabBtnSuggestions = document.getElementById('tabBtnSuggestions');
     dom.tabBtnStyles = document.getElementById('tabBtnStyles');
     dom.tabBtnSettings = document.getElementById('tabBtnSettings');
     dom.inspectorTabCaptions = document.getElementById('inspectorTabCaptions');
     dom.inspectorTabBroll = document.getElementById('inspectorTabBroll');
+    dom.inspectorTabSuggestions = document.getElementById('inspectorTabSuggestions');
     dom.inspectorTabStyles = document.getElementById('inspectorTabStyles');
     dom.inspectorTabSettings = document.getElementById('inspectorTabSettings');
+
+    // Suggestions & 100/100 Hooks Tab
+    dom.hookCandidatesContainer = document.getElementById('hookCandidatesContainer');
+    dom.archetypesContainer = document.getElementById('archetypesContainer');
+    dom.refreshSuggestionsBtn = document.getElementById('refreshSuggestionsBtn');
+
+    // Live Pixabay Search (B-Roll Tab)
+    dom.pixabaySearchInput = document.getElementById('pixabaySearchInput');
+    dom.pixabaySearchBtn = document.getElementById('pixabaySearchBtn');
+    dom.pixabayLoadingLabel = document.getElementById('pixabayLoadingLabel');
+    dom.pixabayResultsContainer = document.getElementById('pixabayResultsContainer');
 
     // Inspector Captions Tab
     dom.generateCaptionsBtn = document.getElementById('generateCaptionsBtn');
@@ -286,6 +308,7 @@
     dom.aiKeyModal = document.getElementById('aiKeyModal');
     dom.closeAiKeyModalBtn = document.getElementById('closeAiKeyModalBtn');
     dom.userAiApiKeyInput = document.getElementById('userAiApiKeyInput');
+    dom.userPixabayApiKeyInput = document.getElementById('userPixabayApiKeyInput');
     dom.userPexelsApiKeyInput = document.getElementById('userPexelsApiKeyInput');
     dom.saveAiKeyBtn = document.getElementById('saveAiKeyBtn');
 
@@ -759,9 +782,10 @@
     state.clips.forEach((c, idx) => {
       const item = document.createElement('div');
       item.className = 'clip-asset-item' + (c.id === state.selectedClipId ? ' selected' : '');
+      const thumb = c.src.replace(/\.\w+$/, '.jpg');
       item.innerHTML = `
-        <img src="${c.src.replace(/\.\w+$/, '.jpg')}" onerror="this.src='/assets/broll/runner_thumb.jpg'" class="clip-thumb-preview" alt="Clip thumb" />
-        <span class="clip-label-tag">${c.label || 'Clip ' + (idx + 1)}</span>
+        <img src="${thumb}" onerror="this.style.opacity='0.25'" class="clip-thumb-preview" alt="Clip thumb" />
+        <span class="clip-label-tag">${escapeHtml(c.label || 'Clip ' + (idx + 1))}</span>
         <span class="clip-duration-tag">${formatTimecode(c.outSec - c.inSec)}</span>
       `;
       item.addEventListener('click', () => {
@@ -773,6 +797,51 @@
       });
       dom.clipsListContainer.appendChild(item);
     });
+  }
+
+  function renderBrollAssetsSidebar() {
+    if (!dom.brollAssetsGrid) return;
+    dom.brollAssetsGrid.innerHTML = '';
+    state.brollAssets.forEach(asset => {
+      const card = document.createElement('div');
+      card.className = 'broll-asset-card';
+      const thumbSrc = asset.src.replace(/\.\w+$/, '.jpg');
+      card.innerHTML = `
+        <div class="broll-asset-thumb-wrap">
+          <img src="${thumbSrc}" onerror="this.style.opacity='0.25'" class="broll-asset-thumb" alt="${escapeHtml(asset.label)}" />
+          <span class="broll-asset-tag">HD Visual</span>
+        </div>
+        <span class="broll-asset-title">${escapeHtml(asset.label)}</span>
+      `;
+      card.addEventListener('click', () => {
+        insertBrollAssetToTimeline(asset);
+      });
+      dom.brollAssetsGrid.appendChild(card);
+    });
+  }
+
+  function insertBrollAssetToTimeline(asset) {
+    pushHistory();
+    const activeClip = state.clips.find(c => c.id === state.selectedClipId) || state.clips[0];
+    const curSec = state.currentTime;
+    const startMs = Math.round(curSec * 1000);
+    const endMs = Math.round(Math.min((curSec + 3.0) * 1000, (activeClip ? activeClip.outSec : 30) * 1000));
+
+    state.brolls.push({
+      id: 'broll-asset-' + Date.now(),
+      clipId: activeClip ? activeClip.id : 'clip-1',
+      startMs: startMs,
+      endMs: Math.max(startMs + 1000, endMs),
+      kind: asset.kind || 'video',
+      mode: 'inset',
+      query: asset.label || 'B-Roll Visual',
+      src: asset.src,
+      scale: 1.0
+    });
+    renderBrollInspector();
+    renderTimeline();
+    syncMediaPlayback();
+    showToast(`Added ${asset.label} at ${curSec.toFixed(1)}s!`);
   }
 
   function renderCaptionsInspector() {
@@ -821,21 +890,41 @@
     if (!dom.brollItemsList) return;
     dom.brollItemsList.innerHTML = '';
 
+    if (!state.brolls.length) {
+      dom.brollItemsList.innerHTML = '<p class="helper-text" style="padding:6px 0;">No active B-roll cutaways. Use Auto B-roll or search Pixabay above.</p>';
+      return;
+    }
+
     state.brolls.forEach(b => {
       const card = document.createElement('div');
       card.className = 'inspector-card';
       card.innerHTML = `
         <div class="card-header">
           <span class="card-title">B-ROLL CUTAWAY</span>
-          <span class="mono-badge">${(b.startMs / 1000).toFixed(1)}s – ${(b.endMs / 1000).toFixed(1)}s</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="mono-badge">${(b.startMs / 1000).toFixed(1)}s – ${(b.endMs / 1000).toFixed(1)}s</span>
+            <button type="button" class="icon-btn-sm text-error delete-broll-btn" title="Delete cutaway">
+              <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+            </button>
+          </div>
         </div>
-        <p class="prop-label" style="margin:2px 0;">${b.query || 'Visual'}</p>
+        <p class="prop-label" style="margin:2px 0;">${escapeHtml(b.query || 'Visual')}</p>
         <div class="speed-chips-row">
           <button type="button" class="speed-chip ${b.mode === 'fullscreen' ? 'active' : ''}" data-mode="fullscreen">Fullscreen</button>
           <button type="button" class="speed-chip ${b.mode === 'top' ? 'active' : ''}" data-mode="top">Top 45%</button>
           <button type="button" class="speed-chip ${b.mode === 'inset' ? 'active' : ''}" data-mode="inset">Inset Card</button>
         </div>
       `;
+      const delBtn = card.querySelector('.delete-broll-btn');
+      if (delBtn) {
+        delBtn.addEventListener('click', () => {
+          pushHistory();
+          state.brolls = state.brolls.filter(x => x.id !== b.id);
+          renderBrollInspector();
+          renderTimeline();
+          showToast('Removed B-roll cutaway');
+        });
+      }
       card.querySelectorAll('.speed-chip').forEach(btn => {
         btn.addEventListener('click', () => {
           pushHistory();
@@ -845,6 +934,288 @@
       });
       dom.brollItemsList.appendChild(card);
     });
+  }
+
+  // --- AI Edit Suggestions & 100/100 Hook Candidates ---
+
+  async function fetchAiSuggestions() {
+    try {
+      setPulse(true);
+      const res = await fetch('/api/suggest_hooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_duration: 30.0 })
+      }).then(r => r.json());
+
+      if (res && res.success) {
+        state.suggestions = {
+          archetypes: res.archetypes || [],
+          candidates: res.candidates || []
+        };
+        renderSuggestionsUI();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch suggestions:', e);
+    } finally {
+      setPulse(false);
+    }
+  }
+
+  function renderSuggestionsUI() {
+    // 1. Render Curated 100/100 Hook Candidates
+    if (dom.hookCandidatesContainer) {
+      dom.hookCandidatesContainer.innerHTML = '';
+      const cands = state.suggestions.candidates || [];
+      if (!cands.length) {
+        dom.hookCandidatesContainer.innerHTML = '<p class="helper-text">Loading 100/100 hook rankings…</p>';
+      } else {
+        cands.forEach(cand => {
+          const card = document.createElement('div');
+          card.className = 'hook-candidate-card';
+          card.innerHTML = `
+            <div class="hook-top-row">
+              <span class="badge-100-pill">${cand.badge || '⚡ 100/100 VIRAL HOOK'}</span>
+              <span class="score-pill-gold">${cand.rating || '100/100'}</span>
+            </div>
+            <div class="hook-title">${escapeHtml(cand.title)}</div>
+            <div class="hook-quote-box">"${escapeHtml(cand.hook_quote || '')}"</div>
+            <div class="hook-why-box">
+              <span class="material-symbols-outlined" style="font-size:14px;color:#39d98a;">check_circle</span>
+              <span>${escapeHtml(cand.why_it_works || 'Instant hook in 1st 1.2s • Zero intro lag • 50%+ US/UK audience appeal')}</span>
+            </div>
+            <div class="hook-timing-row">
+              <span class="mono-badge">${cand.start.toFixed(1)}s – ${cand.end.toFixed(1)}s (${cand.duration.toFixed(1)}s)</span>
+              <button type="button" class="hook-apply-btn" data-cand-id="${cand.id}">
+                <span class="material-symbols-outlined" style="font-size:14px;">bolt</span>
+                <span>Apply 100/100 Edit</span>
+              </button>
+            </div>
+          `;
+          const btn = card.querySelector('.hook-apply-btn');
+          btn.addEventListener('click', () => applyHookCandidate(cand));
+          dom.hookCandidatesContainer.appendChild(card);
+        });
+      }
+    }
+
+    // 2. Render 5 Whop Edit Archetypes
+    if (dom.archetypesContainer) {
+      dom.archetypesContainer.innerHTML = '';
+      const archs = state.suggestions.archetypes || [];
+      archs.forEach(arch => {
+        const card = document.createElement('div');
+        card.className = 'archetype-card';
+        const iconMap = {
+          'reaction': 'mood',
+          'top-moments': 'format_list_numbered',
+          'text-on-screen': 'subtitles',
+          'gaming': 'sports_esports',
+          'phonk-beat-sync': 'speed'
+        };
+        const icon = iconMap[arch.id] || 'auto_awesome';
+        card.innerHTML = `
+          <div class="arch-header">
+            <div class="arch-title-wrap">
+              <span class="material-symbols-outlined arch-icon">${icon}</span>
+              <span class="arch-title">${escapeHtml(arch.name)}</span>
+            </div>
+            <span class="score-pill-emerald">${arch.rating}</span>
+          </div>
+          <div class="arch-desc">${escapeHtml(arch.desc)}</div>
+          <div class="arch-meta-row">
+            <span class="arch-appeal">${escapeHtml(arch.whop_appeal || 'Top Whop Format')}</span>
+            <button type="button" class="arch-apply-btn" data-arch-id="${arch.id}">
+              <span class="material-symbols-outlined" style="font-size:13px;">check</span>
+              <span>Apply Edit</span>
+            </button>
+          </div>
+        `;
+        const btn = card.querySelector('.arch-apply-btn');
+        btn.addEventListener('click', () => applyArchetype(arch));
+        dom.archetypesContainer.appendChild(card);
+      });
+    }
+  }
+
+  function applyHookCandidate(cand) {
+    pushHistory();
+    const activeClip = state.clips.find(c => c.id === state.selectedClipId) || state.clips[0];
+    if (activeClip) {
+      activeClip.inSec = Math.max(0, cand.start);
+      activeClip.outSec = Math.min(activeClip.sourceDurationSec || 60, cand.end);
+      activeClip.label = `Hook: ${cand.title}`;
+    }
+    state.currentTime = activeClip.inSec;
+    if (dom.mainVideoEl) {
+      dom.mainVideoEl.currentTime = state.currentTime;
+    }
+
+    // Set hook phrase as prominent gold accent caption
+    if (cand.hook_quote) {
+      const words = cand.hook_quote.toUpperCase().split(/\s+/).filter(Boolean);
+      state.captions = [
+        {
+          id: 'cap-hook-' + Date.now(),
+          clipId: activeClip.id,
+          startMs: Math.round(activeClip.inSec * 1000 + 200),
+          endMs: Math.round(activeClip.inSec * 1000 + 2400),
+          topPct: 60,
+          scale: 1.05,
+          words: words.map((w, i) => ({
+            text: w,
+            startMs: Math.round(activeClip.inSec * 1000 + 200 + i * 220),
+            endMs: Math.round(activeClip.inSec * 1000 + 200 + (i + 1) * 220),
+            accent: i === 0 || i === words.length - 1
+          }))
+        }
+      ];
+    }
+
+    renderAll();
+    showToast(`⚡ Applied 100/100 Viral Hook: "${cand.title}"`);
+  }
+
+  function applyArchetype(arch) {
+    pushHistory();
+    const activeClip = state.clips.find(c => c.id === state.selectedClipId) || state.clips[0];
+    if (arch.id === 'phonk-beat-sync') {
+      if (activeClip) activeClip.speed = 1.15;
+      state.accentColor = '#FFB020';
+      showToast('⚡ Applied Phonk Velocity Beat Sync (1.15x speed ramp)');
+    } else if (arch.id === 'reaction') {
+      if (activeClip) {
+        activeClip.transform = [{ t: 0, scale: 1.1, x: 0, y: -40 }];
+      }
+      showToast('⚡ Applied Reaction & Emotion Peak (Facecam focused)');
+    } else if (arch.id === 'top-moments') {
+      // Add countdown caption
+      state.captions.unshift({
+        id: 'cap-top-3',
+        clipId: activeClip ? activeClip.id : 'clip-1',
+        startMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000),
+        endMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 1600),
+        topPct: 50,
+        scale: 1.2,
+        words: [
+          { text: 'NUMBER', startMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000), endMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 400), accent: false },
+          { text: '#3', startMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 400), endMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 1000), accent: true },
+          { text: 'MOMENT', startMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 1000), endMs: Math.round((activeClip ? activeClip.inSec : 0) * 1000 + 1600), accent: false }
+        ]
+      });
+      showToast('⚡ Applied Ranked Top Moments (#3, #2, #1)');
+    } else if (arch.id === 'text-on-screen') {
+      state.captions.forEach(c => { c.topPct = 62; c.scale = 1.08; });
+      showToast('⚡ Applied Kinetic Word-by-Word (Chin-level subtitles)');
+    } else if (arch.id === 'gaming') {
+      state.accentColor = '#39d98a';
+      showToast('⚡ Applied RGB Gaming & Clutch Moment');
+    }
+    renderAll();
+  }
+
+  // --- Live Pixabay Stock Video Search (Connected with User API Key) ---
+
+  async function searchPixabay(query) {
+    const q = (query || 'gaming streamer').trim();
+    if (dom.pixabayLoadingLabel) dom.pixabayLoadingLabel.classList.remove('hidden');
+    if (dom.pixabaySearchBtn) dom.pixabaySearchBtn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/pixabay_search?q=${encodeURIComponent(q)}&kind=video&per_page=6`).then(r => r.json());
+      if (res && res.results) {
+        state.pixabayVideos = res.results;
+        renderPixabayResults();
+      }
+    } catch (e) {
+      console.warn('Pixabay search error:', e);
+      showToast('Failed to load Pixabay results', true);
+    } finally {
+      if (dom.pixabayLoadingLabel) dom.pixabayLoadingLabel.classList.add('hidden');
+      if (dom.pixabaySearchBtn) dom.pixabaySearchBtn.disabled = false;
+    }
+  }
+
+  function renderPixabayResults() {
+    if (!dom.pixabayResultsContainer) return;
+    dom.pixabayResultsContainer.innerHTML = '';
+    if (!state.pixabayVideos.length) {
+      dom.pixabayResultsContainer.innerHTML = '<p class="helper-text" style="grid-column:1/-1;">No stock videos found. Try another query.</p>';
+      return;
+    }
+
+    state.pixabayVideos.forEach(vid => {
+      const card = document.createElement('div');
+      card.className = 'pixabay-card';
+      card.innerHTML = `
+        <div class="pixabay-card-thumb-wrap">
+          <img src="${vid.thumb || ''}" alt="Stock video" class="pixabay-card-thumb" loading="lazy" />
+          <span class="pixabay-hd-badge">HD</span>
+          <span class="pixabay-dur-tag">${vid.duration ? vid.duration + 's' : 'MP4'}</span>
+        </div>
+        <div class="pixabay-card-info">
+          <span class="pixabay-card-tags" title="${escapeHtml(vid.tags || '')}">${escapeHtml(vid.tags || 'Stock Clip')}</span>
+          <button type="button" class="pixabay-add-btn" title="Add to timeline B-roll track at playhead">
+            <span class="material-symbols-outlined" style="font-size:13px;">add</span>
+            <span>+ Add B-Roll</span>
+          </button>
+        </div>
+      `;
+      const addBtn = card.querySelector('.pixabay-add-btn');
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        insertPixabayToTimeline(vid);
+      });
+      dom.pixabayResultsContainer.appendChild(card);
+    });
+  }
+
+  function insertPixabayToTimeline(vid) {
+    pushHistory();
+    // Add to brollAssets pool if not present
+    const existing = state.brollAssets.find(a => a.src === vid.src);
+    if (!existing) {
+      state.brollAssets.push({
+        id: vid.id || `px-${Date.now()}`,
+        label: vid.tags ? vid.tags.split(',')[0].trim() : 'Pixabay Clip',
+        src: vid.src,
+        kind: 'video'
+      });
+      renderBrollAssetsSidebar();
+    }
+
+    const activeClip = state.clips.find(c => c.id === state.selectedClipId) || state.clips[0];
+    const curSec = state.currentTime;
+    const dur = Math.min(3.5, vid.duration || 3.0);
+    const startMs = Math.round(curSec * 1000);
+    const endMs = Math.round(Math.min((curSec + dur) * 1000, (activeClip ? activeClip.outSec : 30) * 1000));
+
+    const newBroll = {
+      id: 'broll-px-' + Date.now(),
+      clipId: activeClip ? activeClip.id : 'clip-1',
+      startMs: startMs,
+      endMs: Math.max(startMs + 1000, endMs),
+      kind: 'video',
+      mode: 'inset',
+      query: vid.tags ? vid.tags.split(',')[0].trim() : 'Stock Video',
+      src: vid.src,
+      scale: 1.0
+    };
+
+    state.brolls.push(newBroll);
+    renderBrollInspector();
+    renderTimeline();
+    syncMediaPlayback();
+    showToast(`Added Pixabay HD B-roll cutaway at ${curSec.toFixed(1)}s!`);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   function renderTimeline() {
@@ -950,8 +1321,10 @@
 
   function renderAll() {
     renderClipsList();
+    renderBrollAssetsSidebar();
     renderCaptionsInspector();
     renderBrollInspector();
+    renderSuggestionsUI();
     renderTimeline();
     drawTimelineWaveforms();
   }
@@ -964,9 +1337,22 @@
       else dom.mainVideoEl.pause();
     }
     if (dom.brollVideoEl) {
-      dom.brollVideoEl.currentTime = state.currentTime;
-      if (state.isPlaying) dom.brollVideoEl.play().catch(() => {});
-      else dom.brollVideoEl.pause();
+      const currentMs = state.currentTime * 1000;
+      const activeBroll = state.brolls.find(b => currentMs >= b.startMs && currentMs <= b.endMs);
+      if (activeBroll && activeBroll.src) {
+        if (dom.brollVideoEl.getAttribute('data-src') !== activeBroll.src) {
+          dom.brollVideoEl.setAttribute('data-src', activeBroll.src);
+          dom.brollVideoEl.src = activeBroll.src;
+        }
+        const relSec = Math.max(0, (currentMs - activeBroll.startMs) / 1000);
+        if (Math.abs(dom.brollVideoEl.currentTime - relSec) > 0.3) {
+          dom.brollVideoEl.currentTime = relSec;
+        }
+        if (state.isPlaying) dom.brollVideoEl.play().catch(() => {});
+        else dom.brollVideoEl.pause();
+      } else {
+        dom.brollVideoEl.pause();
+      }
     }
   }
 
@@ -1044,6 +1430,7 @@
     const tabs = [
       { btn: dom.tabBtnCaptions, panel: dom.inspectorTabCaptions },
       { btn: dom.tabBtnBroll, panel: dom.inspectorTabBroll },
+      { btn: dom.tabBtnSuggestions, panel: dom.inspectorTabSuggestions },
       { btn: dom.tabBtnStyles, panel: dom.inspectorTabStyles },
       { btn: dom.tabBtnSettings, panel: dom.inspectorTabSettings }
     ];
@@ -1058,6 +1445,38 @@
           t.panel.classList.add('active');
         });
       }
+    });
+
+    // Sidebar Quick Suggestions Button
+    if (dom.sidebarOpenSuggestionsBtn && dom.tabBtnSuggestions) {
+      dom.sidebarOpenSuggestionsBtn.addEventListener('click', () => {
+        dom.tabBtnSuggestions.click();
+      });
+    }
+
+    // Refresh Suggestions Button
+    if (dom.refreshSuggestionsBtn) {
+      dom.refreshSuggestionsBtn.addEventListener('click', fetchAiSuggestions);
+    }
+
+    // Pixabay Live Search
+    if (dom.pixabaySearchBtn && dom.pixabaySearchInput) {
+      dom.pixabaySearchBtn.addEventListener('click', () => {
+        searchPixabay(dom.pixabaySearchInput.value.trim());
+      });
+      dom.pixabaySearchInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          searchPixabay(dom.pixabaySearchInput.value.trim());
+        }
+      });
+    }
+    document.querySelectorAll('.quick-tag-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const q = chip.dataset.query || chip.textContent.replace(/^[^\w\s]+/, '').trim();
+        if (dom.pixabaySearchInput) dom.pixabaySearchInput.value = q;
+        searchPixabay(q);
+      });
     });
 
     // Subtitle Vertical Placement Slider (Under chin)
@@ -1183,16 +1602,26 @@
       dom.closeScheduleModalBtn.addEventListener('click', () => dom.scheduleModal.classList.add('hidden'));
     }
     if (dom.openAiSettingsBtn && dom.aiKeyModal) {
-      dom.openAiSettingsBtn.addEventListener('click', () => dom.aiKeyModal.classList.remove('hidden'));
+      dom.openAiSettingsBtn.addEventListener('click', () => {
+        if (dom.userAiApiKeyInput) {
+          dom.userAiApiKeyInput.value = localStorage.getItem('whop_gemini_key') || '';
+        }
+        if (dom.userPixabayApiKeyInput) {
+          dom.userPixabayApiKeyInput.value = localStorage.getItem('whop_pixabay_key') || '';
+        }
+        dom.aiKeyModal.classList.remove('hidden');
+      });
     }
     if (dom.closeAiKeyModalBtn && dom.aiKeyModal) {
       dom.closeAiKeyModalBtn.addEventListener('click', () => dom.aiKeyModal.classList.add('hidden'));
     }
     if (dom.saveAiKeyBtn) {
       dom.saveAiKeyBtn.addEventListener('click', () => {
-        const key = dom.userAiApiKeyInput ? dom.userAiApiKeyInput.value.trim() : '';
-        if (key) localStorage.setItem('whop_gemini_key', key);
-        showToast('AI Settings Saved');
+        const geminiKey = dom.userAiApiKeyInput ? dom.userAiApiKeyInput.value.trim() : '';
+        const pixabayKey = dom.userPixabayApiKeyInput ? dom.userPixabayApiKeyInput.value.trim() : '';
+        if (geminiKey) localStorage.setItem('whop_gemini_key', geminiKey);
+        if (pixabayKey) localStorage.setItem('whop_pixabay_key', pixabayKey);
+        showToast('AI & Pixabay Settings Saved');
         if (dom.aiKeyModal) dom.aiKeyModal.classList.add('hidden');
       });
     }
@@ -1270,6 +1699,10 @@
 
     // Load initial waveform
     loadWaveformForSrc(state.clips[0].src);
+
+    // Initial Live Suggestions & Pixabay Stock Fetch
+    fetchAiSuggestions();
+    searchPixabay('gaming streamer');
 
     // Start 60fps canvas loop
     requestAnimationFrame(animationLoop);

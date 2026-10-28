@@ -169,6 +169,20 @@
         </div>
       </div>
 
+      <!-- 💡 AI Edit Suggestions & 100/100 Hooks Quick Access -->
+      <div style="padding: 0 12px 10px;">
+        <button
+          type="button"
+          id="sidebarOpenSuggestionsBtn"
+          class="ab-primary-cta"
+          style="width:100%;background:linear-gradient(135deg,rgba(255,176,32,0.18),rgba(57,217,138,0.12));border:1px solid rgba(255,176,32,0.4);color:#FFB020;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;"
+          title="View 100/100 Whop Hook Suggestions & 5 Edit Archetypes"
+        >
+          <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>
+          <span>⚡ 100/100 Hooks &amp; Archetypes</span>
+        </button>
+      </div>
+
       <!-- Scrollable Assets List -->
       <div class="assets-scroll-view">
         <!-- 1. Video Clips Pool -->
@@ -297,10 +311,11 @@
           <span class="inspector-subtitle">Properties &amp; Polish</span>
         </div>
 
-        <!-- 4 Clean Inspector Tabs -->
+        <!-- 5 Clean Inspector Tabs -->
         <div class="inspector-tabs" role="tablist">
           <button type="button" class="tab-btn active" id="tabBtnCaptions" role="tab" aria-selected="true" data-tab="captions">Captions</button>
           <button type="button" class="tab-btn" id="tabBtnBroll" role="tab" aria-selected="false" data-tab="broll">B-roll</button>
+          <button type="button" class="tab-btn" id="tabBtnSuggestions" role="tab" aria-selected="false" data-tab="suggestions">⚡ Suggestions</button>
           <button type="button" class="tab-btn" id="tabBtnStyles" role="tab" aria-selected="false" data-tab="styles">Styles</button>
           <button type="button" class="tab-btn" id="tabBtnSettings" role="tab" aria-selected="false" data-tab="settings">Settings</button>
         </div>
@@ -405,17 +420,42 @@
         </div>
 
         <!-- =============================================================
-             TAB 2: AUTO B-ROLL CUTAWAYS
+             TAB 2: AUTO B-ROLL & LIVE PIXABAY STOCK SEARCH
              ============================================================= -->
         <div id="inspectorTabBroll" class="tab-panel">
           <button type="button" id="generateBrollBtn" class="ab-primary-cta" title="AI detects moments where visuals strengthen the story">
             <span class="material-symbols-outlined cta-icon" id="brollGenIcon">movie</span>
-            <span id="brollGenLabel">Auto B-roll</span>
+            <span id="brollGenLabel">Auto B-roll (AI Plan)</span>
           </button>
           <p id="brollProgressLabel" class="progress-sub-label hidden">Finding visual cutaways…</p>
 
-          <div class="broll-settings-block">
-            <span class="prop-label">B-Roll Cutaway Modes:</span>
+          <!-- Live Pixabay Stock Video Search (Using User's API Key) -->
+          <div class="pixabay-search-section">
+            <div class="section-title-row" style="margin-top:14px;margin-bottom:6px;">
+              <span class="prop-label" style="display:flex;align-items:center;gap:6px;color:#FFB020;font-weight:700;">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#39d98a;">travel_explore</span>
+                LIVE PIXABAY HD STOCK (API CONNECTED)
+              </span>
+            </div>
+            <div class="pixabay-input-row">
+              <input type="text" id="pixabaySearchInput" class="ab-input" placeholder="Search stock videos (e.g. gaming, drift, crowd)..." />
+              <button type="button" id="pixabaySearchBtn" class="ab-btn-accent">Search</button>
+            </div>
+            <div class="quick-tags-row">
+              <button type="button" class="quick-tag-chip" data-query="Kai Cenat">🔥 Kai Cenat</button>
+              <button type="button" class="quick-tag-chip" data-query="drift car phonk">🚗 Phonk Drift</button>
+              <button type="button" class="quick-tag-chip" data-query="gamer pc setup">🎮 Gaming PC</button>
+              <button type="button" class="quick-tag-chip" data-query="money cash dollar">💰 Money</button>
+              <button type="button" class="quick-tag-chip" data-query="shocked reaction crowd">😱 Crowd</button>
+            </div>
+            <div id="pixabayLoadingLabel" class="progress-sub-label hidden">Searching Pixabay stock API…</div>
+            <div id="pixabayResultsContainer" class="pixabay-results-grid">
+              <!-- Live Pixabay results rendered here -->
+            </div>
+          </div>
+
+          <div class="broll-settings-block" style="margin-top:16px;">
+            <span class="prop-label">Active Cutaway Modes:</span>
             <p class="helper-text">Fullscreen (covers face 2s) • Inset (clean corner card) • Top (upper 45%)</p>
           </div>
 
@@ -425,7 +465,45 @@
         </div>
 
         <!-- =============================================================
-             TAB 3: STYLES (Accent Colors & Typography)
+             TAB 3: AI EDIT SUGGESTIONS & 100/100 HOOK RATINGS
+             ============================================================= -->
+        <div id="inspectorTabSuggestions" class="tab-panel">
+          <div class="suggestions-header-card">
+            <div class="shc-top">
+              <span class="badge-100-pill">⚡ 100/100 WHOP VIRAL HOOKS</span>
+              <button type="button" id="refreshSuggestionsBtn" class="icon-btn-sm" title="Refresh AI Suggestions">
+                <span class="material-symbols-outlined">refresh</span>
+              </button>
+            </div>
+            <h3 class="shc-title">Edit Archetypes &amp; Hook Rankings</h3>
+            <p class="helper-text">KosherPlug Whop Strategy: 1.2s Instant Hook • 50%+ US/UK Native English • Mandatory #KaiCenat</p>
+          </div>
+
+          <!-- Section A: 100/100 Hook Candidates -->
+          <section class="inspector-card" style="margin-top:12px;">
+            <div class="card-header">
+              <span class="card-title">CURATED 100/100 HOOK CANDIDATES</span>
+              <span class="score-pill-gold">100/100</span>
+            </div>
+            <div id="hookCandidatesContainer" class="hook-candidates-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </section>
+
+          <!-- Section B: 5 Whop Edit Archetypes -->
+          <section class="inspector-card" style="margin-top:12px;">
+            <div class="card-header">
+              <span class="card-title">5 WHOP EDIT ARCHETYPES</span>
+              <span class="mono-badge">5 Options</span>
+            </div>
+            <div id="archetypesContainer" class="archetypes-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </section>
+        </div>
+
+        <!-- =============================================================
+             TAB 4: STYLES (Accent Colors & Typography)
              ============================================================= -->
         <div id="inspectorTabStyles" class="tab-panel">
           <div class="inspector-card">
@@ -690,10 +768,14 @@
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label">Google Gemini API Key:</label>
-          <input type="password" id="userAiApiKeyInput" class="ab-input" placeholder="AIzaSy..." />
+          <input type="password" id="userAiApiKeyInput" class="ab-input" placeholder="Configured securely on server (.env)" />
         </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Pexels API Key (Optional for Stock B-Roll):</label>
+          <label class="form-label">Pixabay API Key (Live Stock HD Videos):</label>
+          <input type="password" id="userPixabayApiKeyInput" class="ab-input" placeholder="Configured securely on server (.env)" />
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Pexels API Key (Optional):</label>
           <input type="password" id="userPexelsApiKeyInput" class="ab-input" placeholder="Pexels API key..." />
         </div>
         <div class="modal-actions-right" style="margin-top:16px;">
