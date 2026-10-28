@@ -171,6 +171,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_face_track(payload)
         elif path in ("/api/auto_curate", "/api/auto-curate"):
             self.handle_api_auto_curate(payload)
+        elif path in ("/api/post_caption", "/api/post-caption"):
+            self.handle_api_post_caption(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -1646,6 +1648,108 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "actions": actions_list,
             "model": "gemini-3.1-flash-lite"
         })
+
+    def handle_api_post_caption(self, payload):
+        """
+        Generates 3 post caption variants (hook + CTA + hashtags) tuned for a
+        native-English audience (US / UK / CA / AU / NZ) via Gemini.
+        Returns {"success": False} when no key / model fails so the client can
+        fall back to its offline generator. The client re-validates everything
+        (required hashtags, tone, length) before showing it.
+        """
+        api_key = (payload.get("api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+        if not api_key:
+            self.send_json_response({"success": False, "error": "No Gemini API key configured"})
+            return
+
+        creator = str(payload.get("creator") or "the streamer").strip()[:60]
+        platform = str(payload.get("platform") or "tiktok").strip()[:20]
+        archetype = str(payload.get("archetype") or "").strip()[:40]
+        transcript = str(payload.get("transcript") or "").strip()[:2500]
+        brief = str(payload.get("brief") or "").strip()[:3000]
+        required = [str(t).strip() for t in (payload.get("required_tags") or []) if str(t).strip()][:5]
+
+        prompt_txt = (
+            "You write short-form social video captions for a clipping campaign.\n"
+            "Target audience: native English speakers in the USA, UK, Canada, Australia and New Zealand.\n"
+            f"Main creator in the clip: {creator}. Platform: {platform}. Edit style hint: {archetype or 'n/a'}.\n"
+            f"Clip transcript:\n\"\"\"{transcript or '(no transcript)'}\"\"\"\n"
+            f"Campaign brief:\n\"\"\"{brief or '(none)'}\"\"\"\n"
+            "Rules:\n"
+            "- Natural American English internet/streamer voice (words like chat, bro, W are fine). "
+            "No non-English words and no slang specific to regions outside US/UK/CA/AU/NZ.\n"
+            "- Positive or funny framing ONLY. Never portray the creator negatively, never mock them, never invent drama "
+            "or a false narrative (avoid words like exposed, cringe, fail, meltdown, beef, drama, hate).\n"
+            "- No profanity. Do not mention logos, payouts, campaigns or clipping.\n"
+            "- hook: max 90 characters, max 2 emojis, describe what actually happens in the transcript.\n"
+            "- cta: max 60 characters (follow for more clips, or a question that sparks comments).\n"
+            f"- hashtags: 4 to 6 relevant CamelCase hashtags popular in the US. MUST include: {', '.join(required) or 'none'}.\n"
+            'Return ONLY JSON: {"variants":[{"hook":"...","cta":"...","hashtags":["#..."]}]} with exactly 3 variants.'
+        )
+        req_body = {
+            "contents": [{"parts": [{"text": prompt_txt}]}],
+            "generationConfig": {"temperature": 0.9, "responseMimeType": "application/json"}
+        }
+
+        raw_output = ""
+        used_model = ""
+        temp_f = engine.TEMP / f"post_caption_{int(time.time() * 1000)}.json"
+        try:
+            temp_f.write_text(json.dumps(req_body), encoding="utf-8")
+            file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
+            for model_name in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                proc = subprocess.run(
+                    ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
+                    capture_output=True, text=True, timeout=20
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    try:
+                        cands = json.loads(proc.stdout).get("candidates") or []
+                    except Exception:
+                        cands = []
+                    if cands:
+                        raw_output = (cands[0].get("content", {}).get("parts", [{}])[0].get("text", "") or "").strip()
+                        if raw_output:
+                            used_model = model_name
+                            break
+        except Exception as e:
+            sys.stderr.write(f"[Post Caption] Gemini notice: {e}\n")
+        finally:
+            try:
+                temp_f.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        variants = []
+        if raw_output:
+            clean = raw_output
+            if "```" in clean:
+                clean = clean.split("```", 2)[1]
+                if clean.startswith("json"):
+                    clean = clean[4:]
+            try:
+                parsed = json.loads(clean.strip())
+                items = parsed.get("variants") if isinstance(parsed, dict) else parsed
+                for it in (items or [])[:4]:
+                    if not isinstance(it, dict):
+                        continue
+                    hook = str(it.get("hook") or "").strip()
+                    if not hook:
+                        continue
+                    tags = it.get("hashtags") or []
+                    variants.append({
+                        "hook": hook[:140],
+                        "cta": str(it.get("cta") or "").strip()[:90],
+                        "hashtags": [str(t).strip() for t in tags if str(t).strip()][:8] if isinstance(tags, list) else []
+                    })
+            except Exception as e:
+                sys.stderr.write(f"[Post Caption] JSON parse notice: {e}\n")
+
+        if variants:
+            self.send_json_response({"success": True, "engine": used_model, "variants": variants})
+        else:
+            self.send_json_response({"success": False, "error": "AI caption generation unavailable"})
 
     def handle_api_translit(self, payload):
         """

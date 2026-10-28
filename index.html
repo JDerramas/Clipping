@@ -2049,6 +2049,37 @@
             <button type="button" id="exportJsonProjectBtn" class="btn-chip" style="justify-content:center;">📦 .JSON Project</button>
           </div>
         </div>
+
+        <!-- Post Caption & Hashtags Generator (US/UK/CA/AU/NZ audience targeting) -->
+        <div id="postCaptionPanel" class="post-caption-panel">
+          <div class="pc-header">
+            <span class="pc-title">📣 POST CAPTION &amp; HASHTAGS <small>🇺🇸 🇬🇧 🇨🇦 🇦🇺 🇳🇿</small></span>
+            <span id="postCaptionEngineBadge" class="status-pill status-cyan">OFFLINE</span>
+          </div>
+          <div class="pc-controls">
+            <select id="postCampaignSelect" class="studio-input" title="Campaign rules preset">
+              <option value="kai-cenat" selected>👑 Kai Cenat • Reach $10K</option>
+              <option value="generic">🌎 Generic Clip (US/UK)</option>
+            </select>
+            <select id="postPlatformSelect" class="studio-input" title="Target platform">
+              <option value="tiktok" selected>TikTok</option>
+              <option value="reels">Instagram Reels</option>
+              <option value="shorts">YouTube Shorts</option>
+            </select>
+            <button type="button" id="generatePostCaptionBtn" class="btn-micro pc-gen-btn" title="Generate caption + hashtags from transcript">✨ Generate</button>
+          </div>
+          <div id="postCaptionVariants" class="pc-variants"></div>
+          <textarea id="postCaptionTextarea" class="studio-input pc-textarea" rows="5" placeholder="Caption + hashtags will appear here..."></textarea>
+          <div class="pc-meta-row">
+            <span id="postCaptionCharCount" class="mono-val">0 chars</span>
+            <span id="postBestTimeLabel" class="pc-best-time"></span>
+          </div>
+          <div id="postComplianceList" class="pc-compliance"></div>
+          <div class="pc-actions">
+            <button type="button" id="copyHashtagsBtn" class="btn-opencut-export" style="padding:8px 12px; font-size:12px;">📋 Copy Caption</button>
+            <button type="button" id="postSubmitTimerBtn" class="btn-chip" style="justify-content:center;" title="Campaign rule: submit your link in Content Rewards within 30 minutes of posting">⏱ I just posted — start 30-min submit timer</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

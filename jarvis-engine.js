@@ -882,6 +882,30 @@
           }
           break;
         }
+        case 'post_caption': {
+          if (studio?.openExportModal) studio.openExportModal();
+          const campSel = document.getElementById('postCampaignSelect');
+          if (campSel && action.campaign) campSel.value = action.campaign;
+          const platSel = document.getElementById('postPlatformSelect');
+          if (platSel && action.platform) platSel.value = action.platform;
+          if (studio?.generatePostCaption) {
+            studio.generatePostCaption({ useAi: true });
+            return true;
+          }
+          break;
+        }
+        case 'post_timer': {
+          if (studio?.startPostSubmitTimer) {
+            studio.startPostSubmitTimer();
+            return true;
+          }
+          const timerBtn = document.getElementById('postSubmitTimerBtn');
+          if (timerBtn) {
+            timerBtn.click();
+            return true;
+          }
+          break;
+        }
         default:
           console.warn('[JARVIS] Unknown action type:', type);
           if (studio?.updateTaskChecklistStep) {
@@ -1045,6 +1069,15 @@
       // Export / render
       if (text.includes('export') || text.includes('render') || text.includes('save video') || text.includes('i-download')) {
         localActions.push({ action: 'export' });
+      }
+
+      // Post Caption & Hashtag Generator (US/UK audience + Kai Cenat campaign)
+      if (text.includes('kai cenat caption') || text.includes('generate caption') || text.includes('caption generator') || text.includes('caption at hashtag') || text.includes('hashtag') || text.includes('hashtags') || text.includes('us caption') || text.includes('gumawa ng caption') || text.includes('post caption')) {
+        const campaign = (text.includes('generic') || text.includes('general')) ? 'generic' : 'kai-cenat';
+        const platform = text.includes('shorts') ? 'shorts' : (text.includes('reels') ? 'reels' : 'tiktok');
+        localActions.push({ action: 'post_caption', campaign, platform });
+      } else if (text.includes('submit timer') || text.includes('posted') || text.includes('30 min') || text.includes('nag post na') || text.includes('start timer')) {
+        localActions.push({ action: 'post_timer' });
       }
 
       // Prompt Director / Client Brief

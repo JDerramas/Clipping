@@ -2312,10 +2312,9 @@
       dom.hookBannerTextInput.value = state.hookText;
     }
 
-    // Update viral post caption
-    if (dom.postCaptionTextarea) {
-      dom.postCaptionTextarea.value = `${clip.title} 🤯🔥 Watch till the end! #whop #clipping #viralshorts #sidehustle #fyp`;
-    }
+    // Mark post caption stale; it regenerates (transcript-aware) when Export opens
+    state.postCaptionKey = null;
+    state.postCaptionUserEdited = false;
 
     if (state.useCustomMainVideo && dom.mainVideoEl) {
       if (Math.abs(dom.mainVideoEl.currentTime - state.currentTime) > 0.05) {
@@ -7761,6 +7760,7 @@
       }
       dom.exportProgressSection.classList.add('hidden');
       dom.exportModal.classList.remove('hidden');
+      autoGeneratePostCaptionIfStale();
     };
     safeOn(dom.openExportModalBtn, 'click', openExportModal);
     safeOn(dom.inspectorExportVideoBtn, 'click', openExportModal);
@@ -8534,8 +8534,9 @@
       if (navigator.clipboard && dom.postCaptionTextarea) {
         navigator.clipboard.writeText(dom.postCaptionTextarea.value).catch(() => {});
       }
-      showToast('📋 Copied Viral Caption & Whop Hashtags to clipboard!');
+      showToast('📋 Caption & hashtags copied — paste it into your post!');
     });
+    bindPostCaptionPanel();
 
     // 5. Timeline Transport & Scrubber Dragging
     safeOn(dom.playPauseBtn, 'click', togglePlayPause);
@@ -12260,6 +12261,447 @@
     return hooks;
   }
 
+  // =========================================================================
+  // POST CAPTION & HASHTAG GENERATOR (native-English audience: US/UK/CA/AU/NZ)
+  // Offline generator runs instantly; Gemini (/api/post_caption) upgrades it
+  // when a key is configured. Every result is re-validated client-side.
+  // =========================================================================
+  const POST_CAMPAIGNS = {
+    'kai-cenat': {
+      creator: 'Kai Cenat',
+      short: 'Kai',
+      required: ['#KaiCenat'],
+      niche: ['#KaiCenatClips', '#KaiCenatStream', '#AMP', '#TwitchClips', '#StreamerClips', '#FunnyClips', '#Twitch'],
+      clipWindow: '10/21–10/31',
+      noLogos: true
+    },
+    generic: {
+      creator: '',
+      short: '',
+      required: [],
+      niche: ['#StreamerClips', '#FunnyMoments', '#TwitchClips', '#Clips', '#Viral'],
+      clipWindow: '',
+      noLogos: false
+    }
+  };
+
+  const POST_PLATFORM_SPECS = {
+    tiktok: { label: 'TikTok', maxChars: 2200, tagCount: 5, extraTags: [] },
+    reels: { label: 'Instagram Reels', maxChars: 2200, tagCount: 5, extraTags: ['#Reels'] },
+    // Shorts mobile upload has a single 100-char caption (= title)
+    shorts: { label: 'YouTube Shorts', maxChars: 100, tagCount: 3, extraTags: ['#Shorts'] }
+  };
+
+  const POST_TOPIC_TAGS = [
+    [/\bfortnite\b/i, '#Fortnite'], [/\bgta\b/i, '#GTA'], [/\bminecraft\b/i, '#Minecraft'],
+    [/\b2k\b/i, '#NBA2K'], [/\bsubathon\b/i, '#Subathon'], [/\bmafiathon\b/i, '#Mafiathon'],
+    [/\bfootball|nfl\b/i, '#NFL'], [/\bnba|basketball\b/i, '#NBA'], [/\bhalloween\b/i, '#Halloween']
+  ];
+
+  // Words that frame the creator negatively / hate-farm (campaign rejection risk)
+  const POST_NEGATIVE_RX = /\b(exposed|cringe|cringy|fail(?:ed|s)?|cancel+ed|drama|beef|fake|hate[sd]?|haters?|worst|meltdown|toxic|scam(?:mer)?|caught|disrespect(?:ful)?|trash|embarrass(?:ing|ed)?|flop(?:ped)?|fraud|downfall|ruined|clown(?:ed)?|ratio(?:ed)?|lawsuit|arrested|rage\s*quit)\b/i;
+  const POST_PROFANITY_RX = /\b(f+u+c+k\w*|sh[i1]t\w*|b[i1]tch\w*|n[i1]gg\w*|a[s$]{2}hole|d[i1]ck\w*|pu[s$]{2}y)\b/i;
+  // Non-target-region slang (keeps captions native-English for the 50% audience rule)
+  const POST_NON_TARGET_SLANG_RX = /\b(grabe|yung|naman|sana|lodi|petmalu|talaga|kasi|ganun|diba|sobrang|lang|nga|yaar|bhai|accha|wey|güey|parce)\b/i;
+
+  function escapeRegexText(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function normalizeHashtag(tag) {
+    const clean = String(tag || '').replace(/[^A-Za-z0-9_]/g, '');
+    return clean ? `#${clean}` : '';
+  }
+
+  function getPostCampaignKey() {
+    const sel = document.getElementById('postCampaignSelect');
+    return (sel && POST_CAMPAIGNS[sel.value]) ? sel.value : 'kai-cenat';
+  }
+
+  function getPostPlatformKey() {
+    const sel = document.getElementById('postPlatformSelect');
+    return (sel && POST_PLATFORM_SPECS[sel.value]) ? sel.value : 'tiktok';
+  }
+
+  // Required tags = campaign preset + any hashtags the pasted client brief says to use
+  function getPostRequiredTags(campaignKey) {
+    const tags = [...(POST_CAMPAIGNS[campaignKey]?.required || [])];
+    const brief = dom.clientPromptInput ? String(dom.clientPromptInput.value || '') : '';
+    if (/hashtag/i.test(brief)) {
+      (brief.match(/#[A-Za-z0-9_]+/g) || []).forEach((t) => tags.push(t));
+    }
+    const seen = new Set();
+    return tags.map(normalizeHashtag).filter((t) => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()));
+  }
+
+  function detectPostMomentType(text) {
+    const arch = state.clippingType || '';
+    if (/\b(haha+|lol|lmao|laugh\w*|funny|joke|hilarious|dead)\b|😂|😭|💀/i.test(text)) return 'funny';
+    if (arch === 'gaming' || /\b(game|clutch|won|win|kill|fortnite|gta|2k|minecraft|ranked)\b/i.test(text)) return 'gaming';
+    if (arch === 'reaction' || /\b(no way|bro|yo|wait|oh my god|omg|nah|what)\b/i.test(text)) return 'reaction';
+    return 'moment';
+  }
+
+  // Picks the most quotable clean line from the transcript (skips negative/profane lines)
+  function extractPostQuote(tokens) {
+    if (tokens.length < 4) return '';
+    const text = tokens.join(' ');
+    let candidates = text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+    if (candidates.length < 2) {
+      candidates = [];
+      for (let i = 0; i < tokens.length; i += 7) candidates.push(tokens.slice(i, i + 9).join(' '));
+    }
+    const scored = candidates.map((s) => {
+      const n = s.split(/\s+/).length;
+      let score = (n >= 4 && n <= 14) ? 3 : (n > 22 || n < 3 ? -5 : 0);
+      if (/[!?]/.test(s)) score += 1.5;
+      if (/\b(never|always|crazy|best|insane|love|chat|bro|nah|why|who|really|deadass|real|literally)\b/i.test(s)) score += 2;
+      if (POST_NEGATIVE_RX.test(s) || POST_PROFANITY_RX.test(s)) score -= 100;
+      return { s, score };
+    }).sort((a, b) => b.score - a.score);
+    if (!scored[0] || scored[0].score < 3) return '';
+    let q = scored[0].s.replace(/^[^A-Za-z0-9]+/, '').replace(/[.,;:]+$/, '');
+    if (q.length > 80) q = q.slice(0, 77).replace(/\s+\S*$/, '') + '...';
+    return q.charAt(0).toUpperCase() + q.slice(1);
+  }
+
+  function pickPostHashtags(required, campaign, platformKey, text, rotation) {
+    const spec = POST_PLATFORM_SPECS[platformKey];
+    const topic = POST_TOPIC_TAGS.filter(([rx]) => rx.test(text)).map(([, tag]) => tag);
+    const niche = campaign.niche.slice(rotation % campaign.niche.length).concat(campaign.niche.slice(0, rotation % campaign.niche.length));
+    const out = [];
+    const seen = new Set();
+    const push = (t) => {
+      const n = normalizeHashtag(t);
+      if (n && !seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); out.push(n); }
+    };
+    required.forEach(push);
+    spec.extraTags.forEach(push);
+    [...topic, ...niche].forEach((t) => { if (out.length < Math.max(spec.tagCount, required.length + spec.extraTags.length)) push(t); });
+    return out;
+  }
+
+  function assemblePostCaption(variant, platformKey) {
+    const spec = POST_PLATFORM_SPECS[platformKey] || POST_PLATFORM_SPECS.tiktok;
+    const extra = spec.extraTags || [];
+    const baseTags = [...(variant.hashtags || [])];
+    extra.forEach((et) => {
+      if (!baseTags.some((t) => t.toLowerCase() === et.toLowerCase())) {
+        baseTags.unshift(et);
+      }
+    });
+
+    if (platformKey === 'shorts') {
+      const isProtected = (t) => {
+        const low = t.toLowerCase();
+        return low === '#shorts' || low === '#kaicenat';
+      };
+      let tags = [...baseTags];
+      let hook = variant.hook;
+      while (tags.length > 2 && `${hook} ${tags.join(' ')}`.length > spec.maxChars) {
+        const removeIdx = tags.findIndex((t) => !isProtected(t));
+        if (removeIdx >= 0) tags.splice(removeIdx, 1);
+        else break;
+      }
+      let tail = ` ${tags.join(' ')}`;
+      if ((hook + tail).length > spec.maxChars) {
+        const allowedHook = Math.max(15, spec.maxChars - tail.length - 1);
+        hook = hook.slice(0, allowedHook).replace(/\s+\S*$/, '') + '…';
+      }
+      return `${hook}${tail}`;
+    }
+    const tagStr = baseTags.join(' ');
+    return [variant.hook, variant.cta, tagStr].filter(Boolean).join('\n\n');
+  }
+
+  function buildOfflinePostVariants(ctx) {
+    const { campaign, tokens, text, required, platformKey } = ctx;
+    const type = detectPostMomentType(text);
+    const quote = extractPostQuote(tokens);
+    const name = campaign.creator || 'Bro';
+    const nick = campaign.short || 'bro';
+    const T = {
+      funny: [`${name} had chat in tears with this one 😭`, `${nick} could NOT keep a straight face 😂`, `Nobody makes a stream funnier than ${nick} 😭💀`],
+      reaction: [`${name}'s reaction to this is priceless 😳`, `${nick} was not ready for this one 😭`, `The way ${nick} reacted though 💀`],
+      gaming: [`${name} went crazy on this one 🎮🔥`, `${nick} really pulled this off live on stream 😤`, `Chat could not believe what ${nick} just did 🎮`],
+      moment: [`One of ${name}'s most iconic stream moments 🔥`, `This ${nick} moment lives rent-free in my head 😭`, `Chat went crazy after this ${nick} moment 🔥`]
+    }[type];
+    const hooks = quote ? [`${nick} really said "${quote}" 😭`, T[0], T[1]] : T;
+    const ctas = [
+      campaign.short ? `Follow for daily ${campaign.short} clips 🔔` : 'Follow for more clips like this 🔔',
+      'Would you have reacted the same way? 👇',
+      'Rate this moment 1–10 👇'
+    ];
+    return hooks.map((hook, i) => ({
+      hook: hook.charAt(0).toUpperCase() + hook.slice(1),
+      cta: ctas[i % ctas.length],
+      hashtags: pickPostHashtags(required, campaign, platformKey, text, i * 2)
+    }));
+  }
+
+  // Cleans an AI variant; returns null if it breaks campaign tone rules
+  function sanitizeAiPostVariant(v, ctx, idx) {
+    const hook = String(v.hook || '').replace(/\s+/g, ' ').trim();
+    const cta = String(v.cta || '').replace(/\s+/g, ' ').trim();
+    const joined = `${hook} ${cta}`;
+    if (!hook || POST_NEGATIVE_RX.test(joined) || POST_PROFANITY_RX.test(joined) || POST_NON_TARGET_SLANG_RX.test(joined)) return null;
+    const spec = POST_PLATFORM_SPECS[ctx.platformKey];
+    const tags = [];
+    const seen = new Set();
+    [...ctx.required, ...spec.extraTags, ...(v.hashtags || [])].forEach((t) => {
+      const n = normalizeHashtag(t);
+      if (n && !seen.has(n.toLowerCase()) && tags.length < Math.max(spec.tagCount + 1, ctx.required.length + 2)) {
+        seen.add(n.toLowerCase());
+        tags.push(n);
+      }
+    });
+    if (tags.length < 3) pickPostHashtags(ctx.required, ctx.campaign, ctx.platformKey, ctx.text, idx).forEach((t) => { if (!seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); tags.push(t); } });
+    return { hook, cta, hashtags: tags };
+  }
+
+  function evaluatePostCompliance(caption, campaignKey, platformKey) {
+    const campaign = POST_CAMPAIGNS[campaignKey];
+    const spec = POST_PLATFORM_SPECS[platformKey];
+    const checks = [];
+    getPostRequiredTags(campaignKey).forEach((tag) => {
+      const ok = new RegExp(`(^|\\s)${escapeRegexText(tag)}(?![A-Za-z0-9_])`, 'i').test(caption);
+      checks.push(ok ? { level: 'ok', text: `${tag} included` } : { level: 'bad', text: `Missing required ${tag}`, fix: 'addTag', tag });
+    });
+    const letters = caption.match(/\p{L}/gu) || [];
+    const nonLatin = letters.some((ch) => !/\p{Script=Latin}/u.test(ch));
+    const slang = caption.match(POST_NON_TARGET_SLANG_RX);
+    checks.push((nonLatin || slang)
+      ? { level: 'warn', text: `Non-US/UK wording${slang ? `: "${slang[0]}"` : ''}` }
+      : { level: 'ok', text: 'Native English' });
+    const neg = caption.match(POST_NEGATIVE_RX);
+    checks.push(neg ? { level: 'bad', text: `Negative framing: "${neg[0]}"` } : { level: 'ok', text: 'Positive tone' });
+    if (POST_PROFANITY_RX.test(caption)) checks.push({ level: 'warn', text: 'Profanity (limits reach)' });
+    const len = caption.length;
+    checks.push(len <= spec.maxChars
+      ? { level: 'ok', text: `${spec.label} length OK` }
+      : { level: 'bad', text: `Too long for ${spec.label} (${len}/${spec.maxChars})` });
+    if (campaign.noLogos) {
+      checks.push(state.watermarkEnabled
+        ? { level: 'bad', text: 'Watermark/logo on video (not allowed)', fix: 'hideWatermark' }
+        : { level: 'ok', text: 'No logos/watermark' });
+    }
+    if (campaign.creator) checks.push({ level: 'info', text: `${campaign.short} must be the main focus` });
+    if (campaign.clipWindow) checks.push({ level: 'info', text: `Clip from ${campaign.clipWindow} streams only` });
+    return checks;
+  }
+
+  function getUsBestPostTimeLabel() {
+    try {
+      const now = new Date();
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+      }).formatToParts(now).map((x) => [x.type, x.value]));
+      const nyAsUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+      const offsetMs = nyAsUtc - Math.floor(now.getTime() / 60000) * 60000;
+      const at = (h) => new Date(Date.UTC(+p.year, +p.month - 1, +p.day, h, 0) - offsetMs);
+      const fmt = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return `🕖 Best US post time (your clock): ${fmt(at(12))}–${fmt(at(15))} or ${fmt(at(18))}–${fmt(at(22))}`;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function refreshPostCaptionChecks() {
+    const ta = dom.postCaptionTextarea;
+    if (!ta) return [];
+    const caption = ta.value || '';
+    const campaignKey = getPostCampaignKey();
+    const platformKey = getPostPlatformKey();
+    const spec = POST_PLATFORM_SPECS[platformKey];
+    const countEl = document.getElementById('postCaptionCharCount');
+    if (countEl) countEl.textContent = `${caption.length}/${spec.maxChars} chars`;
+    const timeEl = document.getElementById('postBestTimeLabel');
+    if (timeEl) timeEl.textContent = getUsBestPostTimeLabel();
+    const checks = evaluatePostCompliance(caption, campaignKey, platformKey);
+    const listEl = document.getElementById('postComplianceList');
+    if (listEl) {
+      listEl.innerHTML = '';
+      checks.forEach((c) => {
+        const chip = document.createElement('span');
+        chip.className = `pc-check ${c.level}`;
+        const icon = { ok: '✓', warn: '⚠', bad: '✕', info: '•' }[c.level];
+        chip.textContent = `${icon} ${c.text}`;
+        if (c.fix) {
+          const fixBtn = document.createElement('button');
+          fixBtn.type = 'button';
+          fixBtn.textContent = 'Fix';
+          fixBtn.addEventListener('click', () => {
+            if (c.fix === 'addTag') ta.value = `${ta.value.trimEnd()} ${c.tag}`.trim();
+            if (c.fix === 'hideWatermark') setWatermark(null, false);
+            refreshPostCaptionChecks();
+          });
+          chip.appendChild(fixBtn);
+        }
+        listEl.appendChild(chip);
+      });
+    }
+    return checks;
+  }
+
+  function renderPostCaptionVariants() {
+    const wrap = document.getElementById('postCaptionVariants');
+    const platformKey = getPostPlatformKey();
+    const raw = state.postCaptionRaw || [];
+    const captions = raw.map((v) => assemblePostCaption(v, platformKey));
+    const activeIdx = Math.min(state.postCaptionActiveIdx || 0, Math.max(0, captions.length - 1));
+    if (wrap) {
+      wrap.innerHTML = '';
+      captions.forEach((cap, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `pc-variant${i === activeIdx ? ' active' : ''}`;
+        btn.textContent = `${i + 1}. ${cap.split('\n')[0]}`;
+        btn.title = cap;
+        btn.addEventListener('click', () => {
+          state.postCaptionActiveIdx = i;
+          state.postCaptionUserEdited = false;
+          renderPostCaptionVariants();
+        });
+        wrap.appendChild(btn);
+      });
+    }
+    if (dom.postCaptionTextarea && captions[activeIdx] !== undefined) {
+      dom.postCaptionTextarea.value = captions[activeIdx];
+    }
+    refreshPostCaptionChecks();
+    return captions;
+  }
+
+  function getPostCaptionContextKey() {
+    return `${getPostCampaignKey()}|${state.trimStart}|${state.trimEnd}|${getActiveTranscriptWords().length}`;
+  }
+
+  let postCaptionGenSeq = 0;
+  async function generatePostCaption(options = {}) {
+    const { useAi = true, silent = false } = options;
+    const seq = ++postCaptionGenSeq;
+    const campaignKey = getPostCampaignKey();
+    const platformKey = getPostPlatformKey();
+    const campaign = POST_CAMPAIGNS[campaignKey];
+    const tokens = getActiveTranscriptWords()
+      .filter((w) => w && !w.deleted && (w.end === undefined || w.end >= state.trimStart) && (w.start === undefined || w.start <= state.trimEnd))
+      .map((w) => String(w.origWord || w.word || '').trim())
+      .filter(Boolean);
+    const text = tokens.join(' ');
+    const ctx = { campaignKey, platformKey, campaign, tokens, text, required: getPostRequiredTags(campaignKey) };
+
+    state.postCaptionRaw = buildOfflinePostVariants(ctx);
+    state.postCaptionActiveIdx = 0;
+    state.postCaptionUserEdited = false;
+    state.postCaptionKey = getPostCaptionContextKey();
+    const badge = document.getElementById('postCaptionEngineBadge');
+    if (badge) badge.textContent = useAi ? 'AI…' : 'OFFLINE';
+    renderPostCaptionVariants();
+
+    if (!useAi) return state.postCaptionRaw;
+    try {
+      const resp = await fetch('/api/post_caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: state.geminiApiKey || '',
+          campaign: campaignKey,
+          creator: campaign.creator,
+          platform: POST_PLATFORM_SPECS[platformKey].label,
+          archetype: state.clippingType || '',
+          transcript: text.slice(0, 2500),
+          brief: dom.clientPromptInput ? String(dom.clientPromptInput.value || '').slice(0, 3000) : '',
+          required_tags: ctx.required
+        })
+      });
+      const data = await resp.json();
+      if (seq !== postCaptionGenSeq) return state.postCaptionRaw; // superseded
+      const aiVariants = (data && data.success && Array.isArray(data.variants))
+        ? data.variants.map((v, i) => sanitizeAiPostVariant(v, ctx, i)).filter(Boolean)
+        : [];
+      if (aiVariants.length > 0 && !state.postCaptionUserEdited) {
+        state.postCaptionRaw = aiVariants.concat(state.postCaptionRaw).slice(0, 4);
+        state.postCaptionActiveIdx = 0;
+        if (badge) badge.textContent = 'AI • GEMINI';
+        renderPostCaptionVariants();
+        if (!silent) showToast('✨ AI caption + US/UK hashtags generated!', '#38bdf8');
+      } else {
+        if (badge) badge.textContent = 'OFFLINE';
+        if (!silent) showToast('📣 Caption + hashtags generated (offline engine)', '#38bdf8');
+      }
+    } catch (e) {
+      if (badge && seq === postCaptionGenSeq) badge.textContent = 'OFFLINE';
+    }
+    return state.postCaptionRaw;
+  }
+
+  let postSubmitTimerId = null;
+  function startPostSubmitTimer() {
+    const btn = document.getElementById('postSubmitTimerBtn');
+    clearInterval(postSubmitTimerId);
+    const deadline = Date.now() + 30 * 60 * 1000;
+    let warned = false;
+    const tick = () => {
+      const left = deadline - Date.now();
+      if (left <= 0) {
+        clearInterval(postSubmitTimerId);
+        if (btn) btn.textContent = '⛔ 30-min submit window passed';
+        showToast('⛔ 30-minute submit window passed for your last post', '#ef4444');
+        return;
+      }
+      const m = Math.floor(left / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      if (btn) btn.textContent = `⏱ Submit link in Content Rewards — ${m}:${String(s).padStart(2, '0')} left`;
+      if (!warned && left < 5 * 60 * 1000) {
+        warned = true;
+        showToast('⚠️ 5 minutes left to submit your clip link in Whop Content Rewards!', '#f59e0b');
+      }
+    };
+    tick();
+    postSubmitTimerId = setInterval(tick, 1000);
+    showToast('⏱ Timer started — paste your post link in Whop Content Rewards within 30 min', '#38bdf8');
+  }
+
+  function bindPostCaptionPanel() {
+    const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
+    const brief = dom.clientPromptInput ? String(dom.clientPromptInput.value || '') : '';
+    const campSel = document.getElementById('postCampaignSelect');
+    if (campSel && brief && !/kai\s*cenat/i.test(brief)) campSel.value = 'generic';
+    safeOn(campSel, 'change', () => generatePostCaption({ useAi: true }));
+    safeOn(document.getElementById('postPlatformSelect'), 'change', () => {
+      state.postCaptionUserEdited = false;
+      renderPostCaptionVariants();
+    });
+    safeOn(document.getElementById('generatePostCaptionBtn'), 'click', () => generatePostCaption({ useAi: true }));
+    safeOn(dom.postCaptionTextarea, 'input', () => {
+      state.postCaptionUserEdited = true;
+      refreshPostCaptionChecks();
+    });
+    safeOn(document.getElementById('postSubmitTimerBtn'), 'click', startPostSubmitTimer);
+    // Auto-select campaign when a Kai Cenat brief is pasted
+    safeOn(dom.clientPromptInput, 'change', () => {
+      const v = String(dom.clientPromptInput.value || '');
+      if (campSel && /kai\s*cenat/i.test(v) && campSel.value !== 'kai-cenat') {
+        campSel.value = 'kai-cenat';
+        state.postCaptionKey = null;
+      }
+    });
+  }
+
+  // Called when the Export modal opens: regenerate only if the clip/campaign changed
+  function autoGeneratePostCaptionIfStale() {
+    if (!dom.postCaptionTextarea) return;
+    if (state.postCaptionUserEdited && dom.postCaptionTextarea.value.trim()) {
+      refreshPostCaptionChecks();
+      return;
+    }
+    if (state.postCaptionKey !== getPostCaptionContextKey() || !dom.postCaptionTextarea.value.trim()) {
+      generatePostCaption({ useAi: true, silent: true });
+    } else {
+      refreshPostCaptionChecks();
+    }
+  }
+
   // --- 7. VFX & TIMED VFX BURSTS ---
   function toggleVfxEffect(effectKey, forceBool) {
     if (!effectKey || !state.effects) return false;
@@ -13164,6 +13606,11 @@
       setHookBanner,
       setHookTitleStyle,
       generateAiHookSuggestions,
+      generatePostCaption,
+      evaluatePostCompliance,
+      refreshPostCaptionChecks,
+      renderPostCaptionVariants,
+      startPostSubmitTimer,
       setWatermark,
       setCanvasAspectRatio,
       addTextLayer,
