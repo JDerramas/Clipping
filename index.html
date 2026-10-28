@@ -171,6 +171,13 @@
           <span class="rail-label">Media</span>
         </button>
 
+        <button type="button" class="rail-btn" data-rail-tab="curate" title="AI Viral Clip Reviewer & Curation (Grade S+)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          <span class="rail-label">AI Clips</span>
+        </button>
+
         <button type="button" class="rail-btn" data-rail-tab="broll" title="Pixabay Live Stock B-Roll Studio">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
@@ -233,7 +240,7 @@
             </div>
           </div>
 
-          <!-- YouTube / Twitch URL Ingest -->
+          <!-- YouTube / Twitch URL Ingest with Deep Gemini AI Review -->
           <div class="drawer-section">
             <div class="drawer-section-title">
               <span>PASTE STREAM LINK:</span>
@@ -248,8 +255,8 @@
                 value=""
                 aria-label="Stream URL"
               />
-              <button id="extractUrlBtn" class="btn-mini btn-accent" title="Analyze link & extract clip">
-                Extract
+              <button id="extractUrlBtn" class="btn-mini btn-accent" title="AI Review & Extract Clip">
+                ⚡ Extract
               </button>
             </div>
             <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
@@ -259,6 +266,18 @@
                 <option value="tl">🇵🇭 Tagalog / Filipino Audio</option>
                 <option value="auto">🌐 Auto-Detect Voice</option>
               </select>
+              <button type="button" id="reviewClipsBtn" class="btn-micro" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.35); font-weight:700; white-space:nowrap; padding:4px 8px;" title="Deep Gemini virality critique before downloading">
+                🤖 AI Review
+              </button>
+            </div>
+
+            <!-- AI Reviewed Clip Moments Container -->
+            <div id="urlAiReviewContainer" style="display:none; margin-top:10px; border-top:1px solid rgba(255,255,255,0.08); padding-top:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:10.5px; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:0.5px;">🤖 AI REVIEWED MOMENTS</span>
+                <span id="aiReviewModelBadge" class="status-pill status-cyan" style="font-size:9.5px;">GEMINI 3 FLASH</span>
+              </div>
+              <div id="urlAiReviewList" class="viral-moments-list" style="max-height:220px; overflow-y:auto;"></div>
             </div>
           </div>
 
@@ -317,6 +336,22 @@
                 🔄 Uncut Master
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             DRAWER TAB: AI VIRAL CLIPS & CRITIQUE (GRADE S+)
+             ========================================== -->
+        <div id="drawerTab-curate" class="drawer-content">
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span style="color:#10b981; font-weight:800;">⚡ GEMINI VIRALITY REVIEW</span>
+              <button type="button" id="rerunCurationBtn" class="btn-micro" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.35); font-weight:700;">🔄 Re-Review</button>
+            </div>
+            <p style="font-size:10.5px; color:#b0b0b0; margin:0 0 8px 0; line-height:1.4;">
+              Gemini 3 Flash analyzes the narrative arc, hook retention (0-3s), pacing velocity, and climax payoff for US/UK viewers.
+            </p>
+            <div id="drawerViralMomentsList" class="viral-moments-list"></div>
           </div>
         </div>
 
@@ -631,15 +666,25 @@
         </div>
       </div>
 
-      <!-- Playback Transport Bar -->
-      <div class="canvas-transport-bar">
-        <button type="button" id="stepBackBtn" class="transport-btn" title="Step Back 1s">⏮</button>
+      <!-- Dedicated Playback Transport Bar (Separated from Video Canvas) -->
+      <div class="canvas-transport-bar" role="toolbar" aria-label="Playback Controls">
+        <button type="button" id="stepBackBtn" class="transport-btn" title="Step Back 1s">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="19 20 9 12 19 4 19 20"></polygon>
+            <line x1="5" y1="19" x2="5" y2="5"></line>
+          </svg>
+        </button>
         <button type="button" id="playPauseBtn" class="transport-btn transport-btn-play" title="Play / Pause (Space)">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" id="playIconSvg">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
         </button>
-        <button type="button" id="stepForwardBtn" class="transport-btn" title="Step Forward 1s">⏭</button>
+        <button type="button" id="stepForwardBtn" class="transport-btn" title="Step Forward 1s">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19"></line>
+          </svg>
+        </button>
 
         <div class="timecode-display">
           <span id="currentTimecode" class="tc-current">00:00.00</span>
@@ -649,8 +694,19 @@
 
         <span class="status-pill status-cyan" style="font-size:10px;">1080×1920 • 60 FPS</span>
 
-        <button type="button" id="loopToggleBtn" class="transport-btn" title="Toggle Loop Playback">🔁</button>
-        <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen (F)">⛶</button>
+        <button type="button" id="loopToggleBtn" class="transport-btn" title="Toggle Loop Playback">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"></polyline>
+            <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+            <polyline points="7 23 3 19 7 15"></polyline>
+            <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+          </svg>
+        </button>
+        <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen (F)">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+          </svg>
+        </button>
       </div>
     </div>
 

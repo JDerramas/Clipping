@@ -346,6 +346,7 @@ def find_viral_peak_window(meta: dict, target_duration: float = 30.0) -> dict:
                         "peak_type": "AI Speech Hook Peak (YouTube Closed Captions)",
                         "reason": f"High-energy hook keyword detected: '{best_text[:60]}...'",
                         "candidates": [],
+                        "sub_segments": sub_segments,
                     }
         except Exception:
             pass

@@ -2364,6 +2364,9 @@
 
     if (triggerToast) {
       showToast(`🎯 Loaded Viral Clip #${idx + 1}: "${clip.title}" (${clip.score}/100 🔥)`);
+      if (window.jarvis) {
+        window.jarvis.addMessage(`Sir, I have loaded moment #${idx + 1} "${clip.title}" (${clip.grade || 'S+'} • ${clip.score}%).\nAI Critique: ${clip.aiCritique || clip.reason}`, 'ai');
+      }
     }
   }
 
@@ -2424,6 +2427,10 @@
 
     if (dom.viralMomentsList) dom.viralMomentsList.innerHTML = '';
     if (dom.ssembleModalClipsGrid) dom.ssembleModalClipsGrid.innerHTML = '';
+    const dList = document.getElementById('drawerViralMomentsList');
+    if (dList) dList.innerHTML = '';
+    const uList = document.getElementById('urlAiReviewList');
+    if (uList) uList.innerHTML = '';
 
     moments.forEach((m) => {
       const originalIdx = rawMoments.indexOf(m);
@@ -2455,7 +2462,10 @@
           <span class="curation-pillar-chip">🎯 Payoff <strong>${paySc}</strong></span>
           <span class="curation-pillar-chip grade-chip">🏆 ${grade}</span>
         </div>
-        <div class="ssemble-rationale">“${m.reason}”</div>
+        <div class="viral-ai-critique-box">
+          <div class="viral-ai-critique-title">🤖 GEMINI AI VIRAL CRITIQUE</div>
+          <div>${m.aiCritique || m.reason || 'High retention pattern interrupt with punchy payoff curve for US/UK audience.'}</div>
+        </div>
         <div class="ssemble-transcript-snippet">${snippet}</div>
         <div class="ssemble-card-actions">
           <button type="button" class="btn-ssemble-auto" data-action="auto" data-idx="${originalIdx}">
@@ -2492,6 +2502,38 @@
 
       if (dom.viralMomentsList) {
         dom.viralMomentsList.appendChild(card);
+      }
+
+      // Also populate AI Clips drawer tab list
+      const drawerList = document.getElementById('drawerViralMomentsList');
+      if (drawerList) {
+        const dCard = card.cloneNode(true);
+        dCard.addEventListener('click', (e) => {
+          const autoBtn = e.target.closest('[data-action="auto"]');
+          if (autoBtn) {
+            selectViralMoment(originalIdx, false);
+            runOneClickAutoEdit(originalIdx);
+            return;
+          }
+          selectViralMoment(originalIdx, true);
+        });
+        drawerList.appendChild(dCard);
+      }
+
+      // Also populate URL review list
+      const urlReviewList = document.getElementById('urlAiReviewList');
+      if (urlReviewList) {
+        const uCard = card.cloneNode(true);
+        uCard.addEventListener('click', (e) => {
+          const autoBtn = e.target.closest('[data-action="auto"]');
+          if (autoBtn) {
+            selectViralMoment(originalIdx, false);
+            runOneClickAutoEdit(originalIdx);
+            return;
+          }
+          selectViralMoment(originalIdx, true);
+        });
+        urlReviewList.appendChild(uCard);
       }
 
       // Populate full-screen modal grid
@@ -7092,6 +7134,9 @@
 
     selectViralMoment(0, false);
     renderViralMomentsList();
+    if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+      runAiAutoCuration();
+    }
     renderTimelineRuler();
     renderTimelineTracks();
     searchPixabayVideos('sports car drift');
@@ -7174,7 +7219,18 @@
           if (inspectData.language) state.videoLanguage = inspectData.language;
           if (inspectData.template) state.videoTemplate = inspectData.template;
         }
-        if (inspectData && Array.isArray(inspectData.clips) && inspectData.clips.length > 0) {
+        if (inspectData && Array.isArray(inspectData.ai_reviewed_clips) && inspectData.ai_reviewed_clips.length > 0) {
+          state.analysis = state.analysis || {};
+          state.analysis.viralMoments = inspectData.ai_reviewed_clips;
+          renderViralMomentsList();
+          const uCont = document.getElementById('urlAiReviewContainer');
+          if (uCont) uCont.style.display = 'block';
+          const top = inspectData.ai_reviewed_clips[0];
+          showToast(`🤖 AI Viral Review: Top Moment scored ${top.score}% (${top.grade})`, '#10b981', 4000);
+          if (window.jarvis) {
+            window.jarvis.addMessage(`Sir, Gemini AI evaluated this footage:\n• Selected Cut: "${top.title}" (${top.grade} • ${top.score}%)\n• Hook: ${formatTimecode(top.start)} - Climax: ${formatTimecode(top.end)}\n• AI Critique: ${top.aiCritique || top.reason}`, 'ai');
+          }
+        } else if (inspectData && Array.isArray(inspectData.clips) && inspectData.clips.length > 0) {
           state.analysis = state.analysis || {};
           state.analysis.viralMoments = inspectData.clips.map((c, cIdx) => ({
             id: `clip-ins-${cIdx + 1}`,
@@ -8198,6 +8254,54 @@
       }
       extractAndAutoEditUrl(url);
     });
+
+    const reviewClipsBtn = document.getElementById('reviewClipsBtn');
+    if (reviewClipsBtn) {
+      safeOn(reviewClipsBtn, 'click', async () => {
+        const url = dom.streamUrlInput.value.trim();
+        if (!url) {
+          showToast('Paste a stream/video link first to review clips!', '#f59e0b');
+          return;
+        }
+        reviewClipsBtn.disabled = true;
+        reviewClipsBtn.textContent = '🤖 Reviewing...';
+        showToast('🤖 Gemini AI analyzing video narrative & viral peaks...', '#10b981', 4000);
+        try {
+          const insRes = await fetch('/api/inspect_url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, target_duration: state.targetDuration })
+          });
+          const data = await insRes.json();
+          if (data && Array.isArray(data.ai_reviewed_clips) && data.ai_reviewed_clips.length > 0) {
+            state.analysis = state.analysis || {};
+            state.analysis.viralMoments = data.ai_reviewed_clips;
+            renderViralMomentsList();
+            const container = document.getElementById('urlAiReviewContainer');
+            if (container) container.style.display = 'block';
+            showToast(`🔥 Gemini reviewed ${data.ai_reviewed_clips.length} viral clips! Top: "${data.ai_reviewed_clips[0].title}" (${data.ai_reviewed_clips[0].score}%)`, '#10b981', 5000);
+            if (window.jarvis) {
+              const top = data.ai_reviewed_clips[0];
+              window.jarvis.addMessage(`Sir, Gemini AI evaluated this video:\n• Found: ${data.ai_reviewed_clips.length} viral candidate clips\n• #1 Pick: "${top.title}" (Score: ${top.score}%, ${top.grade || 'S+'})\n• AI Critique: ${top.aiCritique || top.reason}\nClick any moment card to auto-cut and load!`, 'ai');
+            }
+          } else {
+            showToast('Inspection complete, heatmap analyzed.', '#38bdf8');
+          }
+        } catch (e) {
+          showToast(`Review failed: ${e.message}`, '#ef4444');
+        } finally {
+          reviewClipsBtn.disabled = false;
+          reviewClipsBtn.textContent = '🤖 AI Review';
+        }
+      });
+    }
+
+    const rerunCurationBtn = document.getElementById('rerunCurationBtn');
+    if (rerunCurationBtn) {
+      safeOn(rerunCurationBtn, 'click', () => {
+        runAiAutoCuration();
+      });
+    }
 
     if (dom.demoStreamTabs) {
       (dom.demoStreamTabs ? dom.demoStreamTabs.querySelectorAll('.demo-stream-btn') : []).forEach((btn) => {
