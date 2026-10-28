@@ -24,72 +24,17 @@
     uppercaseCaptions: true,
     fontFamily: 'Inter',
 
-    // Timeline Assets & Clips (Real working video)
-    clips: [
-      {
-        id: 'clip-1',
-        label: 'Take 1 — Kai Cenat Viral Highlight',
-        src: '/uploads/clip_20261027_152821_How_1_Person_Solved_A__1_000_0_1040s_1067s.mp4',
-        inSec: 0.0,
-        outSec: 27.0,
-        sourceDurationSec: 27.066,
-        speed: 1.0,
-        volume: 1.0,
-        muted: false,
-        transform: [{ t: 0, scale: 1.0, x: 0, y: 0 }]
-      }
-    ],
+    // Timeline Assets & Clips (Clean project state - no hardcoded demo)
+    clips: [],
 
-    // Captions (Clip-anchored phrase pages)
-    captions: [
-      {
-        id: 'cap-1',
-        clipId: 'clip-1',
-        startMs: 200,
-        endMs: 2100,
-        topPct: 60,
-        scale: 1.0,
-        words: [
-          { text: 'KAI', startMs: 200, endMs: 600, accent: true },
-          { text: 'CENAT', startMs: 600, endMs: 1100, accent: true },
-          { text: 'STREAM', startMs: 1100, endMs: 1550, accent: false },
-          { text: 'MOMENTS', startMs: 1550, endMs: 2100, accent: false }
-        ]
-      },
-      {
-        id: 'cap-2',
-        clipId: 'clip-1',
-        startMs: 2300,
-        endMs: 4600,
-        topPct: 60,
-        scale: 1.0,
-        words: [
-          { text: 'ARE', startMs: 2300, endMs: 2700, accent: false },
-          { text: 'ABSOLUTELY', startMs: 2700, endMs: 3500, accent: false },
-          { text: 'LEGENDARY', startMs: 3500, endMs: 4600, accent: true }
-        ]
-      }
-    ],
+    // Captions (Clean project state - no hardcoded demo)
+    captions: [],
 
-    // B-Roll Cutaways (Real active B-roll)
-    brolls: [
-      {
-        id: 'broll-1',
-        clipId: 'clip-1',
-        startMs: 1500,
-        endMs: 4500,
-        kind: 'video',
-        mode: 'inset',
-        query: 'Satisfying Neon Runner',
-        src: '/assets/broll/satisfying_neon_runner.mp4',
-        scale: 1.0
-      }
-    ],
+    // B-Roll Cutaways (Clean project state - no hardcoded demo)
+    brolls: [],
 
     // Creator's Uploaded & Pixabay Saved B-Roll Pool
-    brollAssets: [
-      { id: 'asset-1', label: 'Satisfying Neon Runner', src: '/assets/broll/satisfying_neon_runner.mp4', kind: 'video' }
-    ],
+    brollAssets: [],
 
     // AI Edit Suggestions & 100/100 Hook Candidates
     suggestions: {
@@ -113,10 +58,11 @@
     // Playhead & Selection
     currentTime: 0.0,
     isPlaying: false,
-    selectedId: 'clip-1',
-    selectedClipId: 'clip-1',
-    selectedCapId: 'cap-1',
+    selectedId: null,
+    selectedClipId: null,
+    selectedCapId: null,
     selectedBrollId: null,
+    recentVideos: [],
 
     // Duplicate Takes Suggestion
     dupSuggestion: [],
@@ -131,8 +77,12 @@
     }
   };
 
+  window.state = state;
+  window.clipperState = state;
+
   // --- DOM Elements Cache ---
   const dom = {};
+  window.dom = dom;
 
   function cacheDom() {
     dom.systemPulseBar = document.getElementById('systemPulseBar');
@@ -682,6 +632,65 @@
       ctx.scale(scale, scale);
       ctx.drawImage(dom.mainVideoEl, -W / 2, -H / 2, W, H);
       ctx.restore();
+    } else if (!activeClip) {
+      // Clean Obsidian Empty Guide State
+      ctx.save();
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // Glow accent
+      const grad = ctx.createRadialGradient(cx, cy, 60, cx, cy, W * 0.7);
+      grad.addColorStop(0, 'rgba(88, 86, 214, 0.15)');
+      grad.addColorStop(0.5, 'rgba(255, 176, 32, 0.06)');
+      grad.addColorStop(1, 'rgba(14, 14, 16, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Dashed rounded border box
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([18, 14]);
+      ctx.beginPath();
+      ctx.roundRect(80, 240, W - 160, H - 480, 32);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Icon & Text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      ctx.fillStyle = '#FFB020';
+      ctx.font = '800 36px Inter, sans-serif';
+      ctx.fillText('⚡ KAI CENAT WHOP CLIPPING STUDIO', cx, cy - 220);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 52px Inter, sans-serif';
+      ctx.fillText('Drop Video Clips Here', cx, cy - 140);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.font = '500 32px Inter, sans-serif';
+      ctx.fillText('or paste a Twitch / YouTube URL in the sidebar', cx, cy - 70);
+
+      // Feature badges card
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.beginPath();
+      ctx.roundRect(cx - 400, cy + 30, 800, 260, 20);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.stroke();
+
+      ctx.fillStyle = '#39d98a';
+      ctx.font = '700 30px Inter, sans-serif';
+      ctx.fillText('✓ Whisper Speech-to-Text & Sparing Gold Accents', cx, cy + 90);
+      ctx.fillText('✓ Google Gemini AI 100/100 Viral Hook Ratings', cx, cy + 150);
+      ctx.fillText('✓ Live Pixabay Stock HD B-Roll Cutaways', cx, cy + 210);
+
+      ctx.fillStyle = '#FFB020';
+      ctx.font = '700 32px Inter, sans-serif';
+      ctx.fillText('Click anywhere to browse files ➔', cx, cy + 380);
+
+      ctx.restore();
+      return;
     }
 
     // 2. Draw Active B-Roll Layer
@@ -779,6 +788,53 @@
     dom.clipsListContainer.innerHTML = '';
     if (dom.clipsCountBadge) dom.clipsCountBadge.textContent = state.clips.length;
 
+    if (!state.clips.length) {
+      if (state.recentVideos && state.recentVideos.length > 0) {
+        const wrap = document.createElement('div');
+        wrap.style.padding = '4px 0';
+        wrap.innerHTML = `
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-on-surface-variant);text-transform:uppercase;margin-bottom:8px;letter-spacing:0.04em;">
+            Stream Clips on Disk:
+          </div>
+        `;
+        state.recentVideos.slice(0, 3).forEach(rv => {
+          const item = document.createElement('div');
+          item.className = 'clip-asset-item';
+          item.style.marginBottom = '6px';
+          item.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface-high);border-radius:6px;border:1px solid var(--outline-variant);">
+              <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;max-width:140px;" title="${escapeHtml(rv.title || rv.filename)}">
+                ${escapeHtml(rv.title || rv.filename)}
+              </div>
+              <button type="button" class="ab-btn-accent" style="font-size:10px;padding:3px 8px;flex-shrink:0;">
+                Load
+              </button>
+            </div>
+          `;
+          item.querySelector('button').addEventListener('click', (e) => {
+            e.stopPropagation();
+            loadRecentClip(rv.url, rv.title || rv.filename);
+          });
+          wrap.appendChild(item);
+        });
+        dom.clipsListContainer.appendChild(wrap);
+      } else {
+        dom.clipsListContainer.innerHTML = `
+          <div class="empty-clips-notice" style="padding:16px 8px;text-align:center;color:var(--text-on-surface-variant);font-size:12px;">
+            <p style="margin-bottom:8px;">No video clips added yet.</p>
+            <button type="button" class="ab-btn-accent" id="emptyBrowseBtn" style="font-size:11px;padding:6px 12px;margin:0 auto;">
+              + Browse Files
+            </button>
+          </div>
+        `;
+        const btn = dom.clipsListContainer.querySelector('#emptyBrowseBtn');
+        if (btn && dom.mainVideoFileInput) {
+          btn.addEventListener('click', () => dom.mainVideoFileInput.click());
+        }
+      }
+      return;
+    }
+
     state.clips.forEach((c, idx) => {
       const item = document.createElement('div');
       item.className = 'clip-asset-item' + (c.id === state.selectedClipId ? ' selected' : '');
@@ -802,6 +858,14 @@
   function renderBrollAssetsSidebar() {
     if (!dom.brollAssetsGrid) return;
     dom.brollAssetsGrid.innerHTML = '';
+    if (!state.brollAssets.length) {
+      dom.brollAssetsGrid.innerHTML = `
+        <p class="helper-text" style="grid-column:1/-1;padding:8px 0;text-align:center;">
+          Search Pixabay in B-Roll tab to add stock cutaways.
+        </p>
+      `;
+      return;
+    }
     state.brollAssets.forEach(asset => {
       const card = document.createElement('div');
       card.className = 'broll-asset-card';
@@ -938,6 +1002,7 @@
 
   // --- AI Edit Suggestions & 100/100 Hook Candidates ---
 
+  window.fetchAiSuggestions = fetchAiSuggestions;
   async function fetchAiSuggestions() {
     try {
       setPulse(true);
@@ -1169,15 +1234,33 @@
     });
   }
 
-  function insertPixabayToTimeline(vid) {
+  async function insertPixabayToTimeline(vid) {
     pushHistory();
-    // Add to brollAssets pool if not present
-    const existing = state.brollAssets.find(a => a.src === vid.src);
+    setPulse(true);
+    showToast('Downloading stock B-roll locally...');
+
+    let localSrc = vid.src;
+    try {
+      const res = await fetch('/api/pixabay_download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: vid.src, id: vid.id, kind: vid.kind || 'video' })
+      }).then(r => r.json());
+      if (res && res.local_url) {
+        localSrc = res.local_url;
+      }
+    } catch (e) {
+      console.warn('Local download fallback:', e);
+    } finally {
+      setPulse(false);
+    }
+
+    const existing = state.brollAssets.find(a => a.src === localSrc);
     if (!existing) {
       state.brollAssets.push({
         id: vid.id || `px-${Date.now()}`,
         label: vid.tags ? vid.tags.split(',')[0].trim() : 'Pixabay Clip',
-        src: vid.src,
+        src: localSrc,
         kind: 'video'
       });
       renderBrollAssetsSidebar();
@@ -1197,7 +1280,7 @@
       kind: 'video',
       mode: 'inset',
       query: vid.tags ? vid.tags.split(',')[0].trim() : 'Stock Video',
-      src: vid.src,
+      src: localSrc,
       scale: 1.0
     };
 
@@ -1364,6 +1447,163 @@
     syncMediaPlayback();
   }
 
+  // --- Video File & URL Ingest Handlers ---
+  async function uploadVideoFiles(files) {
+    if (!files || !files.length) return;
+    setPulse(true);
+    showToast(`Uploading ${files.length} video(s)...`);
+
+    for (const file of files) {
+      try {
+        const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          body: file
+        }).then(r => r.json());
+
+        if (res && res.success) {
+          pushHistory();
+          const newClip = {
+            id: 'clip-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+            label: file.name.replace(/\.[^/.]+$/, ''),
+            src: res.video_url,
+            inSec: 0.0,
+            outSec: res.duration || 30.0,
+            sourceDurationSec: res.duration || 30.0,
+            speed: 1.0,
+            volume: 1.0,
+            muted: false,
+            transform: [{ t: 0, scale: 1.0, x: 0, y: 0 }]
+          };
+          state.clips.push(newClip);
+          state.selectedClipId = newClip.id;
+          state.selectedId = newClip.id;
+
+          if (dom.mainVideoEl) {
+            dom.mainVideoEl.src = newClip.src;
+          }
+          loadWaveformForSrc(newClip.src);
+          showToast(`Loaded: ${newClip.label}`);
+          renderAll();
+
+          // Auto-run Whisper captions & Gemini hook analysis for the new clip
+          generateCaptions();
+          fetchAiSuggestions();
+        } else {
+          showToast(`Upload failed: ${res.error || 'Server error'}`, true);
+        }
+      } catch (e) {
+        console.error('File upload error:', e);
+        showToast('Upload error', true);
+      }
+    }
+    setPulse(false);
+  }
+
+  async function extractVideoFromUrl() {
+    const url = (dom.streamUrlInput ? dom.streamUrlInput.value : '').trim();
+    if (!url) {
+      showToast('Please paste a Twitch or YouTube URL', true);
+      return;
+    }
+    setPulse(true);
+    if (dom.extractUrlBtn) {
+      dom.extractUrlBtn.disabled = true;
+      dom.extractUrlBtn.textContent = 'Extracting…';
+    }
+    showToast('Extracting viral highlight slice from stream...');
+
+    try {
+      const res = await fetch('/api/download_url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, target_duration: 30.0 })
+      }).then(r => r.json());
+
+      if (res && res.success && res.video_url) {
+        pushHistory();
+        const duration = res.meta ? res.meta.duration : (res.clip_end - res.clip_start || 30.0);
+        const newClip = {
+          id: 'clip-' + Date.now(),
+          label: res.title || 'Stream Highlight',
+          src: res.video_url,
+          inSec: 0.0,
+          outSec: duration,
+          sourceDurationSec: duration,
+          speed: 1.0,
+          volume: 1.0,
+          muted: false,
+          transform: [{ t: 0, scale: 1.0, x: 0, y: 0 }]
+        };
+        state.clips.push(newClip);
+        state.selectedClipId = newClip.id;
+        state.selectedId = newClip.id;
+
+        if (dom.mainVideoEl) {
+          dom.mainVideoEl.src = newClip.src;
+        }
+        if (dom.streamUrlInput) dom.streamUrlInput.value = '';
+        loadWaveformForSrc(newClip.src);
+        showToast(`⚡ Extracted viral clip (${duration.toFixed(1)}s)`);
+        renderAll();
+
+        generateCaptions();
+        fetchAiSuggestions();
+      } else {
+        showToast(`Extraction failed: ${res.error || 'Check stream URL'}`, true);
+      }
+    } catch (e) {
+      console.error('URL extract error:', e);
+      showToast('Extraction failed', true);
+    } finally {
+      setPulse(false);
+      if (dom.extractUrlBtn) {
+        dom.extractUrlBtn.disabled = false;
+        dom.extractUrlBtn.textContent = 'Extract';
+      }
+    }
+  }
+
+  window.loadRecentClip = loadRecentClip;
+  function loadRecentClip(videoUrl, title) {
+    pushHistory();
+    const newClip = {
+      id: 'clip-' + Date.now(),
+      label: title || 'Stream Highlight',
+      src: videoUrl,
+      inSec: 0.0,
+      outSec: 27.0,
+      sourceDurationSec: 27.0,
+      speed: 1.0,
+      volume: 1.0,
+      muted: false,
+      transform: [{ t: 0, scale: 1.0, x: 0, y: 0 }]
+    };
+    state.clips = [newClip];
+    state.selectedClipId = newClip.id;
+    state.selectedId = newClip.id;
+
+    if (dom.mainVideoEl) {
+      dom.mainVideoEl.src = newClip.src;
+    }
+    loadWaveformForSrc(newClip.src);
+    showToast(`Loaded stream clip: ${newClip.label}`);
+    renderAll();
+    generateCaptions();
+    fetchAiSuggestions();
+  }
+
+  async function loadExistingUploads() {
+    try {
+      const res = await fetch('/api/videos').then(r => r.json());
+      if (res && res.videos && res.videos.length > 0) {
+        state.recentVideos = res.videos;
+        renderClipsList();
+      }
+    } catch (e) {
+      console.warn('Could not list existing uploads:', e);
+    }
+  }
+
   // --- Setup Event Listeners ---
   function setupEvents() {
     // Project Name
@@ -1399,6 +1639,69 @@
         if (dom.dupSuggestionBanner) dom.dupSuggestionBanner.classList.add('hidden');
         showToast('Removed duplicate takes');
         renderAll();
+      });
+    }
+
+    // File Uploads & Drop Zones
+    if (dom.addClipFileBtn && dom.mainVideoFileInput) {
+      dom.addClipFileBtn.addEventListener('click', () => dom.mainVideoFileInput.click());
+    }
+    if (dom.browseClipsBtn && dom.mainVideoFileInput) {
+      dom.browseClipsBtn.addEventListener('click', () => dom.mainVideoFileInput.click());
+    }
+    if (dom.mainVideoFileInput) {
+      dom.mainVideoFileInput.addEventListener('change', e => {
+        uploadVideoFiles(e.target.files);
+        e.target.value = '';
+      });
+    }
+
+    if (dom.importDropZone) {
+      dom.importDropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dom.importDropZone.classList.add('drag-over');
+      });
+      dom.importDropZone.addEventListener('dragleave', () => {
+        dom.importDropZone.classList.remove('drag-over');
+      });
+      dom.importDropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dom.importDropZone.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files) {
+          uploadVideoFiles(e.dataTransfer.files);
+        }
+      });
+      dom.importDropZone.addEventListener('click', () => {
+        if (dom.mainVideoFileInput) dom.mainVideoFileInput.click();
+      });
+    }
+
+    if (dom.mainCanvas) {
+      dom.mainCanvas.addEventListener('dragover', e => {
+        e.preventDefault();
+      });
+      dom.mainCanvas.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files) {
+          uploadVideoFiles(e.dataTransfer.files);
+        }
+      });
+      dom.mainCanvas.addEventListener('click', () => {
+        if (state.clips.length === 0 && dom.mainVideoFileInput) {
+          dom.mainVideoFileInput.click();
+        }
+      });
+    }
+
+    if (dom.extractUrlBtn) {
+      dom.extractUrlBtn.addEventListener('click', extractVideoFromUrl);
+    }
+    if (dom.streamUrlInput) {
+      dom.streamUrlInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          extractVideoFromUrl();
+        }
       });
     }
 
@@ -1663,13 +1966,59 @@
   }
 
   // --- US/UK Post Caption Generator ---
-  function generatePostCaption() {
-    const captionsText = state.captions.map(c => c.words.map(w => w.text).join(' ')).join(' ');
-    const postCaption = `Kai Cenat had the entire room in tears during this stream moment! 😭🔥\n\nWhat would you have done in this situation? Drop a comment below!\n\n#KaiCenat #Shorts #Viral #TwitchMoments #FYP`;
-    if (dom.postCaptionTextarea) {
-      dom.postCaptionTextarea.value = postCaption;
+  window.generatePostCaption = generatePostCaption;
+  async function generatePostCaption() {
+    setPulse(true);
+    if (dom.generatePostCaptionBtn) {
+      dom.generatePostCaptionBtn.disabled = true;
+      dom.generatePostCaptionBtn.textContent = 'Generating with Gemini…';
     }
-    showToast('US/UK high-CPM caption generated!');
+    showToast('Calling Gemini for native US/UK caption & #KaiCenat tags...');
+
+    const activeClip = state.clips.find(c => c.id === state.selectedClipId) || state.clips[0];
+    const activeTranscript = state.captions.map(c => c.words.map(w => w.text).join(' ')).join(' ');
+
+    try {
+      const res = await fetch('/api/post_caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creator: 'Kai Cenat',
+          platform: 'tiktok',
+          archetype: 'Reaction Peak',
+          transcript: activeTranscript || 'Kai Cenat hilarious stream reaction moment',
+          required_tags: ['#KaiCenat', '#Shorts', '#Viral']
+        })
+      }).then(r => r.json());
+
+      if (res && res.variants && res.variants.length > 0) {
+        const v = res.variants[0];
+        const tags = v.hashtags && v.hashtags.length ? v.hashtags.join(' ') : '#KaiCenat #Shorts #Viral #FYP';
+        const formatted = `${v.hook}\n\n${v.cta}\n\n${tags}`;
+        if (dom.postCaptionTextarea) {
+          dom.postCaptionTextarea.value = formatted;
+        }
+        showToast('⚡ Gemini generated high-CPM US/UK caption!');
+      } else {
+        const fallback = `Kai Cenat had the entire stream in shock during this moment! 😭🔥\n\nWhat would you do in this situation? Let me know below!\n\n#KaiCenat #Shorts #Viral #TwitchMoments #FYP`;
+        if (dom.postCaptionTextarea) {
+          dom.postCaptionTextarea.value = fallback;
+        }
+        showToast('US/UK high-converting caption generated');
+      }
+    } catch (e) {
+      console.warn('Post caption error:', e);
+      const fallback = `Kai Cenat had the entire stream in shock during this moment! 😭🔥\n\nWhat would you do in this situation? Let me know below!\n\n#KaiCenat #Shorts #Viral #TwitchMoments #FYP`;
+      if (dom.postCaptionTextarea) {
+        dom.postCaptionTextarea.value = fallback;
+      }
+    } finally {
+      setPulse(false);
+      if (dom.generatePostCaptionBtn) {
+        dom.generatePostCaptionBtn.disabled = false;
+        dom.generatePostCaptionBtn.textContent = 'Regenerate Caption';
+      }
+    }
   }
 
   // --- Initialization ---
@@ -1680,7 +2029,7 @@
 
     // Hook video element time updates
     if (dom.mainVideoEl) {
-      dom.mainVideoEl.src = state.clips[0].src;
+      if (state.clips[0]) dom.mainVideoEl.src = state.clips[0].src;
       dom.mainVideoEl.addEventListener('timeupdate', () => {
         if (state.isPlaying) {
           state.currentTime = dom.mainVideoEl.currentTime;
@@ -1697,8 +2046,13 @@
       dom.brollVideoEl.src = state.brolls[0].src;
     }
 
-    // Load initial waveform
-    loadWaveformForSrc(state.clips[0].src);
+    // Load initial waveform if clip exists
+    if (state.clips[0]) {
+      loadWaveformForSrc(state.clips[0].src);
+    }
+
+    // Load existing uploads from server
+    loadExistingUploads();
 
     // Initial Live Suggestions & Pixabay Stock Fetch
     fetchAiSuggestions();

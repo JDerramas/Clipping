@@ -161,6 +161,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # Direct file streaming upload
+        if path == "/api/upload":
+            self.handle_api_upload(parsed)
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
@@ -217,6 +222,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_suggest_hooks(payload)
         elif path in ("/api/pixabay_search", "/api/pixabay-search"):
             self.handle_api_pixabay_search_post(payload)
+        elif path in ("/api/pixabay_download", "/api/pixabay-download"):
+            self.handle_api_pixabay_download(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -339,6 +346,82 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)
 
+    def handle_api_upload(self, parsed_url):
+        try:
+            qs = parse_qs(parsed_url.query)
+            filename = qs.get("filename", ["uploaded_clip.mp4"])[0]
+            clean_name = re.sub(r'[^\w\.-]', '_', filename)
+            if not clean_name.lower().endswith(('.mp4', '.mov', '.webm', '.mkv', '.avi', '.mp3', '.wav')):
+                clean_name += '.mp4'
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            target_name = f"clip_{timestamp}_{clean_name}"
+            target_path = engine.UPLOADS / target_name
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length <= 0:
+                self.send_json_response({"error": "Empty upload"}, status=400)
+                return
+
+            with open(target_path, "wb") as f:
+                remaining = content_length
+                while remaining > 0:
+                    chunk_to_read = min(65536, remaining)
+                    chunk = self.rfile.read(chunk_to_read)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+
+            meta = engine.probe_video_metadata(target_path)
+            duration = meta.get("duration", 0.0)
+
+            thumb_name = target_path.with_suffix(".jpg").name
+            thumb_path = engine.UPLOADS / thumb_name
+            try:
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, duration / 2.0)), '-i', str(target_path), '-vframes', '1', str(thumb_path)], check=False, timeout=10)
+            except Exception:
+                pass
+
+            self.send_json_response({
+                "success": True,
+                "filename": target_name,
+                "video_url": f"/uploads/{target_name}",
+                "thumb_url": f"/uploads/{thumb_name}" if thumb_path.exists() else "",
+                "duration": duration,
+                "meta": meta
+            })
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_api_pixabay_download(self, payload):
+        try:
+            url = payload.get("url") or payload.get("src") or ""
+            pid = payload.get("id") or str(int(time.time() * 1000))
+            kind = payload.get("kind") or "video"
+            ext = ".mp4" if kind == "video" else ".jpg"
+
+            broll_dir = ROOT_DIR / "assets" / "broll"
+            broll_dir.mkdir(parents=True, exist_ok=True)
+            clean_pid = re.sub(r'[^\w\-]', '_', str(pid))
+            local_name = f"pixabay_{clean_pid}{ext}"
+            local_path = broll_dir / local_name
+
+            if not local_path.exists() and url:
+                import urllib.request
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
+                with urllib.request.urlopen(req, timeout=20) as resp, open(local_path, "wb") as out_f:
+                    while chunk := resp.read(65536):
+                        out_f.write(chunk)
+
+            self.send_json_response({
+                "success": True,
+                "local_url": f"/assets/broll/{local_name}",
+                "filename": local_name,
+                "id": pid
+            })
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
     def handle_api_waveform(self, parsed_url):
         try:
             qs = parse_qs(parsed_url.query)
@@ -433,15 +516,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         existing_words = analysis.get("words", [])
 
             if not existing_words:
-                existing_words = [
-                    {"word": "Kai", "start": 0.0, "end": 0.4},
-                    {"word": "Cenat", "start": 0.4, "end": 0.8},
-                    {"word": "stream", "start": 0.8, "end": 1.2},
-                    {"word": "moments", "start": 1.2, "end": 1.6},
-                    {"word": "are", "start": 1.6, "end": 1.9},
-                    {"word": "absolutely", "start": 1.9, "end": 2.5},
-                    {"word": "legendary", "start": 2.5, "end": 3.1},
-                ]
+                self.send_json_response({"success": True, "captions": []})
+                return
 
             # Build phrase-aware caption blocks
             captions = []
@@ -610,18 +686,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         "source": "pixabay"
                     })
             else:
-                # Local fallback assets
-                brolls = [
-                    {
-                        "id": "broll-1",
-                        "startMs": 1500,
-                        "endMs": 3800,
-                        "kind": "video",
-                        "mode": "inset",
-                        "query": "Kai Cenat stream setup",
-                        "src": "/assets/broll/satisfying_runner.mp4"
-                    }
-                ]
+                brolls = []
             self.send_json_response({"success": True, "broll": brolls})
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)
@@ -640,7 +705,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             url = f"https://pixabay.com/api/?key={api_key}&q={clean_query}&image_type=photo&per_page={per_page}"
             
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "WhopClipper/2.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
             with urllib.request.urlopen(req, timeout=12) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 hits = data.get("hits", [])
@@ -699,11 +764,16 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         """
         AI Edit Suggestions & 100/100 Viral Hook Ratings for Whop Clipping:
         - 5 Proven KosherPlug Whop Archetypes: Reaction, Top Moments (#3 #2 #1), Text on Screen, Gaming, Phonk Beat Sync
-        - Scored Candidates (100/100, 99/100, 98/100) based on hook velocity, Kai Cenat focus, and US/UK appeal
+        - Scored Candidates (100/100, 99/100, 98/100) dynamically generated by Gemini from the actual video transcript!
         """
         try:
             target_dur = float(payload.get("target_duration", 30.0))
-            
+            filename = payload.get("filename") or ""
+            clips = payload.get("clips") or []
+            if not filename and clips:
+                c_src = clips[0].get("src", "")
+                filename = Path(c_src).name
+
             # 5 Proven Whop Archetypes
             archetypes = [
                 {
@@ -768,51 +838,96 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 }
             ]
 
-            # Curated Viral Hook Candidates (100/100 Rating)
-            candidates = [
-                {
-                    "id": "hook-1",
-                    "title": "Kai Cenat Shocked Reaction Peak",
-                    "start": 0.0,
-                    "end": 28.5,
-                    "duration": 28.5,
-                    "rating": "100/100",
-                    "score": 100,
-                    "badge": "🔥 100/100 VIRAL HOOK",
-                    "retention_peak": "100%",
-                    "hook_quote": "Shins hidden throughout all these clues so let's get into it!",
-                    "formula": "Reaction Peak (KosherPlug Whop Formula)",
-                    "why_it_works": "⚡ Instant hook in 1st 1.2s • Zero intro lag • 50%+ US/UK audience appeal"
-                },
-                {
-                    "id": "hook-2",
-                    "title": "When Kai Discovered The Million Dollar Secret",
-                    "start": 14.0,
-                    "end": 42.0,
-                    "duration": 28.0,
-                    "rating": "100/100",
-                    "score": 100,
-                    "badge": "💰 100/100 MONEY HOOK",
-                    "retention_peak": "99%",
-                    "hook_quote": "They go in a million different directions...",
-                    "formula": "Curiosity Gap Countdown",
-                    "why_it_works": "👀 High dopamine curiosity gap • Viewer stays to the end for the answer"
-                },
-                {
-                    "id": "hook-3",
-                    "title": "Kai Cenat Unfiltered Stream Climax",
-                    "start": 28.0,
-                    "end": 56.0,
-                    "duration": 28.0,
-                    "rating": "99/100",
-                    "score": 99,
-                    "badge": "⚡ 99/100 HIGH ENERGY",
-                    "retention_peak": "97%",
-                    "hook_quote": "Do you remember when I said...",
-                    "formula": "Kinetic Storytime",
-                    "why_it_works": "🚀 Fast-paced speech delivery • Ideal for TikTok Viral Sound"
-                }
-            ]
+            candidates = []
+            video_path = None
+            if filename:
+                cand = engine.UPLOADS / filename
+                if cand.exists():
+                    video_path = cand
+
+            if video_path and video_path.exists():
+                analysis = engine.transcribe_video(video_path)
+                transcript_text = ""
+                words = []
+                if isinstance(analysis, list):
+                    for seg in analysis:
+                        if isinstance(seg, dict):
+                            transcript_text += seg.get("text", "") + " "
+                            words.extend(seg.get("words", []))
+                elif isinstance(analysis, dict):
+                    transcript_text = analysis.get("text", "")
+                    words = analysis.get("words", [])
+
+                meta = engine.probe_video_metadata(video_path)
+                v_duration = meta.get("duration", 30.0)
+
+                api_key = load_local_secret("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
+                if api_key and transcript_text.strip():
+                    prompt = (
+                        "You are an elite short-form video editor for the Kai Cenat Whop clipping campaign ($10,000 pool).\n"
+                        "Audience MUST be at least 50% native English speakers (USA, UK, CA, AU, NZ).\n"
+                        "Campaign requirement: Kai Cenat as main focus, positive/funny framing, high viewer retention.\n\n"
+                        f"Video duration: {round(v_duration, 1)} seconds.\n"
+                        f"Transcript:\n\"\"\"{transcript_text.strip()[:3000]}\"\"\"\n\n"
+                        "Identify the TOP 3 viral hook segments (each 15-30 seconds long within the video duration).\n"
+                        "For each candidate, provide:\n"
+                        "- id: 'hook-1', 'hook-2', 'hook-3'\n"
+                        "- title: High-CTR punchy title (max 50 chars)\n"
+                        "- start: float start seconds\n"
+                        "- end: float end seconds\n"
+                        "- duration: float seconds\n"
+                        "- rating: '100/100' or '99/100'\n"
+                        "- score: 100 or 99\n"
+                        "- badge: e.g. '🔥 100/100 VIRAL HOOK'\n"
+                        "- retention_peak: '100%' or '99%'\n"
+                        "- hook_quote: Exact opening words spoken in the first 2 seconds\n"
+                        "- formula: One of 'Reaction Peak (KosherPlug Whop Formula)', 'Curiosity Gap Countdown', 'Kinetic Storytime', 'Phonk Velocity Beat Sync', 'RGB Gaming'\n"
+                        "- why_it_works: 1 sentence explaining why this hooks US/UK viewers\n\n"
+                        "Return ONLY JSON: {\"candidates\": [...]}"
+                    )
+                    req_data = json.dumps({
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}
+                    }).encode("utf-8")
+
+                    models_to_try = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-exp", "gemini-3.5-flash-lite"]
+                    for m_name in models_to_try:
+                        try:
+                            g_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={api_key}"
+                            import urllib.request
+                            req = urllib.request.Request(g_url, data=req_data, headers={"Content-Type": "application/json"})
+                            with urllib.request.urlopen(req, timeout=15) as resp:
+                                g_resp = json.loads(resp.read().decode("utf-8"))
+                                g_text = g_resp["candidates"][0]["content"]["parts"][0]["text"]
+                                g_json = json.loads(g_text)
+                                if isinstance(g_json, list):
+                                    candidates = g_json
+                                elif isinstance(g_json, dict):
+                                    candidates = g_json.get("candidates") or []
+                                if candidates:
+                                    break
+                        except Exception as ge:
+                            sys.stderr.write(f"[Gemini Hook Error on {m_name}] {ge}\n")
+
+                if not candidates and words:
+                    first_quote = " ".join([w.get("word", "") for w in words[:6]]).strip()
+                    end_time = min(v_duration, 28.0)
+                    candidates = [
+                        {
+                            "id": "hook-1",
+                            "title": "Kai Cenat Stream Viral Peak",
+                            "start": 0.0,
+                            "end": end_time,
+                            "duration": round(end_time, 1),
+                            "rating": "100/100",
+                            "score": 100,
+                            "badge": "🔥 100/100 VIRAL HOOK",
+                            "retention_peak": "100%",
+                            "hook_quote": first_quote,
+                            "formula": "Reaction Peak (KosherPlug Whop Formula)",
+                            "why_it_works": "⚡ High speech velocity • Zero intro lag • 50%+ US/UK audience appeal"
+                        }
+                    ]
 
             self.send_json_response({
                 "success": True,
@@ -2260,7 +2375,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         try:
             temp_f.write_text(json.dumps(req_body), encoding="utf-8")
             file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
-            for model_name in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]:
+            for model_name in ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-exp", "gemini-3.5-flash-lite"]:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 proc = subprocess.run(
                     ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
