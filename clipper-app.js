@@ -2313,10 +2313,10 @@
     };
     if (defaultHooks[clip.id]) {
       state.hookText = defaultHooks[clip.id];
-      dom.hookBannerTextInput.value = state.hookText;
+      if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookText;
     } else {
       state.hookText = `${clip.title.toUpperCase()} 🤯👇`;
-      dom.hookBannerTextInput.value = state.hookText;
+      if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookText;
     }
 
     // Mark post caption stale; it regenerates (transcript-aware) when Export opens
@@ -3496,9 +3496,42 @@
     ctx.restore();
   }
 
-  // Engine 8: Smart AI Context B-Roll Cutaway Renderer (Full Cutaway or Floating PIP)
+  // AutoBroll Hardware Video Element Pool (Decodes 60fps B-Roll onto Canvas)
+  const brollVideoPool = new Map();
+  window.brollVideoPool = brollVideoPool;
+
+  function getBrollVideoElement(bc) {
+    if (!bc) return null;
+    const srcUrl = bc.url || bc.src;
+    if (!srcUrl) return null;
+    let el = brollVideoPool.get(bc.id);
+    if (!el || el._srcUrl !== srcUrl) {
+      if (el) {
+        try { el.pause(); el.src = ''; } catch {}
+      }
+      el = document.createElement('video');
+      el.crossOrigin = 'anonymous';
+      el.playsInline = true;
+      el.muted = true;
+      el.loop = true;
+      el.preload = 'auto';
+      el._srcUrl = srcUrl;
+      el.src = srcUrl;
+      el.addEventListener('loadeddata', () => {
+        if (!state.isPlaying) renderCanvasFrame();
+      });
+      el.addEventListener('seeked', () => {
+        if (!state.isPlaying) renderCanvasFrame();
+      });
+      el.load();
+      brollVideoPool.set(bc.id, el);
+    }
+    return el;
+  }
+
+  // Engine 8: Smart AI Context B-Roll Cutaway Renderer (AutoBroll Remotion / Canvas Pipeline)
   function drawContextBrollCutawaysOnCanvas(ctx, W, H, mainRect, timeSec) {
-    if (state.trackVisibility?.overlays === false) return;
+    if (state.trackVisibility?.broll === false && state.trackVisibility?.overlays === false) return;
     if (!Array.isArray(state.brollClips) || state.brollClips.length === 0) return;
     if (!window.WhopBrollEngine || typeof window.WhopBrollEngine.renderContextBrollCutaway !== 'function') return;
 
@@ -3510,50 +3543,49 @@
       if (timeSec < bStart || timeSec > bEnd) continue;
 
       const relT = timeSec - bStart;
-      const fadeAlpha = relT < 0.16 ? (relT / 0.16) : (bEnd - timeSec < 0.18 ? (bEnd - timeSec) / 0.18 : 1.0);
-      const mode = bc.mode || state.brollCutawayMode || 'full-cutaway';
+      const remT = bEnd - timeSec;
+      const fadeAlpha = relT < 0.20 ? (relT / 0.20) : (remT < 0.20 ? remT / 0.20 : 1.0);
+      const mode = (bc.mode || state.brollCutawayMode || 'fullscreen').toLowerCase();
+
+      // Retrieve or allocate real video element for this B-roll clip
+      const vEl = getBrollVideoElement(bc);
+      if (vEl) {
+        const vDur = vEl.duration || bDur;
+        const targetVTime = vDur > 0 ? (relT % vDur) : relT;
+        if (state.isPlaying) {
+          if (vEl.paused) {
+            vEl.currentTime = targetVTime;
+            vEl.playbackRate = state.playbackSpeed || 1.0;
+            vEl.play().catch(() => {});
+          } else if (Math.abs(vEl.currentTime - targetVTime) > 0.15) {
+            vEl.currentTime = targetVTime;
+          }
+        } else {
+          if (!vEl.paused) vEl.pause();
+          if (Math.abs(vEl.currentTime - targetVTime) > 0.04) {
+            vEl.currentTime = targetVTime;
+          }
+        }
+      }
 
       ctx.save();
       ctx.globalAlpha = clamp(fadeAlpha, 0, 1);
 
-      if (mode === 'pip-card') {
-        const cardW = Math.round(W * 0.82);
-        const cardH = Math.round(H * 0.34);
-        const cardX = Math.round((W - cardW) * 0.5);
-        const cardY = Math.round(H * 0.20);
-        const pop = relT < 0.22 ? (0.90 + 0.10 * easeInOutCubic(relT / 0.22)) : 1.0;
+      if (mode === 'inset' || mode === 'pip-card') {
+        const cardW = Math.round(W * 0.44);
+        const cardH = Math.round(H * 0.24);
+        const cardX = Math.round(W * 0.52);
+        const cardY = Math.round(H * 0.08);
 
-        ctx.translate(cardX + cardW * 0.5, cardY + cardH * 0.5);
-        ctx.scale(pop, pop);
-        ctx.translate(-(cardX + cardW * 0.5), -(cardY + cardH * 0.5));
-
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        ctx.shadowBlur = 32;
-        ctx.shadowOffsetY = 12;
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.fillStyle = '#070914';
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.clip();
         window.WhopBrollEngine.renderContextBrollCutaway(
           ctx,
           { x: cardX, y: cardY, w: cardW, h: cardH },
           relT,
           bc.topicId,
-          bc.name
+          bc.name,
+          vEl,
+          'inset'
         );
-        ctx.restore();
-
-        ctx.strokeStyle = 'rgba(0, 242, 254, 0.85)';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.stroke();
 
         state.canvasHitBoxes.push({
           id: `broll:${bc.id}`,
@@ -3567,10 +3599,29 @@
           cx: cardX + cardW * 0.5,
           cy: cardY + cardH * 0.5
         });
+      } else if (mode === 'top') {
+        const topH = Math.round(H * 0.48);
+        window.WhopBrollEngine.renderContextBrollCutaway(
+          ctx,
+          { x: 0, y: 0, w: W, h: topH },
+          relT,
+          bc.topicId,
+          bc.name,
+          vEl,
+          'top'
+        );
       } else {
-        // Full-Screen Cutaway over mainRect while voice, hook & karaoke captions remain visible!
+        // Fullscreen Cutaway (default): covers entire canvas or mainRect with 9:16 vertical cover-crop
         const r = mainRect || { x: 0, y: 0, w: W, h: H };
-        window.WhopBrollEngine.renderContextBrollCutaway(ctx, r, relT, bc.topicId, bc.name);
+        window.WhopBrollEngine.renderContextBrollCutaway(
+          ctx,
+          r,
+          relT,
+          bc.topicId,
+          bc.name,
+          vEl,
+          'fullscreen'
+        );
       }
 
       ctx.restore();
@@ -6411,6 +6462,18 @@
         dom.mainVideoEl.pause();
       }
     }
+    if (Array.isArray(state.brollClips)) {
+      state.brollClips.forEach((bc) => {
+        const v = brollVideoPool.get(bc.id);
+        if (v) {
+          const relT = state.currentTime - bc.start;
+          if (state.currentTime >= bc.start && state.currentTime <= bc.start + bc.duration) {
+            const vDur = v.duration || bc.duration || 3;
+            v.currentTime = vDur > 0 ? (relT % vDur) : relT;
+          }
+        }
+      });
+    }
     updatePlayheadUI();
     highlightActiveTranscriptChip();
     renderCanvasFrame();
@@ -7471,61 +7534,88 @@
     }
   }
 
-  function insertPixabayBrollCue(item) {
+  async function insertPixabayBrollCue(item) {
     pushUndoState('Add Pixabay B-Roll');
     if (!Array.isArray(state.brollClips)) state.brollClips = [];
     const dur = Math.min(Math.max(item.duration || 3, 2), 6);
+    let finalUrl = item.url;
+
+    // Auto-download to local storage for instantaneous 0ms playback and 0 CORS failures
+    try {
+      showToast(`🎬 Localizing "${item.tags?.split(',')[0] || 'clip'}" for instant playback...`, '#38bdf8');
+      const dlRes = await fetch('/api/pixabay_download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: item.url, id: item.id })
+      });
+      const dlData = await dlRes.json();
+      if (dlData.success && dlData.local_path) {
+        finalUrl = dlData.local_path;
+      }
+    } catch (e) {
+      console.warn('[Pixabay localize fallback]', e);
+    }
+
     const cue = {
       id: `broll_${item.id}_${Date.now()}`,
       pixabay_id: item.id,
       name: item.tags ? item.tags.split(',')[0].trim() : 'Stock B-Roll',
       start: Number(state.currentTime.toFixed(2)),
       duration: dur,
-      mode: 'cutaway',
-      url: item.url,
+      mode: 'fullscreen',
+      url: finalUrl,
       thumbnail: item.thumbnail
     };
     state.brollClips.push(cue);
     state.brollClips.sort((a, b) => a.start - b.start);
+    getBrollVideoElement(cue);
     renderContextBrollList();
     renderTimelineTracks();
     renderCanvasFrame();
-    showToast(`🎬 Added Pixabay B-Roll "${cue.name}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#dc7036');
+    showToast(`🎬 Added Pixabay B-Roll "${cue.name}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#10b981');
   }
 
   async function autoFetchPixabayBrollWithGemini() {
-    if (!Array.isArray(state.words) || state.words.length === 0) {
-      showToast('⚠️ No speech transcript found. Upload video first to auto-plan B-roll!', '#ef4444');
+    const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
+    const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
+    if (!words || words.length === 0) {
+      showToast('⚠️ No speech transcript found. Upload video or wait for speech transcription!', '#ef4444');
       return;
     }
-    showToast('⚡ Gemini is planning B-roll moments & querying Pixabay...', '#dc7036');
+    showToast('⚡ Gemini is analyzing transcript for concrete B-roll moments & querying Pixabay...', '#dc7036');
     try {
       const res = await fetch('/api/auto_broll_gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words: state.words })
+        body: JSON.stringify({ words })
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.broll_cues) && data.broll_cues.length > 0) {
-        pushUndoState('Auto-Insert Pixabay B-Roll');
-        if (!Array.isArray(state.brollClips)) state.brollClips = [];
+        pushUndoState('Auto-Insert Topic B-Roll');
+        state.brollClips = [];
         data.broll_cues.forEach((c) => {
-          state.brollClips.push({
+          const cue = {
             id: c.id,
             pixabay_id: c.pixabay_id,
             name: c.query,
             start: Number(c.start.toFixed(2)),
             duration: Number(c.duration.toFixed(2)),
-            mode: c.mode || 'cutaway',
+            mode: c.mode || 'fullscreen',
             url: c.url,
-            thumbnail: c.thumbnail
-          });
+            thumbnail: c.thumbnail,
+            reason: c.reason || ''
+          };
+          state.brollClips.push(cue);
+          getBrollVideoElement(cue);
         });
         state.brollClips.sort((a, b) => a.start - b.start);
         renderContextBrollList();
         renderTimelineTracks();
+        if (state.brollClips[0]) {
+          seekToTime(state.brollClips[0].start + 0.1);
+        }
         renderCanvasFrame();
-        showToast(`⚡ Inserted ${data.broll_cues.length} Pixabay stock B-roll clips from Gemini analysis!`, '#10b981');
+        showToast(`⚡ Auto-cut and inserted ${data.broll_cues.length} topic B-roll clips synced to speech!`, '#10b981');
       } else {
         showToast('⚠️ No B-roll cues generated for this transcript.', '#f59e0b');
       }
@@ -7535,7 +7625,9 @@
   }
 
   async function translateCaptionsWithGemini(targetLang = 'en') {
-    if (!Array.isArray(state.words) || state.words.length === 0) {
+    const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
+    const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
+    if (!words || words.length === 0) {
       showToast('⚠️ No speech transcript available to translate. Upload a video or extract link first!', '#ef4444');
       return;
     }
@@ -7544,11 +7636,14 @@
       const res = await fetch('/api/translate_captions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words: state.words, target_lang: targetLang })
+        body: JSON.stringify({ words, target_lang: targetLang })
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.words) && data.words.length > 0) {
         pushUndoState('Translate Subtitles');
+        const clip = getActiveClip();
+        if (clip) clip.transcript = data.words;
+        if (state.analysis) state.analysis.transcript = data.words;
         state.words = data.words;
         renderTranscriptCloud();
         renderTimelineTracks();
@@ -7563,24 +7658,27 @@
   }
 
   async function runMasterOneClickAutoEdit() {
-    showToast('⚡ Running 1-Click AI Auto-Edit for Kai Cenat Whop UGC...', '#dc7036');
+    showToast('⚡ Running 1-Click AI Auto-Edit (Auto-Arrange + Silence Cut + Topic B-Roll + English Captions)...', '#dc7036');
 
     // Step 1: Pauses cut
     if (typeof applySilenceJumpCuts === 'function') {
       try { applySilenceJumpCuts(); } catch (e) {}
     }
 
+    const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
+    const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
+
     // Step 2: Translate to US/UK English if non-English
-    if (state.words && state.words.length > 0) {
-      const sample = state.words.slice(0, 15).map(w => w.word).join(' ');
+    if (words && words.length > 0) {
+      const sample = words.slice(0, 15).map(w => w.word).join(' ');
       const isNonEnglish = /\b(ang|mga|sa|ng|mo|ko|tara|lods|natin|ito|dito|lahat|siya)\b/i.test(sample);
       if (isNonEnglish) {
         await translateCaptionsWithGemini('en');
       }
     }
 
-    // Step 3: Auto-plan Pixabay stock B-roll
-    if (state.words && state.words.length > 0) {
+    // Step 3: Auto-plan & auto-cut Pixabay stock B-roll based on speech topic
+    if (words && words.length > 0) {
       await autoFetchPixabayBrollWithGemini();
     }
 
@@ -7590,8 +7688,8 @@
 
     renderTimelineTracks();
     renderCanvasFrame();
-    appendJarvisChatMessage('AI', '1-Click AI Auto-Edit Complete!\n- Re-timed to 9:16 vertical\n- Removed dead air pauses\n- Verified #KaiCenat caption\n- Sourced matching Pixabay stock B-roll\n- Subtitles aligned for 50%+ US/UK audience');
-    showToast('🚀 1-Click Auto-Edit complete! Kai Cenat short ready for export & Whop submission.', '#10b981');
+    appendJarvisChatMessage('AI', '1-Click AI Auto-Edit Complete!\n- Re-timed to 9:16 vertical\n- Removed dead air pauses\n- Verified viral captions\n- Sourced matching stock B-roll synced to spoken topic\n- Subtitles aligned for 50%+ US/UK audience');
+    showToast('🚀 1-Click Auto-Edit complete! Topic B-roll auto-cut and placed onto timeline.', '#10b981');
   }
 
   window.runMasterOneClickAutoEdit = runMasterOneClickAutoEdit;
@@ -11668,6 +11766,20 @@
         dom.brollVideoEl.playbackRate = state.playbackSpeed || 1.0;
         dom.brollVideoEl.play().catch(() => {});
       }
+      if (Array.isArray(state.brollClips)) {
+        state.brollClips.forEach((bc) => {
+          if (state.currentTime >= bc.start && state.currentTime <= bc.start + bc.duration) {
+            const v = getBrollVideoElement(bc);
+            if (v) {
+              const relT = state.currentTime - bc.start;
+              const vDur = v.duration || bc.duration || 3;
+              v.currentTime = vDur > 0 ? (relT % vDur) : relT;
+              v.playbackRate = state.playbackSpeed || 1.0;
+              v.play().catch(() => {});
+            }
+          }
+        });
+      }
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.syncPlayback(state.currentTime, true, {
           musicPreset: state.musicPreset,
@@ -11681,6 +11793,9 @@
       if (state.useCustomBrollVideo && dom.brollVideoEl) {
         dom.brollVideoEl.pause();
       }
+      brollVideoPool.forEach((v) => {
+        try { if (!v.paused) v.pause(); } catch {}
+      });
       if (window.WhopAudioEngine) {
         window.WhopAudioEngine.syncPlayback(state.currentTime, false);
       }
@@ -13602,6 +13717,10 @@
   }
 
   function autoInsertContextBroll() {
+    if (typeof autoFetchPixabayBrollWithGemini === 'function') {
+      autoFetchPixabayBrollWithGemini();
+      return;
+    }
     pushUndoState('Auto-Insert AI Context B-Roll');
     const words = getActiveTranscriptWords().filter((w) => !w.deleted);
     const sStart = state.trimStart || 0;

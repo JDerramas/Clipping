@@ -161,17 +161,17 @@
     }
 
     /**
-     * Renders active stock video onto canvas stage
+     * Renders active stock video onto canvas stage with cover-crop and mode support
      */
-    renderContextBrollCutaway(ctx, rect, relT, topicId, customLabel, videoElement) {
+    renderContextBrollCutaway(ctx, rect, relT, topicId, customLabel, videoElement, mode = 'fullscreen') {
       if (!ctx || !rect) return;
       ctx.save();
 
       const r = rect;
-      // If a real video element is provided and has loaded frames, draw it with cover-crop!
-      if (videoElement && videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
-        const vw = videoElement.videoWidth;
-        const vh = videoElement.videoHeight;
+      // If a real video element is provided and has loaded video frames, draw with 9:16 vertical cover-crop!
+      if (videoElement && (videoElement.readyState >= 2 || (videoElement.readyState >= 1 && videoElement.currentTime > 0))) {
+        const vw = videoElement.videoWidth || 1920;
+        const vh = videoElement.videoHeight || 1080;
         const scale = Math.max(r.w / vw, r.h / vh);
         const drawW = vw * scale;
         const drawH = vh * scale;
@@ -179,25 +179,48 @@
         const drawY = r.y + (r.h - drawH) / 2;
 
         ctx.beginPath();
-        ctx.rect(r.x, r.y, r.w, r.h);
+        if (mode === 'inset' || mode === 'pip-card') {
+          ctx.roundRect(r.x, r.y, r.w, r.h, 20);
+        } else {
+          ctx.rect(r.x, r.y, r.w, r.h);
+        }
         ctx.clip();
         ctx.drawImage(videoElement, drawX, drawY, drawW, drawH);
-      } else {
-        // High-end cinematic fallback card while video is buffering
-        const grad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(1, '#020617');
-        ctx.fillStyle = grad;
-        ctx.fillRect(r.x, r.y, r.w, r.h);
 
+        // For inset / PIP mode, draw sleek border
+        if (mode === 'inset' || mode === 'pip-card') {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+      } else {
+        // High-end cinematic glass card while buffering (NEVER a solid black block or raw broken text)
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        ctx.beginPath();
+        if (mode === 'inset' || mode === 'pip-card') {
+          ctx.roundRect(r.x, r.y, r.w, r.h, 20);
+        } else {
+          ctx.rect(r.x, r.y, r.w, r.h);
+        }
+        ctx.fill();
+
+        // Sleek subtle loading pill badge
+        const badgeW = 240;
+        const badgeH = 34;
+        const bx = r.x + (r.w - badgeW) / 2;
+        const by = r.y + (r.h - badgeH) / 2;
+        ctx.fillStyle = 'rgba(10, 15, 30, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(bx, by, badgeW, badgeH, 17);
+        ctx.fill();
         ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '700 24px "Plus Jakarta Sans", sans-serif';
+        ctx.font = '600 13px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(customLabel || '🎬 STOCK B-ROLL CUTAWAY', r.x + r.w / 2, r.y + r.h / 2);
+        ctx.fillText(`🎬 Loading "${customLabel || 'B-Roll'}"...`, r.x + r.w / 2, by + 22);
       }
 
       ctx.restore();

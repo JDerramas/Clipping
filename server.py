@@ -289,6 +289,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class WhopStudioHandler(SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT_DIR), **kwargs)
 
@@ -306,6 +308,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Range, Authorization")
         self.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         self.send_header("Accept-Ranges", "bytes")
+        parsed = urlparse(self.path)
+        if parsed.path.endswith((".js", ".html", ".css", ".json")):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -483,7 +488,6 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
             self.send_header("Content-Length", str(content_length))
-            self.send_header("Accept-Ranges", "bytes")
             self.send_header("Cache-Control", "public, max-age=3600")
             self.end_headers()
 
@@ -499,6 +503,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(chunk)
                     bytes_left -= len(chunk)
         except (ConnectionResetError, BrokenPipeError):
+            self.close_connection = True
             pass  # Client navigated away or scrubbed ahead
         except Exception as e:
             sys.stderr.write(f"Streaming error for {file_path.name}: {e}\n")
@@ -2647,16 +2652,20 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
     def handle_api_auto_broll_gemini(self, payload: dict):
         """
-        autobroll algorithm: Reads transcript, uses Gemini to select 2-4 key moments and stock queries,
-        then calls Pixabay to retrieve matching stock videos.
+        AutoBroll algorithm (scripts/broll-multiclip.mjs):
+        Reads word-level transcript, formats indexed tokens (0:word0 1:word1 ...),
+        calls Gemini 3 Flash to pick concrete visual moments synced to speech topics,
+        queries Pixabay for stock footage, automatically downloads/localizes the video to disk,
+        and returns time-synced cutaway cues.
         """
         words = payload.get("words", [])
         if not words or not isinstance(words, list):
             self.send_json_response({"error": "No words provided"}, status=400)
             return
 
-        transcript_text = " ".join([str(w.get("word", "")).strip() for w in words[:200]])
         total_duration = max(float(w.get("end", 0)) for w in words) if words else 30.0
+        indexed_words = [f"{i}:{str(w.get('origWord') or w.get('word', '')).strip()}" for i, w in enumerate(words[:250])]
+        indexed_str = " ".join(indexed_words)
 
         pixabay_key = load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
         gemini_key = load_local_secret("GEMINI_API_KEY")
@@ -2664,19 +2673,22 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         cues_plan = []
         if gemini_key:
             prompt = (
-                "You are an expert short-form video editor for TikTok / YouTube Shorts.\n"
-                "Given this video transcript, select 2 to 4 visual moments where adding stock B-roll cutaway footage "
-                "will maximize audience retention.\n"
-                f"Transcript: \"{transcript_text[:1200]}\"\n\n"
-                "Output ONLY a raw JSON array of objects. Example:\n"
-                '[\n  {"query": "sports car drift", "start_sec": 4.0, "duration": 2.5, "mode": "cutaway"},\n'
-                '  {"query": "money rain cash", "start_sec": 14.0, "duration": 2.0, "mode": "cutaway"}\n]\n'
+                "You are a senior short-form video editor adding stock B-roll cutaway footage to a talking-head video.\n\n"
+                f"Transcript (each word prefixed by index):\n{indexed_str}\n\n"
+                "Pick 2 to 4 moments where a visual cutaway genuinely strengthens the message and viewer retention.\n"
+                "Rules:\n"
+                "- Be SPARING: ~1 visual every 8 to 15 seconds of speech.\n"
+                "- ONLY for concrete, visualizable nouns/concepts/actions (a thing, place, object, action) — NEVER abstract filler.\n"
+                "- query: 2 to 4 word concrete English stock search (e.g. 'heavy steel vault', 'stacks of cash', 'sports car drift', 'crowd cheering reaction').\n"
+                "- mode: 'fullscreen' (cutaway hides face ~2s), 'inset' (small corner), or 'top' (upper half).\n"
+                "- startIdx and endIdx: word-index range to show it over (~1.5 to 3.5 seconds duration).\n\n"
+                "Output ONLY a raw JSON array of objects with keys: startIdx, endIdx, query, mode, reason.\n"
                 "Do NOT wrap in markdown quotes. Just return the JSON array."
             )
             raw = query_gemini_api(prompt, gemini_key, timeout=12)
             if raw:
                 try:
-                    clean = raw
+                    clean = raw.strip()
                     if "```" in clean:
                         clean = clean.split("```")[1]
                         if clean.startswith("json"):
@@ -2689,42 +2701,117 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         # Fallback if Gemini returned nothing or empty
         if not cues_plan:
+            # Fallback heuristic: search for concrete keywords in transcript
+            kw_hits = []
+            for i, w in enumerate(words):
+                txt = str(w.get("origWord") or w.get("word", "")).lower()
+                if any(k in txt for k in ("vault", "safe", "lock", "bank")):
+                    kw_hits.append((i, "heavy steel vault", "fullscreen"))
+                elif any(k in txt for k in ("money", "cash", "dollar", "thousand", "rich", "paid", "milyon")):
+                    kw_hits.append((i, "stacks of cash", "fullscreen"))
+                elif any(k in txt for k in ("car", "drift", "speed", "drive", "race")):
+                    kw_hits.append((i, "sports car drift", "fullscreen"))
+                elif any(k in txt for k in ("reaction", "shock", "crowd", "people", "scream")):
+                    kw_hits.append((i, "crowd reaction cheering", "fullscreen"))
+
+            if kw_hits:
+                seen_idx = set()
+                for idx, q, m in kw_hits[:3]:
+                    if not any(abs(idx - s) < 8 for s in seen_idx):
+                        seen_idx.add(idx)
+                        end_i = min(len(words) - 1, idx + 4)
+                        cues_plan.append({"startIdx": idx, "endIdx": end_i, "query": q, "mode": m, "reason": f"Matches keyword in speech: {q}"})
+
+        if not cues_plan:
             cues_plan = [
-                {"query": "hypercar drift", "start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "mode": "cutaway"},
-                {"query": "crowd reaction cheering", "start_sec": min(12.0, total_duration * 0.5), "duration": 2.0, "mode": "cutaway"}
+                {"start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "query": "heavy steel vault", "mode": "fullscreen", "reason": "Intro hook visual"},
+                {"start_sec": min(14.0, total_duration * 0.50), "duration": 2.2, "query": "stacks of cash", "mode": "fullscreen", "reason": "Core topic visual"}
             ]
 
-        # Sourcing videos from Pixabay for each cue
+        dest_dir = engine.UPLOADS
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
         final_brolls = []
         for idx, cue in enumerate(cues_plan[:4]):
             q = str(cue.get("query", "action")).strip()
-            st = float(cue.get("start_sec", idx * 6.0))
-            dur = float(cue.get("duration", 2.5))
-            encoded_q = urllib.parse.quote(q)
-            p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page=3"
-            try:
-                req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                with urllib.request.urlopen(req, timeout=8) as r:
-                    d = json.loads(r.read().decode("utf-8"))
-                    hits = d.get("hits", [])
-                    if hits:
-                        hit = hits[0]
-                        v_obj = hit.get("videos", {}).get("medium") or hit.get("videos", {}).get("large") or {}
-                        pic_id = hit.get("picture_id")
-                        thumb = f"https://i.vimeocdn.com/video/{pic_id}_640x360.jpg" if pic_id else ""
-                        final_brolls.append({
-                            "id": f"broll_{hit.get('id')}_{idx}",
-                            "pixabay_id": hit.get("id"),
-                            "query": q,
-                            "start": st,
-                            "duration": dur,
-                            "mode": cue.get("mode", "cutaway"),
-                            "url": v_obj.get("url", ""),
-                            "thumbnail": thumb,
-                            "tags": hit.get("tags", "")
-                        })
-            except Exception as e:
-                sys.stderr.write(f"[Pixabay fetch for cue '{q}' notice] {e}\n")
+            # Calculate word-synchronized start and duration
+            if "startIdx" in cue and "endIdx" in cue and isinstance(cue["startIdx"], int) and isinstance(cue["endIdx"], int):
+                s_i = max(0, min(len(words) - 1, cue["startIdx"]))
+                e_i = max(s_i, min(len(words) - 1, cue["endIdx"]))
+                st = float(words[s_i].get("start", 0))
+                et = float(words[e_i].get("end", st + 2.5))
+                dur = max(1.8, min(4.8, et - st))
+            else:
+                st = float(cue.get("start_sec", idx * 6.0))
+                dur = float(cue.get("duration", 2.5))
+
+            # Query Pixabay for stock video
+            hits = []
+            queries_to_try = [q]
+            words_in_q = q.split()
+            if len(words_in_q) > 2:
+                queries_to_try.append(" ".join(words_in_q[:2]))
+                queries_to_try.append(words_in_q[-1])
+
+            for trial_q in queries_to_try:
+                try:
+                    encoded_q = urllib.parse.quote(trial_q)
+                    p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page=5"
+                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                    with urllib.request.urlopen(req, timeout=8) as r:
+                        d = json.loads(r.read().decode("utf-8"))
+                        hits = d.get("hits", [])
+                        if hits:
+                            break
+                except Exception as e:
+                    sys.stderr.write(f"[Pixabay fetch trial '{trial_q}' notice] {e}\n")
+
+            if not hits:
+                # Fallback to car drift or money
+                fallback_q = "sports car drift" if "car" in q.lower() or "drift" in q.lower() else "counting money cash"
+                try:
+                    p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={urllib.parse.quote(fallback_q)}&per_page=3"
+                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=8) as r:
+                        hits = json.loads(r.read().decode("utf-8")).get("hits", [])
+                except Exception:
+                    hits = []
+
+            if hits:
+                hit = hits[0]
+                hit_id = hit.get("id")
+                v_obj = hit.get("videos", {}).get("medium") or hit.get("videos", {}).get("small") or hit.get("videos", {}).get("large") or {}
+                remote_url = v_obj.get("url", "")
+                pic_id = hit.get("picture_id")
+                thumb = f"https://i.vimeocdn.com/video/{pic_id}_640x360.jpg" if pic_id else ""
+
+                # Auto-download video to local storage for instantaneous 0ms playback and 0 CORS failures
+                local_filename = f"pixabay_{hit_id}.mp4"
+                local_path_on_disk = dest_dir / local_filename
+                local_url = f"/uploads/{local_filename}"
+
+                if remote_url:
+                    if not local_path_on_disk.exists() or local_path_on_disk.stat().st_size < 1000:
+                        try:
+                            dl_req = urllib.request.Request(remote_url, headers={"User-Agent": "Mozilla/5.0"})
+                            with urllib.request.urlopen(dl_req, timeout=20) as resp, open(local_path_on_disk, "wb") as f:
+                                f.write(resp.read())
+                        except Exception as dl_err:
+                            sys.stderr.write(f"[Pixabay localize error for {hit_id}] {dl_err}\n")
+                            local_url = remote_url
+
+                final_brolls.append({
+                    "id": f"broll_{hit_id}_{idx}",
+                    "pixabay_id": hit_id,
+                    "query": q,
+                    "start": round(st, 2),
+                    "duration": round(dur, 2),
+                    "mode": cue.get("mode", "fullscreen"),
+                    "url": local_url if local_path_on_disk.exists() else remote_url,
+                    "thumbnail": thumb,
+                    "tags": hit.get("tags", ""),
+                    "reason": cue.get("reason", "")
+                })
 
         self.send_json_response({
             "success": True,
