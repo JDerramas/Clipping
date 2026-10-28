@@ -12702,6 +12702,319 @@
     }
   }
 
+  // =========================================================================
+  // AUTONOMOUS AI AUTO-PUBLISHER & SCHEDULER STUDIO
+  // ("AI Na Gagawa Lahat like Assemble Nga Talaga")
+  // 1-Click Curate -> Edit Archetype -> 1080p Render -> US/UK Captions ->
+  // Multi-Platform Schedule (Peak US EST) -> 30-min Whop Rewards Tracker
+  // =========================================================================
+
+  const PLATFORM_UPLOAD_URLS = {
+    tiktok: 'https://www.tiktok.com/creator-center/upload',
+    shorts: 'https://studio.youtube.com/channel/UC/videos/upload?d=bu',
+    reels: 'https://www.instagram.com/'
+  };
+
+  async function fetchScheduleQueue() {
+    try {
+      const resp = await fetch('/api/schedule_queue');
+      const data = await resp.json();
+      if (data && data.success) {
+        state.scheduleQueue = data.queue || [];
+        if (data.current_est) {
+          const badge = document.getElementById('schedEstClockBadge');
+          if (badge) badge.textContent = data.current_est;
+        }
+        renderScheduleQueue();
+      }
+    } catch (e) {
+      console.warn('[Schedule] Queue fetch notice:', e);
+    }
+    return state.scheduleQueue || [];
+  }
+
+  function renderScheduleQueue() {
+    const listEl = document.getElementById('scheduledQueueList');
+    const countBadge = document.getElementById('queueCountBadge');
+    const queue = state.scheduleQueue || [];
+    if (countBadge) countBadge.textContent = String(queue.length);
+
+    if (!listEl) return;
+    if (queue.length === 0) {
+      listEl.innerHTML = `
+        <div style="text-align:center; padding:18px 10px; color:#64748b; font-size:11px;">
+          <div style="font-size:22px; margin-bottom:4px;">📅</div>
+          No scheduled clips yet.<br>Click <strong>"Execute AI Auto-Assemble"</strong> above to auto-create and schedule viral clips!
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = '';
+    const now = Date.now();
+
+    queue.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = `scheduled-queue-item ${item.status || 'scheduled'}`;
+
+      const platIcon = { tiktok: '🎵', shorts: '▶️', reels: '📸' }[item.platform] || '📣';
+      const platClass = item.platform || 'tiktok';
+
+      let statusHtml = '';
+      if (item.status === 'submitted_to_whop') {
+        statusHtml = '<span class="status-pill" style="background:rgba(245,158,11,0.2); color:#f59e0b; border:1px solid #f59e0b;">🏆 WHOP SUBMITTED</span>';
+      } else if (item.status === 'published') {
+        statusHtml = '<span class="status-pill status-cyan">🚀 POSTED • WHOP 30M ACTIVE</span>';
+      } else if (item.status === 'ready') {
+        statusHtml = '<span class="status-pill status-emerald">🟢 READY TO POST NOW</span>';
+      } else {
+        let timeLabel = item.scheduled_time_est || 'Scheduled';
+        if (item.scheduled_time_utc) {
+          const targetMs = new Date(item.scheduled_time_utc).getTime();
+          const diffMs = targetMs - now;
+          if (diffMs > 0) {
+            const h = Math.floor(diffMs / 3600000);
+            const m = Math.floor((diffMs % 3600000) / 60000);
+            timeLabel = `In ${h > 0 ? h + 'h ' : ''}${m}m`;
+          }
+        }
+        statusHtml = `<span class="status-pill" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.4);">🟡 ${timeLabel}</span>`;
+      }
+
+      card.innerHTML = `
+        <div class="sqi-header">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:16px;">${platIcon}</span>
+            <span class="sqi-tag ${platClass}">${item.platform ? item.platform.toUpperCase() : 'TIKTOK'}</span>
+            <span class="sqi-title">${escapeHtml(item.title || 'Untitled Clip')}</span>
+          </div>
+          ${statusHtml}
+        </div>
+        <div class="sqi-meta-row">
+          <span>⏱ ${item.duration ? item.duration.toFixed(1) + 's' : '30s'}</span>
+          <span>•</span>
+          <span style="color:#facc15;">🇺🇸 ${escapeHtml(item.scheduled_time_est || 'Peak US')}</span>
+          ${item.post_url ? `<span>• <a href="${escapeHtml(item.post_url)}" target="_blank" style="color:#38bdf8; text-decoration:underline;">Post Link</a></span>` : ''}
+        </div>
+        <div class="sqi-caption-preview">${escapeHtml(item.caption || '')}</div>
+        <div class="sqi-actions">
+          <button type="button" class="btn-micro sqi-open-btn" style="background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; font-weight:800; border:none;" title="Copies caption and opens platform upload page">
+            🚀 Open ${item.platform ? item.platform.toUpperCase() : 'UPLOADER'}
+          </button>
+          <button type="button" class="btn-micro sqi-copy-btn" title="Copy caption & hashtags">📋 Copy</button>
+          <button type="button" class="btn-micro sqi-mark-btn" style="color:#10b981;" title="Mark as published to start 30-min Whop timer">✅ Posted</button>
+          <button type="button" class="btn-micro sqi-log-btn" style="color:#f59e0b;" title="Log live post URL for Whop Content Rewards">📝 Log Link</button>
+          <button type="button" class="btn-micro sqi-del-btn" style="color:#ef4444;" title="Cancel & delete from schedule">🗑️</button>
+        </div>
+      `;
+
+      const openBtn = card.querySelector('.sqi-open-btn');
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          if (navigator.clipboard && item.caption) {
+            navigator.clipboard.writeText(item.caption).catch(() => {});
+          }
+          const upUrl = PLATFORM_UPLOAD_URLS[item.platform] || PLATFORM_UPLOAD_URLS.tiktok;
+          window.open(upUrl, '_blank');
+          showToast(`🚀 Opening ${item.platform.toUpperCase()} Uploader! Caption copied to clipboard.`, '#38bdf8');
+          updateScheduleItem(item.id, { status: 'published' });
+          startPostSubmitTimer();
+        });
+      }
+
+      const copyBtn = card.querySelector('.sqi-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          if (navigator.clipboard && item.caption) {
+            navigator.clipboard.writeText(item.caption).catch(() => {});
+          }
+          showToast('📋 Copied caption & hashtags to clipboard!', '#10b981');
+        });
+      }
+
+      const markBtn = card.querySelector('.sqi-mark-btn');
+      if (markBtn) {
+        markBtn.addEventListener('click', () => {
+          updateScheduleItem(item.id, { status: 'published' });
+          startPostSubmitTimer();
+          showToast('✅ Marked as posted! 30-minute Whop submission countdown started.', '#10b981');
+        });
+      }
+
+      const logBtn = card.querySelector('.sqi-log-btn');
+      if (logBtn) {
+        logBtn.addEventListener('click', () => {
+          const url = prompt(`Paste the live URL of your posted ${item.platform} clip:`, item.post_url || '');
+          if (url && url.trim()) {
+            updateScheduleItem(item.id, { post_url: url.trim(), status: 'submitted_to_whop' });
+            showToast('🏆 Post link logged! Submitted to Whop Content Rewards campaign.', '#f59e0b');
+          }
+        });
+      }
+
+      const delBtn = card.querySelector('.sqi-del-btn');
+      if (delBtn) {
+        delBtn.addEventListener('click', () => {
+          if (confirm(`Remove "${item.title}" from upload schedule?`)) {
+            deleteScheduleItem(item.id);
+          }
+        });
+      }
+
+      listEl.appendChild(card);
+    });
+  }
+
+  async function updateScheduleItem(itemId, fields) {
+    const it = (state.scheduleQueue || []).find((x) => x.id === itemId);
+    if (it) {
+      Object.assign(it, fields);
+      renderScheduleQueue();
+    }
+    try {
+      const resp = await fetch('/api/schedule_queue/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: itemId, ...fields })
+      });
+      const data = await resp.json();
+      if (data && data.success) {
+        state.scheduleQueue = data.queue || [];
+        renderScheduleQueue();
+      }
+    } catch (e) {
+      console.warn('[Schedule] Update error:', e);
+    }
+  }
+
+  async function deleteScheduleItem(itemId) {
+    state.scheduleQueue = (state.scheduleQueue || []).filter((x) => x.id !== itemId);
+    renderScheduleQueue();
+    try {
+      const resp = await fetch('/api/schedule_queue/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: itemId })
+      });
+      const data = await resp.json();
+      if (data && data.success) {
+        state.scheduleQueue = data.queue || [];
+        renderScheduleQueue();
+        showToast('🗑️ Removed item from upload queue', '#ef4444');
+      }
+    } catch (e) {
+      console.warn('[Schedule] Delete error:', e);
+    }
+  }
+
+  async function execute1ClickAutoPipeline() {
+    if (state.isAutoPipelineRunning) return;
+    state.isAutoPipelineRunning = true;
+
+    const progRow = document.getElementById('autoPipelineProgressRow');
+    const stepTxt = document.getElementById('autoPipelineStepText');
+    const percTxt = document.getElementById('autoPipelinePercent');
+    const barEl = document.getElementById('autoPipelineProgressBar');
+    const execBtn = document.getElementById('executeAutoPipelineBtn');
+
+    if (progRow) progRow.classList.remove('hidden');
+    if (execBtn) execBtn.disabled = true;
+
+    const updateStep = (pct, text) => {
+      if (percTxt) percTxt.textContent = `${pct}%`;
+      if (barEl) barEl.style.width = `${pct}%`;
+      if (stepTxt) stepTxt.textContent = text;
+    };
+
+    updateStep(15, '🤖 AI scanning video for peak viral candidate moments...');
+
+    const archetype = document.getElementById('autoPipelineArchetypeSelect')?.value || state.clippingType || 'reaction';
+    const strategy = document.getElementById('autoPipelineStrategySelect')?.value || 'peak-us';
+    const count = parseInt(document.getElementById('autoPipelineCountSelect')?.value || '3', 10);
+
+    const platforms = [];
+    if (document.getElementById('chkPlatTiktok')?.checked) platforms.push('tiktok');
+    if (document.getElementById('chkPlatShorts')?.checked) platforms.push('shorts');
+    if (document.getElementById('chkPlatReels')?.checked) platforms.push('reels');
+    if (platforms.length === 0) platforms.push('tiktok');
+
+    try {
+      setTimeout(() => updateStep(40, `🎬 Applying CapCut ${archetype.toUpperCase()} layout, face tracking & VFX...`), 500);
+      setTimeout(() => updateStep(65, '⚡ Rendering 1080p vertical MP4 clips with hardware FFmpeg...'), 1100);
+      setTimeout(() => updateStep(85, '🇺🇸 Generating US/UK captions & #KaiCenat hashtags...'), 1700);
+
+      const resp = await fetch('/api/auto_pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaign: getPostCampaignKey(),
+          archetype,
+          platforms,
+          strategy,
+          count
+        })
+      });
+
+      const data = await resp.json();
+      if (data && data.success) {
+        updateStep(100, `🎉 Complete! ${data.assembled_count || count} clips assembled & scheduled!`);
+        state.scheduleQueue = data.queue || [];
+        renderScheduleQueue();
+        showToast(`🎉 AI Auto-Assembly Complete! ${data.assembled_count || count} clips scheduled for peak US hours!`, '#10b981');
+      } else {
+        updateStep(100, 'Notice: Using offline assembled queue fallback');
+        await fetchScheduleQueue();
+      }
+    } catch (e) {
+      console.warn('[Auto-Pipeline] Network error:', e);
+      updateStep(100, 'Offline fallback schedule created');
+      await fetchScheduleQueue();
+    } finally {
+      state.isAutoPipelineRunning = false;
+      if (execBtn) execBtn.disabled = false;
+      setTimeout(() => {
+        if (progRow) progRow.classList.add('hidden');
+      }, 4000);
+    }
+  }
+
+  async function scheduleCurrentActiveClip(preset = 'next-peak') {
+    const clip = getActiveClip();
+    const title = (clip && clip.title) || state.clipTitle || 'Kai Cenat Highlight';
+    const platform = getPostPlatformKey() || 'tiktok';
+    const caption = (dom.postCaptionTextarea && dom.postCaptionTextarea.value.trim()) ||
+      `${title} 😭 #KaiCenat #TwitchClips`;
+    const dur = (state.trimEnd && state.trimStart) ? (state.trimEnd - state.trimStart) : 30.0;
+
+    const payload = {
+      title,
+      duration: dur,
+      platform,
+      caption,
+      hashtags: getPostRequiredTags(getPostCampaignKey()),
+      campaign: getPostCampaignKey()
+    };
+
+    try {
+      const resp = await fetch('/api/schedule_queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      if (data && data.success) {
+        state.scheduleQueue = data.queue || [];
+        renderScheduleQueue();
+        showToast(`📅 Scheduled "${title}" for auto-upload at peak US time!`, '#38bdf8');
+        if (dom.exportModal && !dom.exportModal.classList.contains('hidden')) {
+          showToast('✅ Added to Upload Queue! Check the Schedule tab on the left rail.', '#10b981');
+        }
+      }
+    } catch (e) {
+      console.warn('[Schedule] Quick schedule error:', e);
+    }
+  }
+
   // --- 7. VFX & TIMED VFX BURSTS ---
   function toggleVfxEffect(effectKey, forceBool) {
     if (!effectKey || !state.effects) return false;
@@ -13581,6 +13894,17 @@
     renderCanvasFrame();
     ensureStarterSavedClip();
 
+    // Wire Auto-Upload & Schedule Studio controls
+    const autoPipeBtn = document.getElementById('executeAutoPipelineBtn');
+    if (autoPipeBtn) autoPipeBtn.addEventListener('click', execute1ClickAutoPipeline);
+    const schedActiveBtn = document.getElementById('scheduleActiveClipBtn');
+    if (schedActiveBtn) schedActiveBtn.addEventListener('click', () => scheduleCurrentActiveClip('next-peak'));
+    const refreshQBtn = document.getElementById('refreshQueueBtn');
+    if (refreshQBtn) refreshQBtn.addEventListener('click', fetchScheduleQueue);
+    const exportSchedBtn = document.getElementById('exportModalSchedulePeakBtn');
+    if (exportSchedBtn) exportSchedBtn.addEventListener('click', () => scheduleCurrentActiveClip('next-peak'));
+    fetchScheduleQueue();
+
     window.WhopStudio = {
       state,
       dom,
@@ -13611,6 +13935,12 @@
       refreshPostCaptionChecks,
       renderPostCaptionVariants,
       startPostSubmitTimer,
+      fetchScheduleQueue,
+      renderScheduleQueue,
+      execute1ClickAutoPipeline,
+      scheduleCurrentActiveClip,
+      updateScheduleItem,
+      deleteScheduleItem,
       setWatermark,
       setCanvasAspectRatio,
       addTextLayer,

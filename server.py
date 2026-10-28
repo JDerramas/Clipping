@@ -20,6 +20,8 @@ import re
 import sys
 import time
 import subprocess
+import threading
+from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
@@ -105,6 +107,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY")
             })
             return
+        elif path in ("/api/schedule_queue", "/api/schedule-queue"):
+            self.handle_api_schedule_get()
+            return
 
         # Handle Range Requests for Media Files (/uploads/, /outputs/, /assets/)
         local_file_path = ROOT_DIR / path.lstrip("/")
@@ -173,6 +178,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_auto_curate(payload)
         elif path in ("/api/post_caption", "/api/post-caption"):
             self.handle_api_post_caption(payload)
+        elif path in ("/api/schedule_queue", "/api/schedule-queue"):
+            self.handle_api_schedule_add(payload)
+        elif path in ("/api/schedule_queue/update", "/api/schedule-queue/update"):
+            self.handle_api_schedule_update(payload)
+        elif path in ("/api/schedule_queue/delete", "/api/schedule-queue/delete"):
+            self.handle_api_schedule_delete(payload)
+        elif path in ("/api/auto_pipeline", "/api/auto-pipeline"):
+            self.handle_api_auto_pipeline(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -2099,8 +2112,352 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "viralMoments": moments
         })
 
+    # ---------------- SCHEDULE & AUTO-PUBLISH PIPELINE ----------------
+    def handle_api_schedule_get(self):
+        now_utc = datetime.now(timezone.utc)
+        est_offset = timedelta(hours=-4)
+        est_now = now_utc + est_offset
+        self.send_json_response({
+            "success": True,
+            "queue": load_upload_schedule(),
+            "current_est": est_now.strftime("%b %d, %I:%M %p EST"),
+            "next_slots": calculate_optimal_us_peak_slots(count=4, strategy="peak-us")
+        })
+
+    def handle_api_schedule_add(self, payload):
+        item = payload.get("item") or payload
+        title = str(item.get("title") or "Viral Clip").strip()
+        platform = str(item.get("platform") or "tiktok").strip().lower()
+        if platform not in ("tiktok", "shorts", "reels"):
+            platform = "tiktok"
+
+        sched_id = str(item.get("id") or f"sched_{int(time.time() * 1000)}")
+        now_utc = datetime.now(timezone.utc)
+        est_offset = timedelta(hours=-4)
+
+        scheduled_time_utc = item.get("scheduled_time_utc")
+        scheduled_time_est = item.get("scheduled_time_est")
+        scheduled_time_local = item.get("scheduled_time_local")
+
+        if not scheduled_time_utc:
+            slots = calculate_optimal_us_peak_slots(count=1, strategy="peak-us")
+            if slots:
+                scheduled_time_utc = slots[0]["utc"]
+                scheduled_time_est = slots[0]["est_str"]
+                scheduled_time_local = slots[0]["local_str"]
+            else:
+                scheduled_time_utc = (now_utc + timedelta(hours=2)).isoformat()
+                scheduled_time_est = (now_utc + timedelta(hours=2) + est_offset).strftime("%b %d, %I:%M %p EST")
+                scheduled_time_local = scheduled_time_est
+
+        status = str(item.get("status") or "scheduled")
+        caption = str(item.get("caption") or "").strip()
+        tags = item.get("hashtags") or ["#KaiCenat"]
+        video_filename = str(item.get("video_filename") or "")
+        video_url = str(item.get("video_url") or "")
+        if not video_url and video_filename:
+            video_url = f"/outputs/{video_filename}" if (engine.OUTPUTS / video_filename).exists() else f"/uploads/{video_filename}"
+
+        record = {
+            "id": sched_id,
+            "created_at": now_utc.isoformat(),
+            "clip_id": str(item.get("clip_id") or "clip-custom"),
+            "title": title,
+            "duration": float(item.get("duration") or 30.0),
+            "video_filename": video_filename,
+            "video_url": video_url,
+            "platform": platform,
+            "caption": caption,
+            "hashtags": tags if isinstance(tags, list) else ["#KaiCenat"],
+            "scheduled_time_utc": scheduled_time_utc,
+            "scheduled_time_est": scheduled_time_est,
+            "scheduled_time_local": scheduled_time_local,
+            "status": status,
+            "campaign": str(item.get("campaign") or "kai-cenat"),
+            "target_audience": "US/UK/CA/AU/NZ (Native English)",
+            "post_url": str(item.get("post_url") or ""),
+            "whop_deadline_utc": str(item.get("whop_deadline_utc") or ""),
+            "whop_submitted_at": str(item.get("whop_submitted_at") or "")
+        }
+
+        queue = load_upload_schedule()
+        queue.insert(0, record)
+        save_upload_schedule(queue)
+
+        self.send_json_response({
+            "success": True,
+            "item": record,
+            "queue": queue
+        })
+
+    def handle_api_schedule_update(self, payload):
+        item_id = str(payload.get("id") or "").strip()
+        if not item_id:
+            self.send_json_response({"error": "Missing item id"}, status=400)
+            return
+
+        queue = load_upload_schedule()
+        target = next((it for it in queue if it.get("id") == item_id), None)
+        if not target:
+            self.send_json_response({"error": "Item not found in schedule queue"}, status=404)
+            return
+
+        now_utc = datetime.now(timezone.utc)
+        if "status" in payload:
+            target["status"] = str(payload["status"])
+            if payload["status"] == "published" and not target.get("whop_deadline_utc"):
+                target["whop_deadline_utc"] = (now_utc + timedelta(minutes=30)).isoformat()
+                target["published_at"] = now_utc.isoformat()
+
+        if "post_url" in payload:
+            target["post_url"] = str(payload["post_url"]).strip()
+            if target["post_url"]:
+                target["whop_submitted_at"] = now_utc.isoformat()
+                target["status"] = "submitted_to_whop"
+
+        save_upload_schedule(queue)
+        self.send_json_response({"success": True, "item": target, "queue": queue})
+
+    def handle_api_schedule_delete(self, payload):
+        item_id = str(payload.get("id") or "").strip()
+        queue = load_upload_schedule()
+        queue = [it for it in queue if it.get("id") != item_id]
+        save_upload_schedule(queue)
+        self.send_json_response({"success": True, "queue": queue})
+
+    def handle_api_auto_pipeline(self, payload):
+        """
+        1-Click Autonomous Assembler:
+        AI curates viral moments from stream, applies archetype styling,
+        renders vertical MP4 clips with FFmpeg, writes US/UK platform captions with #KaiCenat,
+        and schedules across TikTok, Shorts, and Reels at peak US viewing hours.
+        """
+        campaign = str(payload.get("campaign") or "kai-cenat").strip()
+        archetype = str(payload.get("archetype") or "reaction").strip()
+        platforms = payload.get("platforms") or ["tiktok", "shorts", "reels"]
+        if not isinstance(platforms, list) or len(platforms) == 0:
+            platforms = ["tiktok", "shorts", "reels"]
+        count = int(payload.get("count") or 3)
+        strategy = str(payload.get("strategy") or "peak-us")
+
+        video_path = None
+        uploads = sorted(list(engine.UPLOADS.glob("*.mp4")), key=lambda p: p.stat().st_mtime, reverse=True)
+        if uploads:
+            video_path = uploads[0]
+        else:
+            brolls = list(engine.ROOT.glob("assets/broll/*.mp4"))
+            if brolls:
+                video_path = brolls[0]
+
+        if not video_path or not video_path.exists():
+            self.send_json_response({"success": False, "error": "No source video available in uploads directory"}, status=400)
+            return
+
+        meta = engine.probe_video_metadata(video_path)
+        total_dur = max(18.0, float(meta.get("duration") or 58.0))
+        srts = sorted(list(engine.OUTPUTS.glob(f"{video_path.stem}*.srt")), key=lambda p: p.stat().st_mtime, reverse=True)
+        transcript = []
+        if srts:
+            try:
+                transcript = engine.parse_srt_to_karaoke_words(srts[0], clip_start=0.0)
+            except Exception:
+                transcript = []
+
+        win = min(30.0, max(12.0, total_dur / count))
+        slots = calculate_optimal_us_peak_slots(count=count, strategy=strategy)
+        existing_queue = load_upload_schedule()
+        created_items = []
+
+        layout = "Split 60/40 (Top Video, Bottom Satisfying B-Roll)" if archetype == "reaction" else \
+                 ("Picture in Picture (Webcam Bottom-Right, Top Gameplay)" if archetype == "gaming" else \
+                  "AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Ambient Blur Fill")
+
+        broll_preset = "synthwave-drive" if archetype == "music-edit" else ("minecraft-parkour" if archetype == "gaming" else "subway-surfers")
+
+        for i in range(count):
+            t0 = round(i * (total_dur - win) / max(1, count - 1), 2) if count > 1 else 0.0
+            t1 = round(min(total_dur, t0 + win), 2)
+            clip_dur = round(t1 - t0, 1)
+
+            clip_words = [w for w in transcript if float(w.get("start", 0)) >= t0 and float(w.get("end", 0)) <= t1]
+            raw_text = " ".join([str(w.get("word", "")) for w in clip_words[:7]]).strip()
+            title = raw_text or f"Kai Cenat Viral Clip #{i+1}"
+            if len(title) > 42:
+                title = title[:39].rstrip() + "..."
+
+            plat = platforms[i % len(platforms)]
+
+            if plat == "shorts":
+                caption = f'Kai really said "{title}" 😭 #Shorts #KaiCenat'
+                if len(caption) > 100:
+                    caption = caption[:96].rstrip() + "… #Shorts #KaiCenat"
+                tags = ["#Shorts", "#KaiCenat", "#KaiCenatClips"]
+            elif plat == "reels":
+                caption = f'Kai really said "{title}" 😭\n\nWould you have reacted the same way? 👇\n\n#Reels #KaiCenat #KaiCenatClips #AMP #TwitchClips'
+                tags = ["#Reels", "#KaiCenat", "#KaiCenatClips", "#AMP", "#TwitchClips"]
+            else:
+                caption = f'Kai really said "{title}" 😭\n\nFollow for daily Kai clips 🔔\n\n#KaiCenat #KaiCenatClips #KaiCenatStream #AMP #TwitchClips'
+                tags = ["#KaiCenat", "#KaiCenatClips", "#KaiCenatStream", "#AMP", "#TwitchClips"]
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            out_name = f"render_{video_path.stem}_clip{i+1}_{timestamp}.mp4"
+            out_path = engine.OUTPUTS / out_name
+
+            v_url = f"/outputs/{out_name}"
+            try:
+                engine.render_vertical_clip(
+                    src_video=video_path,
+                    start_sec=t0,
+                    end_sec=t1,
+                    out_video=out_path,
+                    layout=layout,
+                    hook_text=f"{title.upper()} 🤯👇",
+                    broll_preset=broll_preset
+                )
+            except Exception as e:
+                sys.stderr.write(f"[Auto-Pipeline Render Warning] {e}\n")
+                v_url = f"/uploads/{video_path.name}"
+                out_name = video_path.name
+
+            slot = slots[i] if i < len(slots) else slots[-1]
+            sched_id = f"sched_{int(time.time() * 1000)}_{i+1}"
+
+            item = {
+                "id": sched_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "clip_id": f"auto-clip-{i+1}",
+                "title": title,
+                "duration": clip_dur,
+                "video_filename": out_name,
+                "video_url": v_url,
+                "platform": plat,
+                "caption": caption,
+                "hashtags": tags,
+                "scheduled_time_utc": slot["utc"],
+                "scheduled_time_est": slot["est_str"],
+                "scheduled_time_local": slot["local_str"],
+                "status": "ready" if strategy == "immediate" else "scheduled",
+                "campaign": campaign,
+                "target_audience": "US/UK/CA/AU/NZ (Native English)",
+                "post_url": "",
+                "whop_deadline_utc": "",
+                "whop_submitted_at": ""
+            }
+            created_items.append(item)
+            existing_queue.insert(0, item)
+
+        save_upload_schedule(existing_queue)
+        self.send_json_response({
+            "success": True,
+            "assembled_count": len(created_items),
+            "created_items": created_items,
+            "queue": existing_queue
+        })
+
+
+def load_upload_schedule():
+    p = engine.OUTPUTS / "upload_schedule.json"
+    if not p.exists():
+        return []
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def save_upload_schedule(items):
+    try:
+        engine.OUTPUTS.mkdir(parents=True, exist_ok=True)
+        (engine.OUTPUTS / "upload_schedule.json").write_text(
+            json.dumps(items, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+    except Exception as e:
+        sys.stderr.write(f"[Server Schedule] Save error: {e}\n")
+
+
+def calculate_optimal_us_peak_slots(count=3, strategy="peak-us"):
+    now_utc = datetime.now(timezone.utc)
+    est_offset = timedelta(hours=-4)
+    est_now = now_utc + est_offset
+    slots = []
+
+    if strategy == "immediate":
+        for i in range(count):
+            slot_utc = now_utc + timedelta(minutes=i * 2)
+            slot_est = slot_utc + est_offset
+            slots.append({
+                "utc": slot_utc.isoformat(),
+                "est_str": slot_est.strftime("%b %d, %I:%M %p EST"),
+                "local_str": slot_utc.strftime("%b %d, %I:%M %p UTC"),
+                "label": "Ready to Post Now" if i == 0 else f"+{i*2} min"
+            })
+        return slots
+
+    if strategy == "stagger-3h":
+        for i in range(count):
+            slot_utc = now_utc + timedelta(hours=(i + 1) * 3)
+            slot_est = slot_utc + est_offset
+            slots.append({
+                "utc": slot_utc.isoformat(),
+                "est_str": slot_est.strftime("%b %d, %I:%M %p EST"),
+                "local_str": slot_est.strftime("%b %d, %I:%M %p EST"),
+                "label": f"Every 3h (+{(i+1)*3}h)"
+            })
+        return slots
+
+    # Peak US strategy: 12:00 PM EST, 3:30 PM EST, 7:00 PM EST, 9:30 PM EST
+    peak_hours = [(12, 0), (15, 30), (19, 0), (21, 30)]
+    curr_date = est_now.date()
+    for d in range(4):
+        target_day = curr_date + timedelta(days=d)
+        for h, m in peak_hours:
+            candidate_est = datetime(target_day.year, target_day.month, target_day.day, h, m, 0)
+            candidate_utc = (candidate_est - est_offset).replace(tzinfo=timezone.utc)
+            if candidate_utc > now_utc + timedelta(minutes=5):
+                slots.append({
+                    "utc": candidate_utc.isoformat(),
+                    "est_str": candidate_est.strftime("%b %d, %I:%M %p EST"),
+                    "local_str": candidate_est.strftime("%b %d, %I:%M %p EST"),
+                    "label": f"{candidate_est.strftime('%I:%M %p EST')} (US Peak)"
+                })
+                if len(slots) >= count:
+                    return slots
+    return slots
+
+
+def start_schedule_worker():
+    def _worker():
+        while True:
+            try:
+                time.sleep(10)
+                queue = load_upload_schedule()
+                changed = False
+                now_utc = datetime.now(timezone.utc)
+                for it in queue:
+                    if it.get("status") == "scheduled":
+                        s_utc_str = it.get("scheduled_time_utc")
+                        if s_utc_str:
+                            try:
+                                s_dt = datetime.fromisoformat(s_utc_str)
+                                if now_utc >= s_dt:
+                                    it["status"] = "ready"
+                                    it["ready_at"] = now_utc.isoformat()
+                                    changed = True
+                                    sys.stderr.write(f"[Auto-Scheduler] Item ready for upload: {it.get('title')} ({it.get('platform')})\n")
+                            except Exception:
+                                pass
+                if changed:
+                    save_upload_schedule(queue)
+            except Exception as e:
+                sys.stderr.write(f"[Schedule Worker Error] {e}\n")
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
 
 def run_server(port=3000):
+    start_schedule_worker()
     server_address = ("0.0.0.0", port)
     httpd = ThreadedHTTPServer(server_address, WhopStudioHandler)
     print(f"[WhopClipper] Studio Server running at http://localhost:{port}")

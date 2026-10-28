@@ -906,6 +906,24 @@
           }
           break;
         }
+        case 'auto_pipeline': {
+          const scheduleRailBtn = document.querySelector('.rail-btn[data-rail-tab="schedule"]');
+          if (scheduleRailBtn) scheduleRailBtn.click();
+          if (studio?.execute1ClickAutoPipeline) {
+            studio.execute1ClickAutoPipeline();
+            return true;
+          }
+          break;
+        }
+        case 'schedule_clip': {
+          const scheduleRailBtn = document.querySelector('.rail-btn[data-rail-tab="schedule"]');
+          if (scheduleRailBtn) scheduleRailBtn.click();
+          if (studio?.scheduleCurrentActiveClip) {
+            studio.scheduleCurrentActiveClip('next-peak');
+            return true;
+          }
+          break;
+        }
         default:
           console.warn('[JARVIS] Unknown action type:', type);
           if (studio?.updateTaskChecklistStep) {
@@ -1078,6 +1096,10 @@
         localActions.push({ action: 'post_caption', campaign, platform });
       } else if (text.includes('submit timer') || text.includes('posted') || text.includes('30 min') || text.includes('nag post na') || text.includes('start timer')) {
         localActions.push({ action: 'post_timer' });
+      } else if (text.includes('auto assemble') || text.includes('assemble all') || text.includes('gawin mo lahat') || text.includes('assemble everything') || text.includes('full auto pipeline') || text.includes('auto pipeline') || text.includes('auto publish')) {
+        localActions.push({ action: 'auto_pipeline' });
+      } else if (text.includes('schedule upload') || text.includes('i-schedule') || text.includes('schedule clip') || text.includes('schedule post') || text.includes('upload queue') || text.includes('schedule studio')) {
+        localActions.push({ action: 'schedule_clip' });
       }
 
       // Prompt Director / Client Brief
