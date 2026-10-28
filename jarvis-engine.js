@@ -43,6 +43,9 @@
       this.silenceTimer = null;
       this.accumulatedTranscript = '';
       this.currentInterim = '';
+      this._hasSubmittedCurrentUtterance = false;
+      this._lastCommandText = '';
+      this._lastCommandTime = 0;
 
       if (typeof localStorage !== 'undefined') {
         const savedDelay = localStorage.getItem('whop_jarvis_silence_delay');
@@ -101,10 +104,23 @@
     }
 
     finishListeningAndSubmit(overrideText = null) {
+      if (this._hasSubmittedCurrentUtterance) {
+        console.log('[JARVIS] Utterance already submitted; ignoring redundant finish call.');
+        return;
+      }
+      this._hasSubmittedCurrentUtterance = true;
+
       this.clearSilenceCountdown();
       const timerBar = document.getElementById('jarvisListeningTimerBar');
       if (timerBar) timerBar.classList.add('hidden');
-      const finalText = (overrideText !== null ? overrideText : (this.accumulatedTranscript + ' ' + (this.currentInterim || ''))).trim();
+
+      const raw = overrideText !== null ? overrideText : (this.accumulatedTranscript + ' ' + (this.currentInterim || ''));
+      const finalText = (raw || '').trim();
+
+      // Clear accumulated buffers immediately so no secondary trigger can reuse them
+      this.accumulatedTranscript = '';
+      this.currentInterim = '';
+
       this.stopListening();
       if (finalText) {
         if (typeof this.onTextCallback === 'function') this.onTextCallback(finalText);
@@ -113,9 +129,12 @@
     }
 
     cancelListening() {
+      this._hasSubmittedCurrentUtterance = true;
       this.clearSilenceCountdown();
       const timerBar = document.getElementById('jarvisListeningTimerBar');
       if (timerBar) timerBar.classList.add('hidden');
+      this.accumulatedTranscript = '';
+      this.currentInterim = '';
       this.stopListening();
       this.showVisualSpeechIndicator('Cancelled');
       setTimeout(() => this.hideVisualSpeechIndicator(), 1200);
@@ -501,6 +520,7 @@
         const reactor = document.getElementById('jarvisReactor');
         if (reactor) reactor.classList.add('listening-active');
         this.isListening = true;
+        this._hasSubmittedCurrentUtterance = false;
         this.accumulatedTranscript = '';
         this.currentInterim = '';
         this.onTextCallback = onTextCallback;
@@ -585,9 +605,11 @@
               this.siriWave.setAmplitude(0.25);
             } catch (e) {}
           }
-          const candidate = (this.accumulatedTranscript + ' ' + this.currentInterim).trim();
-          if (candidate) {
-            this.finishListeningAndSubmit(candidate);
+          if (!this._hasSubmittedCurrentUtterance) {
+            const candidate = (this.accumulatedTranscript + ' ' + this.currentInterim).trim();
+            if (candidate) {
+              this.finishListeningAndSubmit(candidate);
+            }
           }
         };
 
@@ -609,7 +631,10 @@
       if (timerBar) timerBar.classList.add('hidden');
 
       if (this.recognition) {
-        try { this.recognition.stop(); } catch (e) {}
+        try {
+          this.recognition.onend = null;
+          this.recognition.stop();
+        } catch (e) {}
         this.recognition = null;
       }
       const reactor = document.getElementById('jarvisReactor');
@@ -798,11 +823,11 @@
         }
         case 'auto_broll': {
           if (window.autoFetchPixabayBrollWithGemini) {
-            window.autoFetchPixabayBrollWithGemini(true);
+            window.autoFetchPixabayBrollWithGemini(true, true);
             return true;
           }
           if (studio?.autoFetchPixabayBrollWithGemini) {
-            studio.autoFetchPixabayBrollWithGemini(true);
+            studio.autoFetchPixabayBrollWithGemini(true, true);
             return true;
           }
           const bBtn = document.getElementById('autoFetchPixabayBrollBtn') || document.getElementById('jarvisQuickBrollBtn');
@@ -1000,8 +1025,18 @@
     // Process voice/chat command from user
     async handleUserCommand(rawText) {
       if (!rawText) return;
-      const startTs = performance.now();
       const text = rawText.trim().toLowerCase();
+      const now = Date.now();
+
+      // Debounce duplicate submissions within 1500ms
+      if (this._lastCommandText === text && (now - (this._lastCommandTime || 0)) < 1500) {
+        console.warn('[JARVIS] Suppressed duplicate command submission within 1.5s window:', text);
+        return;
+      }
+      this._lastCommandText = text;
+      this._lastCommandTime = now;
+
+      const startTs = performance.now();
 
       // 1. Extract and immediately execute fast local actions (< 10ms response)
       const localActions = [];

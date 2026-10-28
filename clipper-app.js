@@ -7575,13 +7575,13 @@
     showToast(`🎬 Added Pixabay B-Roll "${cue.name}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#10b981');
   }
 
-  async function autoFetchPixabayBrollWithGemini(userInitiated = false) {
+  async function autoFetchPixabayBrollWithGemini(userInitiated = false, suppressAnnouncement = false) {
     const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
     const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
     if (!words || words.length === 0) {
       const noWordsMsg = "I cannot detect a speech transcript to match B-roll against, sir. Please load video audio or speech first.";
       showToast('⚠️ No speech transcript found. Upload video or wait for speech transcription!', '#ef4444');
-      if (window.jarvis && typeof window.jarvis.speak === 'function') {
+      if (!suppressAnnouncement && window.jarvis && typeof window.jarvis.speak === 'function') {
         window.jarvis.speak(noWordsMsg);
         window.jarvis.addChatMessage('jarvis', noWordsMsg);
       }
@@ -7589,7 +7589,7 @@
     }
     const startMsg = "Scanning dialogue topics with Gemini and sourcing matching HD stock B-roll from Pixabay, sir...";
     showToast('⚡ Gemini is analyzing transcript for concrete B-roll moments & querying Pixabay...', '#dc7036');
-    if (window.jarvis && typeof window.jarvis.speak === 'function') {
+    if (!suppressAnnouncement && window.jarvis && typeof window.jarvis.speak === 'function') {
       window.jarvis.speak(startMsg);
       window.jarvis.addChatMessage('jarvis', startMsg);
     }
@@ -7710,7 +7710,7 @@
 
     // Step 3: Auto-plan & auto-cut Pixabay stock B-roll based on speech topic
     if (words && words.length > 0) {
-      await autoFetchPixabayBrollWithGemini();
+      await autoFetchPixabayBrollWithGemini(false, true);
     }
 
     // Step 4: Ensure 9:16 layout
@@ -7890,38 +7890,6 @@
     if (jarvisQuickWhopCheckBtn) {
       safeOn(jarvisQuickWhopCheckBtn, 'click', () => {
         appendJarvisChatMessage('AI', 'Kai Cenat $10,000 Whop Challenge Verification:\n- Sourced: Kai Cenat Twitch/YouTube (10.21-10.31)\n- Caption Hashtag: #KaiCenat included\n- Native English Audience (US/UK/CA/AU/NZ): 50%+ verified\n- No Logos, No Hate Farming\n- Payout minimum: 350,000 views across TikTok/Shorts/Reels\nAll systems compliant for payout submission, sir.');
-      });
-    }
-
-    // J.A.R.V.I.S. Input Field & Mic
-    const jarvisTextInput = document.getElementById('jarvisTextInput');
-    const jarvisSendBtn = document.getElementById('jarvisSendBtn');
-    const jarvisMicBtn = document.getElementById('jarvisMicBtn');
-    const sendJarvisMsg = () => {
-      if (!jarvisTextInput) return;
-      const text = jarvisTextInput.value.trim();
-      if (!text) return;
-      jarvisTextInput.value = '';
-      if (window.jarvis && typeof window.jarvis.handleUserCommand === 'function') {
-        window.jarvis.handleUserCommand(text);
-      } else {
-        appendJarvisChatMessage('User', text);
-      }
-    };
-    if (jarvisSendBtn) safeOn(jarvisSendBtn, 'click', sendJarvisMsg);
-    if (jarvisTextInput) {
-      safeOn(jarvisTextInput, 'keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          sendJarvisMsg();
-        }
-      });
-    }
-    if (jarvisMicBtn) {
-      safeOn(jarvisMicBtn, 'click', () => {
-        if (window.jarvis && typeof window.jarvis.toggleListening === 'function') {
-          window.jarvis.toggleListening();
-        }
       });
     }
 
