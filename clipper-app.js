@@ -7575,14 +7575,24 @@
     showToast(`🎬 Added Pixabay B-Roll "${cue.name}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#10b981');
   }
 
-  async function autoFetchPixabayBrollWithGemini() {
+  async function autoFetchPixabayBrollWithGemini(userInitiated = false) {
     const rawWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
     const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
     if (!words || words.length === 0) {
+      const noWordsMsg = "I cannot detect a speech transcript to match B-roll against, sir. Please load video audio or speech first.";
       showToast('⚠️ No speech transcript found. Upload video or wait for speech transcription!', '#ef4444');
+      if (window.jarvis && typeof window.jarvis.speak === 'function') {
+        window.jarvis.speak(noWordsMsg);
+        window.jarvis.addChatMessage('jarvis', noWordsMsg);
+      }
       return;
     }
+    const startMsg = "Scanning dialogue topics with Gemini and sourcing matching HD stock B-roll from Pixabay, sir...";
     showToast('⚡ Gemini is analyzing transcript for concrete B-roll moments & querying Pixabay...', '#dc7036');
+    if (window.jarvis && typeof window.jarvis.speak === 'function') {
+      window.jarvis.speak(startMsg);
+      window.jarvis.addChatMessage('jarvis', startMsg);
+    }
     try {
       const res = await fetch('/api/auto_broll_gemini', {
         method: 'POST',
@@ -7616,11 +7626,32 @@
         }
         renderCanvasFrame();
         showToast(`⚡ Auto-cut and inserted ${data.broll_cues.length} topic B-roll clips synced to speech!`, '#10b981');
+
+        // JARVIS Spoken Voice & Chat Feedback
+        const topicList = data.broll_cues.map(c => `"${c.query}"`).join(', ');
+        const completionMsg = `It's done, sir. I have identified ${data.broll_cues.length} key visual moments—including ${topicList}—and placed localized sixty-FPS B-roll directly onto your timeline, cover-cropped to nine-sixteen vertical.`;
+        if (window.jarvis && typeof window.jarvis.speak === 'function') {
+          window.jarvis.speak(completionMsg);
+          window.jarvis.addChatMessage('jarvis', completionMsg, {
+            actions: [{ action: 'auto_broll', count: data.broll_cues.length, topics: data.broll_cues.map(c => c.query) }],
+            engine: 'Gemini 3 Flash + Pixabay Localizer'
+          });
+        }
       } else {
+        const noCuesMsg = "I analyzed the dialogue, sir, but found no concrete visual moments suitable for B-roll cutaways.";
         showToast('⚠️ No B-roll cues generated for this transcript.', '#f59e0b');
+        if (window.jarvis && typeof window.jarvis.speak === 'function') {
+          window.jarvis.speak(noCuesMsg);
+          window.jarvis.addChatMessage('jarvis', noCuesMsg);
+        }
       }
     } catch (err) {
+      const errorMsg = `I encountered an issue fetching B-roll, sir: ${err.message}`;
       showToast(`❌ Auto B-roll error: ${err.message}`, '#ef4444');
+      if (window.jarvis && typeof window.jarvis.speak === 'function') {
+        window.jarvis.speak(errorMsg);
+        window.jarvis.addChatMessage('jarvis', errorMsg);
+      }
     }
   }
 
@@ -7870,10 +7901,11 @@
       if (!jarvisTextInput) return;
       const text = jarvisTextInput.value.trim();
       if (!text) return;
-      appendJarvisChatMessage('User', text);
       jarvisTextInput.value = '';
       if (window.jarvis && typeof window.jarvis.handleUserCommand === 'function') {
         window.jarvis.handleUserCommand(text);
+      } else {
+        appendJarvisChatMessage('User', text);
       }
     };
     if (jarvisSendBtn) safeOn(jarvisSendBtn, 'click', sendJarvisMsg);
@@ -14579,6 +14611,29 @@
       setClippingType,
       applyClippingArchetype,
       CLIPPING_ARCHETYPES,
+      renderCanvasFrame,
+      renderContextBrollList,
+      clearAllBroll: () => {
+        pushUndoState('Clear B-Roll');
+        state.brollClips = [];
+        renderContextBrollList();
+        renderTimelineTracks();
+        renderCanvasFrame();
+        showToast('Cleared all B-roll clips from timeline', '#f59e0b');
+        return true;
+      },
+      setBrollCutawayMode: (mode = 'fullscreen') => {
+        state.brollCutawayMode = mode;
+        (state.brollClips || []).forEach(c => c.mode = mode);
+        renderTimelineTracks();
+        renderCanvasFrame();
+        return true;
+      },
+      reviewClipsWithAi: () => {
+        if (dom.aiReviewClipsBtn) dom.aiReviewClipsBtn.click();
+        else if (typeof triggerAiReviewHeatmap === 'function') triggerAiReviewHeatmap();
+        return true;
+      },
     };
     window.WhopState = state;
     window.getActiveClip = getActiveClip;

@@ -798,15 +798,58 @@
         }
         case 'auto_broll': {
           if (window.autoFetchPixabayBrollWithGemini) {
-            window.autoFetchPixabayBrollWithGemini();
+            window.autoFetchPixabayBrollWithGemini(true);
             return true;
           }
           if (studio?.autoFetchPixabayBrollWithGemini) {
-            studio.autoFetchPixabayBrollWithGemini();
+            studio.autoFetchPixabayBrollWithGemini(true);
             return true;
           }
-          const bBtn = document.getElementById('autoFetchPixabayBrollBtn');
+          const bBtn = document.getElementById('autoFetchPixabayBrollBtn') || document.getElementById('jarvisQuickBrollBtn');
           if (bBtn) { bBtn.click(); return true; }
+          break;
+        }
+        case 'clear_broll': {
+          if (studio?.clearAllBroll) return studio.clearAllBroll();
+          if (state) {
+            state.brollClips = [];
+            if (studio?.renderContextBrollList) studio.renderContextBrollList();
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'set_broll_mode': {
+          const mode = action.mode || 'fullscreen';
+          if (studio?.setBrollCutawayMode) return studio.setBrollCutawayMode(mode);
+          break;
+        }
+        case 'ripple_trim_in': {
+          if (studio?.rippleTrimIn) return studio.rippleTrimIn();
+          const btn = document.getElementById('trimInBtn');
+          if (btn) { btn.click(); return true; }
+          break;
+        }
+        case 'ripple_trim_out': {
+          if (studio?.rippleTrimOut) return studio.rippleTrimOut();
+          const btn = document.getElementById('trimOutBtn');
+          if (btn) { btn.click(); return true; }
+          break;
+        }
+        case 'toggle_captions': {
+          if (state) {
+            state.captionsEnabled = typeof action.enabled === 'boolean' ? action.enabled : !state.captionsEnabled;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'ai_review': {
+          if (studio?.reviewClipsWithAi) return studio.reviewClipsWithAi();
+          const revBtn = document.getElementById('aiReviewClipsBtn');
+          if (revBtn) { revBtn.click(); return true; }
           break;
         }
         case 'search_pixabay': {
@@ -1128,13 +1171,39 @@
         localActions.push({ action: 'set_clipping_type', archetype: 'music-edit', autoApply: true });
       }
 
-      // OpenChatCut & autobroll Fast Reflex Actions
-      if (text.includes('auto broll') || text.includes('auto b-roll') || text.includes('fetch broll') || text.includes('plan broll') || text.includes('stock footage')) {
-        localActions.push({ action: 'auto_broll' });
-      } else if (text.includes('pixabay') || text.includes('stock video') || text.includes('hanap ng video') || text.includes('maghanap ng video')) {
-        const qMatch = rawText.match(/(?:pixabay|stock video|hanap ng video|maghanap ng video|search video)\s*(?:of|for|about|ng)?\s*[:"]?(.+?)["]?$/i);
-        const query = qMatch && qMatch[1] ? qMatch[1].trim() : 'sports car';
-        localActions.push({ action: 'search_pixabay', query });
+      // OpenChatCut & autobroll Comprehensive B-Roll Actions
+      if (text.includes('broll') || text.includes('b-roll') || text.includes('b roll') || text.includes('stock video') || text.includes('stock footage') || text.includes('stock clip') || text.includes('cutaway')) {
+        if (text.includes('alisin') || text.includes('tanggalin') || text.includes('burahin') || text.includes('clear') || text.includes('delete') || text.includes('remove')) {
+          localActions.push({ action: 'clear_broll' });
+        } else if (text.includes('mode') || text.includes('inset') || text.includes('pip') || text.includes('top') || text.includes('fullscreen')) {
+          const m = (text.includes('inset') || text.includes('pip')) ? 'inset' : (text.includes('top') ? 'top' : 'fullscreen');
+          localActions.push({ action: 'set_broll_mode', mode: m });
+        } else if (text.includes('search') || text.includes('hanap') || text.includes('maghanap')) {
+          const qMatch = rawText.match(/(?:search|hanap|maghanap|kuha|kumuha)\s*(?:ng|for|of)?\s*(?:broll|b-roll|b roll|stock video)?\s*(?:about|tungkol sa|na|ng)?\s*[:"]?(.+?)["]?$/i);
+          const query = qMatch && qMatch[1] ? qMatch[1].trim() : 'sports car';
+          localActions.push({ action: 'search_pixabay', query });
+        } else {
+          localActions.push({ action: 'auto_broll' });
+        }
+      }
+
+      // Trimming Reflexes
+      if (text.includes('trim in') || text.includes('ripple trim in') || text.includes('alisin ang simula') || text.includes('cut before playhead')) {
+        localActions.push({ action: 'ripple_trim_in' });
+      } else if (text.includes('trim out') || text.includes('ripple trim out') || text.includes('alisin ang dulo') || text.includes('cut after playhead')) {
+        localActions.push({ action: 'ripple_trim_out' });
+      }
+
+      // AI Clip & Heatmap Review
+      if (text.includes('review clip') || text.includes('review video') || text.includes('ai review') || text.includes('surisuriin') || text.includes('i-review') || text.includes('score this') || text.includes('kamusta ang video')) {
+        localActions.push({ action: 'ai_review' });
+      }
+
+      // Subtitle visibility toggle
+      if (text.includes('hide caption') || text.includes('hide subtitle') || text.includes('alisin ang subtitle') || text.includes('tanggalin ang subtitle') || text.includes('off captions')) {
+        localActions.push({ action: 'toggle_captions', enabled: false });
+      } else if (text.includes('show caption') || text.includes('show subtitle') || text.includes('ibalik ang subtitle') || text.includes('on captions')) {
+        localActions.push({ action: 'toggle_captions', enabled: true });
       }
 
       if (text.includes('translate') || text.includes('translation') || text.includes('salin') || text.includes('isalin') || text.includes('us english') || text.includes('uk english') || text.includes('english captions') || text.includes('subtitles english')) {
@@ -1150,10 +1219,15 @@
         this.executeActionList(localActions);
       }
 
-      // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
+      // If it's a direct command or matches known actions, give immediate fast confirmation
       const isSimpleCommand = (
-        (text.length < 50 && localActions.length > 0) ||
-        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit', 'car phonk', 'car edit', 'drift edit', 'beat edit', 'auto edit', 'translate', 'broll', 'rules', 'make the screen small', 'make video small', 'liitan ang video', 'screens mall', 'small screen', 'compact screen', 'all around'].includes(text)
+        (text.length < 90 && localActions.length > 0) ||
+        localActions.some((a) => [
+          'auto_broll', 'clear_broll', 'set_broll_mode', 'search_pixabay', 'auto_edit',
+          'translate_captions', 'jump_cuts', 'split', 'delete', 'ripple_trim_in', 'ripple_trim_out',
+          'play', 'pause', 'seek', 'set_layout', 'set_screen_size', 'aspect_ratio', 'undo', 'redo',
+          'ai_review', 'whop_rules_check', 'set_mode', 'set_clipping_type', 'toggle_captions', 'add_text'
+        ].includes(a.action))
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -1161,6 +1235,10 @@
         const first = localActions[0];
         if (first.action === 'split') {
           msg = first.time ? `Split cut at ${first.time} seconds, sir.` : "Split cut at playhead, sir.";
+        } else if (first.action === 'ripple_trim_in') {
+          msg = "Ripple trimmed in from playhead, sir.";
+        } else if (first.action === 'ripple_trim_out') {
+          msg = "Ripple trimmed out from playhead, sir.";
         } else if (first.action === 'play') {
           msg = "Timeline playback started, sir.";
         } else if (first.action === 'pause') {
@@ -1185,14 +1263,22 @@
           msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage, sir.`;
         } else if (first.action === 'set_caption_style') {
           msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
+        } else if (first.action === 'toggle_captions') {
+          msg = first.enabled === false ? "Subtitles hidden from preview, sir." : "Subtitles restored on preview, sir.";
         } else if (first.action === 'auto_edit') {
           msg = "Executing 1-Click AI Auto-Edit for Kai Cenat Whop clipping. Converting sequence to 9:16 vertical, cutting dead air, translating to US English, and generating matching Pixabay stock B-roll, sir.";
         } else if (first.action === 'translate_captions') {
           msg = "Translating your subtitles into fluent American/British English for 50%+ native reach, sir.";
         } else if (first.action === 'auto_broll') {
-          msg = "AI is scanning your dialogue context to auto-schedule matching Pixabay stock B-roll, sir.";
+          msg = "Scanning speech context and auto-inserting matching HD stock B-roll, sir.";
+        } else if (first.action === 'clear_broll') {
+          msg = "Cleared all B-roll cutaway clips from the timeline, sir.";
+        } else if (first.action === 'set_broll_mode') {
+          msg = `Switched B-roll cutaway display framing to ${first.mode}, sir.`;
         } else if (first.action === 'search_pixabay') {
           msg = `Searching Pixabay stock video repository for "${first.query}", sir.`;
+        } else if (first.action === 'ai_review') {
+          msg = "Running Gemini AI review on all candidate clips across viewer retention heatmaps, sir.";
         } else if (first.action === 'whop_rules_check') {
           msg = "Verified Kai Cenat campaign rules: 50%+ US/UK audience, #KaiCenat tag required, 10.21-10.31 content, no logos, submit within 30 minutes of posting, sir.";
         } else if (first.action === 'set_screen_size') {
@@ -1289,7 +1375,7 @@ ${recentHistory}
 User: ${prompt}
 JARVIS:`;
 
-          const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemma-4-26b-a4b-it'];
+          const modelsToTry = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
           for (const model of modelsToTry) {
             try {
               const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.googleKey}`;
@@ -1343,29 +1429,15 @@ JARVIS:`;
             }
           }
         } catch (jsonErr) {
-          const quotes = [...clean.matchAll(/["“]([^"”]{8,})["”]/g)];
-          if (quotes.length > 0) {
-            clean = quotes[quotes.length - 1][1].trim();
+          const repMatch = clean.match(/"reply"\s*:\s*"([^"]+)"/);
+          if (repMatch) {
+            clean = repMatch[1];
           } else {
-            const lines = clean.split('\n')
-              .map((l) => l.trim())
-              .filter((l) => l &&
-                !l.startsWith('*') &&
-                !l.startsWith('-') &&
-                !l.startsWith('#') &&
-                !l.toLowerCase().startsWith('draft') &&
-                !l.toLowerCase().startsWith('option') &&
-                !l.toLowerCase().startsWith('persona') &&
-                !l.toLowerCase().startsWith('input') &&
-                !l.toLowerCase().startsWith('constraint') &&
-                !l.toLowerCase().startsWith('user:') &&
-                !l.toLowerCase().startsWith('jarvis:'));
-            if (lines.length > 0) {
-              clean = lines[lines.length - 1].replace(/^["'“]|["'”]$/g, '').trim();
-            } else {
-              clean = clean.replace(/[*#]/g, '').trim();
-            }
+            clean = clean.replace(/^[{\s]*"reply"\s*:\s*"?/, '').replace(/"?[}\s]*$/, '').trim();
           }
+        }
+        if (clean.startsWith('{"reply":')) {
+          clean = clean.replace(/^\{"reply":\s*"?/, '').replace(/"?[}\s]*$/, '').trim();
         }
         if (clean) responseText = clean;
       }

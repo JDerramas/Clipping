@@ -1774,12 +1774,23 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech. Never repeat canned phrases. "
             "Whenever the user asks or commands an edit, you MUST return executable actions in your JSON response! "
             "Available Actions: "
-            "- 'auto_edit': { 'action': 'auto_edit' } -> Master 1-Click AI Auto-Edit (9:16 vertical re-frame, jump-cuts silences, translates speech to US/UK English, and auto-plans Pixabay stock B-roll for Kai Cenat Whop challenge) "
-            "- 'translate_captions': { 'action': 'translate_captions', 'lang': 'en' } -> Translates subtitles to natural American/British English for 50%+ US/UK audience compliance "
+            "- 'auto_edit': { 'action': 'auto_edit' } -> Master 1-Click AI Auto-Edit (9:16 vertical re-frame, jump-cuts silences, translates speech to US/UK English, and auto-plans Pixabay stock B-roll) "
+            "- 'translate_captions': { 'action': 'translate_captions', 'lang': 'en' } -> Translates subtitles to natural American/British English "
             "- 'auto_broll': { 'action': 'auto_broll' } -> Gemini analyzes transcript context and matches high-resolution Pixabay stock B-roll "
+            "- 'clear_broll': { 'action': 'clear_broll' } -> Removes all B-roll cutaway cues "
+            "- 'set_broll_mode': { 'action': 'set_broll_mode', 'mode': 'fullscreen' | 'inset' | 'top' } -> Sets B-roll visual framing "
             "- 'search_pixabay': { 'action': 'search_pixabay', 'query': '<search_query>' } -> Queries Pixabay stock video library "
-            "- 'whop_rules_check': { 'action': 'whop_rules_check' } -> Verifies Kai Cenat $10k Whop campaign requirements "
+            "- 'jump_cuts': { 'action': 'jump_cuts' } -> Removes dead air and pauses "
+            "- 'set_screen_size': { 'action': 'set_screen_size', 'size': 'small' | 'fit' | 'large' } -> Resizes 9:16 phone canvas preview "
+            "- 'set_mode': { 'action': 'set_mode', 'mode': 'universal' | 'kai-cenat' } -> Switches editor mode "
+            "- 'set_layout': { 'action': 'set_layout', 'mode': 'full-main' | 'split-60-40' | 'split-50-50' | 'ambient-blur' | 'pip-facecam' } "
+            "- 'set_caption_style': { 'action': 'set_caption_style', 'style': 'hormozi-pop' | 'mrbeast-bold' | 'neon-cyber' | 'gold-accent' } "
+            "- 'toggle_captions': { 'action': 'toggle_captions', 'enabled': <true|false> } "
+            "- 'ai_review': { 'action': 'ai_review' } -> Evaluates viral candidate clips & retention scores "
+            "- 'whop_rules_check': { 'action': 'whop_rules_check' } -> Verifies campaign requirements "
             "- 'split': { 'action': 'split', 'time': <seconds_float or null> } "
+            "- 'ripple_trim_in': { 'action': 'ripple_trim_in' } "
+            "- 'ripple_trim_out': { 'action': 'ripple_trim_out' } "
             "- 'delete': { 'action': 'delete' } "
             "- 'undo': { 'action': 'undo' } "
             "- 'redo': { 'action': 'redo' } "
@@ -1788,7 +1799,6 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "- 'pause': { 'action': 'pause' } "
             "- 'aspect_ratio': { 'action': 'aspect_ratio', 'ratio': '9:16' | '16:9' | '1:1' } "
             "- 'freeze_frame': { 'action': 'freeze_frame', 'duration': 2.0 } "
-            "- 'jump_cuts': { 'action': 'jump_cuts' } "
             "- 'add_text': { 'action': 'add_text', 'text': '<text_overlay_content>', 'preset': 'heading' | 'neon-title' | 'cta-pill' } "
             "- 'set_watermark': { 'action': 'set_watermark', 'text': '<handle_text>', 'enabled': <true|false> } "
             "- 'post_caption': { 'action': 'post_caption', 'campaign': 'kai-cenat', 'platform': 'tiktok' | 'shorts' | 'reels' } "
@@ -1817,14 +1827,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         try:
             temp_req_file.write_text(json.dumps(req_body), encoding="utf-8")
             file_arg = f"@{str(temp_req_file).replace(chr(92), '/')}"
-            models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"]
+            models_to_try = ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest"]
             for model_name in models_to_try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 proc = subprocess.run(
                     ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
                     capture_output=True,
                     text=True,
-                    timeout=15
+                    timeout=8
                 )
                 if proc.returncode == 0 and proc.stdout:
                     res_data = json.loads(proc.stdout)
@@ -1833,6 +1843,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         parts = candidates[0].get("content", {}).get("parts", [])
                         if parts:
                             raw_output = parts[0].get("text", "").strip()
+                            if raw_output:
+                                break
                             if raw_output:
                                 break
         except Exception as e:
@@ -1858,12 +1870,57 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     if isinstance(parsed.get("actions"), list):
                         actions_list = parsed.get("actions")
             except Exception:
-                reply_text = raw_output
+                import re
+                rep_match = re.search(r'"reply"\s*:\s*"([^"]+)"', clean_json)
+                if rep_match:
+                    reply_text = rep_match.group(1).strip()
+                else:
+                    reply_text = clean_json.replace('{"reply":', '').replace('"', '').strip()
 
-        # Regex fallback action parser to guarantee actions execute even if LLM omits JSON
+        # Clean any trailing raw JSON markers from reply_text so Jarvis speaks natural English
+        if reply_text.startswith('{"reply":'):
+            reply_text = reply_text[9:].strip(' "}\n')
+        if not reply_text:
+            reply_text = "At your command, sir. Executing your edit requests immediately."
+
+        # Comprehensive fallback action parser to guarantee actions execute even if LLM omits JSON
         p_lower = prompt.lower()
         if not actions_list:
             import re
+            # Auto B-Roll / Stock Video
+            if any(k in p_lower for k in ["broll", "b-roll", "b roll", "stock video", "stock footage", "stock clip", "auto broll"]):
+                if any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
+                    actions_list.append({"action": "clear_broll"})
+                elif any(k in p_lower for k in ["search", "hanap", "maghanap"]):
+                    q_m = re.search(r"(?:search|hanap|maghanap|kuha)\s*(?:ng|for|of)?\s*(?:broll|b-roll|stock video)?\s*[:\"]?(.+?)[\"]?$", prompt, re.I)
+                    actions_list.append({"action": "search_pixabay", "query": q_m.group(1).strip() if q_m else "sports car"})
+                else:
+                    actions_list.append({"action": "auto_broll"})
+
+            # Preview Screen Sizing
+            if any(k in p_lower for k in ["small screen", "make the screen small", "make video small", "liitan", "compact screen", "make it small"]):
+                actions_list.append({"action": "set_screen_size", "size": "small"})
+            elif any(k in p_lower for k in ["fit screen", "normal screen", "fit video"]):
+                actions_list.append({"action": "set_screen_size", "size": "fit"})
+            elif any(k in p_lower for k in ["large screen", "lakihan", "big screen"]):
+                actions_list.append({"action": "set_screen_size", "size": "large"})
+
+            # Universal / All-Around Mode
+            if any(k in p_lower for k in ["all around", "all-around", "universal", "lahat ng video"]):
+                actions_list.append({"action": "set_mode", "mode": "universal"})
+
+            # Silence Jump-Cuts
+            if any(k in p_lower for k in ["cut silence", "cut pauses", "jump cuts", "dead air", "tanggalin ang tahimik"]):
+                actions_list.append({"action": "jump_cuts"})
+
+            # Subtitle Translation
+            if any(k in p_lower for k in ["translate", "isalin", "salin", "english captions", "english subtitles", "us english"]):
+                actions_list.append({"action": "translate_captions", "lang": "en"})
+
+            # Rules check
+            if any(k in p_lower for k in ["whop rules", "kai rules", "guidelines", "compliance"]):
+                actions_list.append({"action": "whop_rules_check"})
+
             if any(k in p_lower for k in ["hatiin", "hati", "putulin", "split", "cut here", "slice", "cut"]):
                 t_match = re.search(r"(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?", p_lower)
                 t_val = float(t_match.group(1)) if t_match else None
@@ -1884,7 +1941,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 actions_list.append({"action": "set_layout", "mode": "full-main"})
             elif "ambient" in p_lower or "blur" in p_lower:
                 actions_list.append({"action": "set_layout", "mode": "ambient-blur"})
-            if any(k in p_lower for k in ["tanggalin", "burahin", "alisin", "delete", "remove clip", "remove cut"]):
+            if any(k in p_lower for k in ["tanggalin", "burahin", "alisin", "delete", "remove clip", "remove cut"]) and not any(k in p_lower for k in ["broll", "b-roll"]):
                 actions_list.append({"action": "delete"})
             if any(k in p_lower for k in ["patugtugin", "i-play", "play", "resume"]):
                 actions_list.append({"action": "play"})
