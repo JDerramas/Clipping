@@ -825,6 +825,29 @@
           if (pBtn) { pBtn.click(); return true; }
           break;
         }
+        case 'set_screen_size': {
+          const sz = action.size || 'small';
+          if (window.setPreviewStageSize) {
+            window.setPreviewStageSize(sz);
+            return true;
+          }
+          const box = document.getElementById('previewCanvasBox');
+          if (box) {
+            box.classList.remove('stage-size-small', 'stage-size-fit', 'stage-size-large');
+            box.classList.add(`stage-size-${sz}`);
+            return true;
+          }
+          break;
+        }
+        case 'set_mode': {
+          const campSel = document.getElementById('campaignSelect');
+          if (campSel) {
+            campSel.value = action.mode || 'universal';
+            campSel.dispatchEvent(new Event('change'));
+            return true;
+          }
+          break;
+        }
         case 'whop_rules_check': {
           const rulesModal = document.getElementById('whopRulesModal');
           if (rulesModal) rulesModal.classList.remove('hidden');
@@ -979,6 +1002,20 @@
         localActions.push({ action: 'aspect_ratio', ratio: '9:16' });
       }
 
+      // Video Preview Size (make small, fit, large)
+      if (text.includes('small screen') || text.includes('make the screen small') || text.includes('make video small') || text.includes('liitan ang video') || text.includes('liitan mo') || text.includes('screens mall') || text.includes('compact screen') || text.includes('make it small')) {
+        localActions.push({ action: 'set_screen_size', size: 'small' });
+      } else if (text.includes('fit screen') || text.includes('normal screen') || text.includes('fit video')) {
+        localActions.push({ action: 'set_screen_size', size: 'fit' });
+      } else if (text.includes('large screen') || text.includes('lakihan ang video') || text.includes('big screen')) {
+        localActions.push({ action: 'set_screen_size', size: 'large' });
+      }
+
+      // Universal All-Around Mode
+      if (text.includes('all around') || text.includes('all-around') || text.includes('universal mode') || text.includes('general edit') || text.includes('lahat ng video')) {
+        localActions.push({ action: 'set_mode', mode: 'universal' });
+      }
+
       // Split / Cut check
       if (text.includes('hatiin') || text.includes('hati') || text.includes('putulin') || text.includes('split') || text.includes('cut here') || text.includes('slice')) {
         const timeMatch = text.match(/(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?/i);
@@ -1116,7 +1153,7 @@
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
         (text.length < 50 && localActions.length > 0) ||
-        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit', 'car phonk', 'car edit', 'drift edit', 'beat edit', 'auto edit', 'translate', 'broll', 'rules'].includes(text)
+        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit', 'car phonk', 'car edit', 'drift edit', 'beat edit', 'auto edit', 'translate', 'broll', 'rules', 'make the screen small', 'make video small', 'liitan ang video', 'screens mall', 'small screen', 'compact screen', 'all around'].includes(text)
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -1158,6 +1195,10 @@
           msg = `Searching Pixabay stock video repository for "${first.query}", sir.`;
         } else if (first.action === 'whop_rules_check') {
           msg = "Verified Kai Cenat campaign rules: 50%+ US/UK audience, #KaiCenat tag required, 10.21-10.31 content, no logos, submit within 30 minutes of posting, sir.";
+        } else if (first.action === 'set_screen_size') {
+          msg = `I've resized the video preview to a sleek, compact ${first.size || 'small'} phone mockup, sir.`;
+        } else if (first.action === 'set_mode') {
+          msg = "Switched to All-Around Universal AI Creator mode, ready for any video, sir.";
         } else if (first.action === 'set_clipping_type') {
           const names = {
             'reaction': 'Reaction Clip formula with 60/40 Split and Face Tracking',

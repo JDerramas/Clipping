@@ -7564,17 +7564,73 @@
 
   function bindEvents() {
     const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
-    // 1. Top Header Controls
+    // 1. Top Header Controls: Universal Mode & Archetype Switcher
     safeOn(dom.campaignSelect, 'change', () => {
-      const opt = dom.campaignSelect.options[dom.campaignSelect.selectedIndex];
-      state.campaignId = dom.campaignSelect.value;
-      state.campaignCpm = parseFloat(opt.dataset.cpm || '2.50');
-      state.watermarkText = `${opt.dataset.handle || '@WhopClipper'} • Verified`;
-      if (dom.watermarkTextInput) dom.watermarkTextInput.value = state.watermarkText;
-      updateComplianceAndPayout();
+      const mode = dom.campaignSelect.value;
+      state.creatorMode = mode;
+      const badgeModeName = document.getElementById('badgeModeName');
+      const projectNameInp = document.getElementById('projectNameInput');
+
+      if (mode === 'universal') {
+        if (badgeModeName) badgeModeName.textContent = 'All-Around Creator';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Viral AI Video — AutoBroll Universal Studio';
+        showToast('🌟 Switched to All-Around Universal AI Mode!');
+      } else if (mode === 'car-phonk') {
+        if (badgeModeName) badgeModeName.textContent = 'Car Phonk (140 BPM)';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Car Phonk Drift Edit';
+        setClippingType('music-edit', true);
+        showToast('🏎️ Switched to Car Phonk / Drift Edit Mode!');
+      } else if (mode === 'podcast') {
+        if (badgeModeName) badgeModeName.textContent = 'Podcast Highlights';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Podcast Interview Highlights';
+        setClippingType('text-on-screen', true);
+        showToast('🎙️ Switched to Podcast Highlights Mode!');
+      } else if (mode === 'gaming') {
+        if (badgeModeName) badgeModeName.textContent = 'Gaming & Reaction';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Gaming Victory Highlight';
+        setClippingType('gaming', true);
+        showToast('🎮 Switched to Gaming & Reaction Mode!');
+      } else if (mode === 'tiktok-viral') {
+        if (badgeModeName) badgeModeName.textContent = '#KaiCenat Required';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Kai Cenat Whop UGC Clip';
+        setClippingType('reaction', true);
+        showToast('🏆 Switched to $10k Kai Cenat Whop Challenge Mode!');
+      }
       renderTimelineTracks();
-      showToast(`💰 Active Bounty Campaign: ${opt.text}`);
     });
+
+    // Stage Size Controls (Compact / Fit / Large)
+    const stageSizeSmallBtn = document.getElementById('stageSizeSmallBtn');
+    const stageSizeFitBtn = document.getElementById('stageSizeFitBtn');
+    const stageSizeLargeBtn = document.getElementById('stageSizeLargeBtn');
+    const previewCanvasBox = document.getElementById('previewCanvasBox');
+
+    function setPreviewStageSize(size = 'small') {
+      const box = document.getElementById('previewCanvasBox');
+      if (!box) return;
+      box.classList.remove('stage-size-small', 'stage-size-fit', 'stage-size-large');
+      box.classList.add(`stage-size-${size}`);
+      const btnSmall = document.getElementById('stageSizeSmallBtn');
+      const btnFit = document.getElementById('stageSizeFitBtn');
+      const btnLarge = document.getElementById('stageSizeLargeBtn');
+      if (btnSmall) btnSmall.classList.toggle('active', size === 'small');
+      if (btnFit) btnFit.classList.toggle('active', size === 'fit');
+      if (btnLarge) btnLarge.classList.toggle('active', size === 'large');
+      showToast(`📱 Preview size: ${size.toUpperCase()}`);
+    }
+    window.setPreviewStageSize = setPreviewStageSize;
+
+    if (stageSizeSmallBtn) safeOn(stageSizeSmallBtn, 'click', () => setPreviewStageSize('small'));
+    if (stageSizeFitBtn) safeOn(stageSizeFitBtn, 'click', () => setPreviewStageSize('fit'));
+    if (stageSizeLargeBtn) safeOn(stageSizeLargeBtn, 'click', () => setPreviewStageSize('large'));
+
+    const jarvisQuickSmallScreenBtn = document.getElementById('jarvisQuickSmallScreenBtn');
+    if (jarvisQuickSmallScreenBtn) {
+      safeOn(jarvisQuickSmallScreenBtn, 'click', () => {
+        setPreviewStageSize('small');
+        appendJarvisChatMessage('AI', "I've resized the canvas into a sleek, compact phone mockup preview, sir.");
+      });
+    }
 
     safeOn(dom.oneClickAutoEditBtn, 'click', () => {
       runMasterOneClickAutoEdit();

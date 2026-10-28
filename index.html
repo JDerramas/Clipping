@@ -38,7 +38,7 @@
           type="text"
           id="projectNameInput"
           class="project-name-input"
-          value="Kai Cenat Reach Clip — 9:16 Master"
+          value="Viral AI Video — AutoBroll Universal Studio"
           title="Click to rename project"
         />
         <span id="projectAspectBadge" class="project-badge">9:16 VERTICAL</span>
@@ -68,12 +68,14 @@
 
     <!-- Center Format / Auto-Edit CTA -->
     <div class="nav-center">
-      <div class="campaign-pill" title="Whop Campaign Preset">
+      <div class="campaign-pill" title="Editing Preset & Archetype">
         <span class="pill-dot"></span>
         <select id="campaignSelect" class="campaign-select" aria-label="Format Selector">
-          <option value="tiktok-viral" data-cpm="2.50" data-handle="@KaiCenatClips • 9:16" selected>Kai Cenat Whop UGC (9:16)</option>
-          <option value="youtube-shorts" data-cpm="2.00" data-handle="@KaiCenatDaily • Shorts">YouTube Shorts (9:16)</option>
-          <option value="instagram-reels" data-cpm="2.20" data-handle="@KaiCenatMoments • Reels">Instagram Reels (9:16)</option>
+          <option value="universal" data-handle="@AutoBroll • Universal" selected>🌟 All-Around AI Studio (Universal)</option>
+          <option value="car-phonk" data-handle="@DriftVibes • Phonk">🏎️ Car Phonk / Drift Edit (140 BPM)</option>
+          <option value="podcast" data-handle="@PodcastClips • Shorts">🎙️ Podcast & Interview Highlights</option>
+          <option value="gaming" data-handle="@GamerDaily • Gaming">🎮 Gaming & Reaction Clips</option>
+          <option value="tiktok-viral" data-cpm="2.50" data-handle="@KaiCenatClips • 9:16">🏆 Whop Campaign ($10k Kai Cenat Challenge)</option>
         </select>
       </div>
 
@@ -120,23 +122,23 @@
   </header>
 
   <!-- =====================================================================
-       STATUS TELEMETRY BAR: WHOP RULES & AUDIENCE CHECK
+       STATUS TELEMETRY BAR: UNIVERSAL CREATOR ENGINES & WHOP PRESET
        ===================================================================== -->
-  <div class="repo-engines-bar" id="repoEnginesBar" title="Active Campaign & Editing Pipeline">
+  <div class="repo-engines-bar" id="repoEnginesBar" title="Active Studio Engines">
     <div class="repo-bar-label">
       <span class="pulse-engine-dot"></span>
-      <span class="repo-bar-title">WHOP CAMPAIGN:</span>
+      <span class="repo-bar-title" id="studioModeTitle">STUDIO MODE:</span>
     </div>
     <div class="repo-badges-container" id="repoBadgesContainer">
-      <div class="repo-badge active" title="Required hashtag for payouts">
-        <span class="badge-icon">#️⃣</span>
-        <span class="badge-name">#KaiCenat</span>
-        <span class="badge-tag">REQUIRED</span>
+      <div class="repo-badge active" id="badgeStudioMode" title="Active editing archetype">
+        <span class="badge-icon">🌟</span>
+        <span class="badge-name" id="badgeModeName">All-Around Creator</span>
+        <span class="badge-tag">AI ACTIVE</span>
       </div>
-      <div class="repo-badge active" title="Must be 50%+ US/UK/CA/AU/NZ">
-        <span class="badge-icon">🌐</span>
-        <span class="badge-name">US/UK 50%+ Native</span>
-        <span class="badge-tag">VERIFIED</span>
+      <div class="repo-badge active" title="WhisperX Word-Level Transcription">
+        <span class="badge-icon">🗣️</span>
+        <span class="badge-name">WhisperX Engine</span>
+        <span class="badge-tag">WORD-ACCURATE</span>
       </div>
       <div class="repo-badge active" title="Real Stock Media Engine">
         <span class="badge-icon">🎬</span>
@@ -613,8 +615,20 @@
          CENTER STAGE: 9:16 VIDEO CANVAS & CONTROLS
          =================================================================== -->
     <div class="opencut-center-panel">
-      <div class="canvas-viewport" id="previewCanvasBox">
-        <canvas id="previewCanvas" width="1080" height="1920"></canvas>
+      <!-- Stage Toolbar: Preview Size & Ratio Controls -->
+      <div class="stage-top-controls">
+        <div class="stage-size-pills">
+          <button type="button" class="stage-pill-btn active" id="stageSizeSmallBtn" data-size="small" title="Compact vertical phone preview">📱 Compact</button>
+          <button type="button" class="stage-pill-btn" id="stageSizeFitBtn" data-size="fit" title="Standard fit phone preview">📐 Fit</button>
+          <button type="button" class="stage-pill-btn" id="stageSizeLargeBtn" data-size="large" title="Large phone preview">🔍 Large</button>
+        </div>
+        <div class="stage-ratio-badge" id="previewRatioLabel">9:16 Vertical</div>
+      </div>
+
+      <div class="canvas-viewport">
+        <div class="canvas-mockup-frame stage-size-small" id="previewCanvasBox">
+          <canvas id="previewCanvas" width="1080" height="1920"></canvas>
+        </div>
       </div>
 
       <!-- Playback Transport Bar -->
@@ -659,7 +673,7 @@
         <!-- Chat Stream -->
         <div id="jarvisChatMessages" class="jarvis-chat-stream">
           <div class="jarvis-chat-bubble jarvis-bubble-ai">
-            At your command, sir. I have configured the studio for Kai Cenat Whop clipping. How would you like me to edit this video?
+            At your service, sir. I am your all-around AI video co-editor. Load any footage—podcast, gaming, car edit, or stream highlights—and I will arrange, cut silence, subtitle with gold accents, and match stock B-roll for you.
           </div>
         </div>
 
@@ -669,7 +683,8 @@
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickTranslateBtn">🌐 Translate to English</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickBrollBtn">🎬 Auto-Fetch B-Roll</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickSilenceBtn">✂️ Cut Pauses</button>
-          <button type="button" class="jarvis-quick-pill" id="jarvisQuickWhopCheckBtn">🏆 Whop Rules Check</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickSmallScreenBtn">📱 Small Screen</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickWhopCheckBtn">🏆 Whop Challenge</button>
         </div>
 
         <!-- Prompt Input Bar -->
