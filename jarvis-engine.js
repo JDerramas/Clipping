@@ -771,14 +771,66 @@
           break;
         }
         case 'auto_edit': {
-          if (studio?.applyFullViralSuitePack) {
-            studio.applyFullViralSuitePack();
+          if (window.runMasterOneClickAutoEdit) {
+            window.runMasterOneClickAutoEdit();
             return true;
           }
-          if (studio?.runAutoEdit) return studio.runAutoEdit();
-          const aBtn = document.getElementById('oneClickAutoEditBtn');
+          if (studio?.runMasterOneClickAutoEdit) {
+            studio.runMasterOneClickAutoEdit();
+            return true;
+          }
+          const aBtn = document.getElementById('oneClickAutoEditBtn') || document.getElementById('masterAutoEditBtn');
           if (aBtn) { aBtn.click(); return true; }
           break;
+        }
+        case 'translate_captions': {
+          if (window.translateCaptionsWithGemini) {
+            window.translateCaptionsWithGemini(action.lang || 'en');
+            return true;
+          }
+          if (studio?.translateCaptionsWithGemini) {
+            studio.translateCaptionsWithGemini(action.lang || 'en');
+            return true;
+          }
+          const tBtn = document.getElementById('translateSubtitlesBtn');
+          if (tBtn) { tBtn.click(); return true; }
+          break;
+        }
+        case 'auto_broll': {
+          if (window.autoFetchPixabayBrollWithGemini) {
+            window.autoFetchPixabayBrollWithGemini();
+            return true;
+          }
+          if (studio?.autoFetchPixabayBrollWithGemini) {
+            studio.autoFetchPixabayBrollWithGemini();
+            return true;
+          }
+          const bBtn = document.getElementById('autoFetchPixabayBrollBtn');
+          if (bBtn) { bBtn.click(); return true; }
+          break;
+        }
+        case 'search_pixabay': {
+          const q = action.query || 'sports car';
+          if (window.searchPixabayVideos) {
+            window.searchPixabayVideos(q);
+            return true;
+          }
+          if (studio?.searchPixabayVideos) {
+            studio.searchPixabayVideos(q);
+            return true;
+          }
+          const pInp = document.getElementById('pixabaySearchInput');
+          if (pInp) pInp.value = q;
+          const pBtn = document.getElementById('pixabaySearchBtn');
+          if (pBtn) { pBtn.click(); return true; }
+          break;
+        }
+        case 'whop_rules_check': {
+          const rulesModal = document.getElementById('whopRulesModal');
+          if (rulesModal) rulesModal.classList.remove('hidden');
+          const campBox = document.querySelector('.campaign-rules-box');
+          if (campBox) campBox.scrollIntoView({ behavior: 'smooth' });
+          return true;
         }
         case 'client_prompt_edit': {
           const prompt = action.prompt || '';
@@ -791,87 +843,6 @@
           if (studio?.openExportModal) return studio.openExportModal();
           const eBtn = document.getElementById('openExportModalBtn');
           if (eBtn) { eBtn.click(); return true; }
-          break;
-        }
-        case 'highlight_zoom': {
-          if (studio?.addHighlightZoomAtPlayhead) {
-            return studio.addHighlightZoomAtPlayhead(action.scale || 1.24, action.duration || 1.6);
-          }
-          break;
-        }
-        case 'auto_curate': {
-          if (studio?.runAiAutoCuration) {
-            studio.runAiAutoCuration();
-            return true;
-          }
-          break;
-        }
-        case 'translit': {
-          if (studio?.applySubtitleTranslit) {
-            if (action.bilingual !== undefined && studio.state) {
-              studio.state.bilingualSubs = !!action.bilingual;
-            }
-            studio.applySubtitleTranslit(action.mode || 'taglish');
-            return true;
-          }
-          break;
-        }
-        case 'add_sfx': {
-          const sfx = action.sfx || 'whoosh';
-          if (sfx === 'auto-sync' && studio?.autoSyncTimelineSfx) {
-            studio.autoSyncTimelineSfx();
-            return true;
-          }
-          if (studio?.addSfxEventAtTime) {
-            studio.addSfxEventAtTime(sfx, studio.state?.currentTime || 0, true);
-            return true;
-          }
-          break;
-        }
-        case 'face_track': {
-          if (studio?.scanAndEnableFaceTracking && action.enabled !== false) {
-            studio.scanAndEnableFaceTracking();
-            return true;
-          } else if (studio?.toggleFaceTracking) {
-            studio.toggleFaceTracking(action.enabled);
-            return true;
-          }
-          break;
-        }
-        case 'hook_title': {
-          if (action.style && studio?.setHookTitleStyle) {
-            studio.setHookTitleStyle(action.style);
-          }
-          if (action.text && studio?.setHookBanner) {
-            studio.setHookBanner(action.text, true);
-          } else if (studio?.generateAiHookSuggestions) {
-            studio.generateAiHookSuggestions(true);
-          }
-          return true;
-        }
-        case 'add_vfx': {
-          const vfx = action.vfx || 'speedLines';
-          if (studio?.addTimedVfxAtPlayhead) {
-            studio.addTimedVfxAtPlayhead(vfx);
-            return true;
-          }
-          break;
-        }
-        case 'auto_broll': {
-          if ((!action.topic || action.topic === 'auto') && studio?.autoInsertContextBroll) {
-            studio.autoInsertContextBroll();
-            return true;
-          } else if (studio?.addBrollCutaway) {
-            studio.addBrollCutaway(action.topic || 'money-counter', studio.state?.currentTime || 0, 2.6);
-            return true;
-          }
-          break;
-        }
-        case 'viral_pack': {
-          if (studio?.applyFullViralSuitePack) {
-            studio.applyFullViralSuitePack();
-            return true;
-          }
           break;
         }
         case 'set_clipping_type': {
@@ -1120,41 +1091,21 @@
         localActions.push({ action: 'set_clipping_type', archetype: 'music-edit', autoApply: true });
       }
 
-      // 8-Feature Viral AI Pro Suite Fast Reflex Intents
-      if (text.includes('viral pack') || text.includes('viral suite') || text.includes('8 engine') || text.includes('full viral')) {
-        localActions.push({ action: 'viral_pack' });
-      } else {
-        if (text.includes('highlight zoom') || text.includes('punch zoom') || text.includes('auto zoom') || text.includes('zoom in')) {
-          localActions.push({ action: 'highlight_zoom', scale: 1.25 });
-        }
-        if (text.includes('curate') || text.includes('auto curation') || text.includes('best clips')) {
-          localActions.push({ action: 'auto_curate' });
-        }
-        if (text.includes('translit') || text.includes('taglish') || text.includes('bilingual') || text.includes('romanize')) {
-          const mode = text.includes('romaji') ? 'romaji' : (text.includes('hinglish') ? 'hinglish' : (text.includes('spanish') ? 'es' : 'taglish'));
-          localActions.push({ action: 'translit', mode, bilingual: text.includes('bilingual') || text.includes('dual') });
-        }
-        if (text.includes('sfx') || text.includes('whoosh') || text.includes('sound effect') || text.includes('ka-ching') || text.includes('bass drop')) {
-          const sfx = (text.includes('auto') || text.includes('sync')) ? 'auto-sync'
-            : (text.includes('cash') || text.includes('ching') ? 'cash'
-            : (text.includes('bass') ? 'bass-drop'
-            : (text.includes('pop') ? 'pop' : 'whoosh')));
-          localActions.push({ action: 'add_sfx', sfx });
-        }
-        if (text.includes('face track') || text.includes('track face') || text.includes('speaker lock') || text.includes('follow face')) {
-          localActions.push({ action: 'face_track', enabled: !text.includes('off') });
-        }
-        if (text.includes('hook title') || text.includes('ai hook') || text.includes('generate hook') || text.includes('kinetic slam')) {
-          const style = text.includes('kinetic') ? 'kinetic-slam' : (text.includes('breaking') ? 'breaking-news' : 'hormozi-tape');
-          localActions.push({ action: 'hook_title', style });
-        }
-        if (text.includes('vfx') || text.includes('speed lines') || text.includes('spotlight') || text.includes('impact flash')) {
-          const vfx = text.includes('spot') ? 'spotlight' : (text.includes('impact') || text.includes('flash') ? 'impactFlash' : 'speedLines');
-          localActions.push({ action: 'add_vfx', vfx });
-        }
-        if (text.includes('auto b-roll') || text.includes('insert b-roll') || text.includes('context b-roll') || text.includes('cutaway')) {
-          localActions.push({ action: 'auto_broll', topic: 'auto' });
-        }
+      // OpenChatCut & autobroll Fast Reflex Actions
+      if (text.includes('auto broll') || text.includes('auto b-roll') || text.includes('fetch broll') || text.includes('plan broll') || text.includes('stock footage')) {
+        localActions.push({ action: 'auto_broll' });
+      } else if (text.includes('pixabay') || text.includes('stock video') || text.includes('hanap ng video') || text.includes('maghanap ng video')) {
+        const qMatch = rawText.match(/(?:pixabay|stock video|hanap ng video|maghanap ng video|search video)\s*(?:of|for|about|ng)?\s*[:"]?(.+?)["]?$/i);
+        const query = qMatch && qMatch[1] ? qMatch[1].trim() : 'sports car';
+        localActions.push({ action: 'search_pixabay', query });
+      }
+
+      if (text.includes('translate') || text.includes('translation') || text.includes('salin') || text.includes('isalin') || text.includes('us english') || text.includes('uk english') || text.includes('english captions') || text.includes('subtitles english')) {
+        localActions.push({ action: 'translate_captions', lang: 'en' });
+      }
+
+      if (text.includes('whop rules') || text.includes('kai rules') || text.includes('compliance') || text.includes('requirements') || text.includes('guidelines') || text.includes('payout')) {
+        localActions.push({ action: 'whop_rules_check' });
       }
 
       // Execute local actions immediately
@@ -1165,7 +1116,7 @@
       // If it's a simple direct command without conversational phrasing, give immediate fast confirmation
       const isSimpleCommand = (
         (text.length < 50 && localActions.length > 0) ||
-        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit', 'car phonk', 'car edit', 'drift edit', 'beat edit'].includes(text)
+        ['play', 'pause', 'split', 'hatiin', 'stop', 'delete', 'undo', 'redo', 'add-text', 'jump-cuts', 'freeze', 'hide-watermark', 'reaction', 'gaming', 'top moments', 'text on screen', 'music edit', 'car phonk', 'car edit', 'drift edit', 'beat edit', 'auto edit', 'translate', 'broll', 'rules'].includes(text)
       );
 
       if (isSimpleCommand && localActions.length > 0) {
@@ -1197,24 +1148,16 @@
           msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage, sir.`;
         } else if (first.action === 'set_caption_style') {
           msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
-        } else if (first.action === 'highlight_zoom') {
-          msg = "Pinned a smooth highlight zoom punch at the playhead, sir.";
-        } else if (first.action === 'auto_curate') {
-          msg = "Running four-pillar AI virality curation across your footage, sir.";
-        } else if (first.action === 'translit') {
-          msg = `Transliterated your subtitles into ${first.mode}, sir.`;
-        } else if (first.action === 'add_sfx') {
-          msg = first.sfx === 'auto-sync' ? "Auto-synchronized studio sound effects across your timeline, sir." : `Pinned a ${first.sfx} sound effect onto the audio track, sir.`;
-        } else if (first.action === 'face_track') {
-          msg = "Locked AI speaker face tracking with one-euro camera stabilization, sir.";
-        } else if (first.action === 'hook_title') {
-          msg = "Generated high-retention curiosity hook titles and styled the banner, sir.";
-        } else if (first.action === 'add_vfx') {
-          msg = `Dropped a timed ${first.vfx} visual effect burst onto your timeline, sir.`;
+        } else if (first.action === 'auto_edit') {
+          msg = "Executing 1-Click AI Auto-Edit for Kai Cenat Whop clipping. Converting sequence to 9:16 vertical, cutting dead air, translating to US English, and generating matching Pixabay stock B-roll, sir.";
+        } else if (first.action === 'translate_captions') {
+          msg = "Translating your subtitles into fluent American/British English for 50%+ native reach, sir.";
         } else if (first.action === 'auto_broll') {
-          msg = "Inserted context-aware AI B-roll cutaways across your timeline, sir.";
-        } else if (first.action === 'viral_pack') {
-          msg = "Activated the full eight-engine viral suite across your sequence, sir.";
+          msg = "AI is scanning your dialogue context to auto-schedule matching Pixabay stock B-roll, sir.";
+        } else if (first.action === 'search_pixabay') {
+          msg = `Searching Pixabay stock video repository for "${first.query}", sir.`;
+        } else if (first.action === 'whop_rules_check') {
+          msg = "Verified Kai Cenat campaign rules: 50%+ US/UK audience, #KaiCenat tag required, 10.21-10.31 content, no logos, submit within 30 minutes of posting, sir.";
         } else if (first.action === 'set_clipping_type') {
           const names = {
             'reaction': 'Reaction Clip formula with 60/40 Split and Face Tracking',
@@ -1291,7 +1234,7 @@
           const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'JARVIS'}: ${turn.text}`).join('\n');
           const systemPrompt = `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor.
 Always address the user as "Sir" or "sir".
-You possess full interactive control over the user's CapCut Pro video editor timeline: you can split clips, delete layers, add editable text overlays ('add_text'), hide/update watermarks ('set_watermark'), insert freeze frames ('freeze_frame'), auto-cut silences ('jump_cuts'), undo/redo, switch layouts, layer B-rolls, insert clean PIP pictures, style captions, and trigger 1080p exports.
+You possess full interactive control over the user's OpenChatCut / autobroll video editor timeline: you can execute 1-click AI auto-edit ('auto_edit'), translate speech/subtitles to fluent US/UK English with Gemini ('translate_captions'), auto-match Pixabay stock B-roll ('auto_broll'), search stock footage ('search_pixabay'), verify Kai Cenat Whop campaign rules ('whop_rules_check'), split clips, delete layers, add editable text overlays, and trigger 1080p vertical exports.
 The user speaks to you in Tagalog (Filipino / Taglish) or English.
 You understand Tagalog and Taglish 100% fluently.
 CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English.

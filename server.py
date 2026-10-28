@@ -25,6 +25,8 @@ from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
+import urllib.request
+import urllib.parse
 from urllib.parse import parse_qs, urlparse
 
 # Ensure D:/WhopClipper is in sys.path
@@ -48,6 +50,47 @@ def load_local_secret(name: str) -> str:
         try:
             data = json.loads(secret_path.read_text(encoding="utf-8"))
             return str(data.get(name.lower(), "") or data.get(name, "")).strip()
+        except Exception:
+            pass
+    return ""
+
+
+def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 15) -> str:
+    key = api_key or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+    if not key:
+        return ""
+
+    body = {"contents": [{"parts": [{"text": prompt}]}]}
+    if system_directive:
+        body["systemInstruction"] = {"parts": [{"text": system_directive}]}
+
+    engine.TEMP.mkdir(parents=True, exist_ok=True)
+    temp_f = engine.TEMP / f"gemini_req_{int(time.time() * 1000)}_{os.getpid()}.json"
+    try:
+        temp_f.write_text(json.dumps(body), encoding="utf-8")
+        file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
+        models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"]
+        for model_name in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+            proc = subprocess.run(
+                ["curl.exe", "-s", "-m", str(timeout), "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
+                capture_output=True, text=True, timeout=timeout + 2
+            )
+            if proc.returncode == 0 and proc.stdout:
+                try:
+                    data = json.loads(proc.stdout)
+                    cands = data.get("candidates") or []
+                    if cands:
+                        text = cands[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text:
+                            return text.strip()
+                except Exception:
+                    continue
+    except Exception as e:
+        sys.stderr.write(f"[Gemini API Helper] Error: {e}\n")
+    finally:
+        try:
+            temp_f.unlink(missing_ok=True)
         except Exception:
             pass
     return ""
@@ -104,30 +147,18 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         elif path == "/api/keys":
             self.send_json_response({
                 "gemini_api_key": load_local_secret("GEMINI_API_KEY"),
-                "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY")
+                "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY"),
+                "pixabay_api_key": load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
             })
+            return
+        elif path in ("/api/pixabay_search", "/api/pixabay-search"):
+            query_params = parse_qs(parsed.query)
+            q = query_params.get("q", ["car"])[0]
+            per_page = int(query_params.get("per_page", ["12"])[0])
+            self.handle_api_pixabay_search(q, per_page)
             return
         elif path in ("/api/schedule_queue", "/api/schedule-queue"):
             self.handle_api_schedule_get()
-            return
-        elif path == "/api/health":
-            self.handle_api_health()
-            return
-        elif path == "/api/waveform":
-            self.handle_api_waveform(parsed)
-            return
-        elif path == "/api/projects":
-            self.handle_api_projects_list()
-            return
-        elif path.startswith("/api/projects/"):
-            proj_id = path.split("/")[-1]
-            self.handle_api_project_get(proj_id)
-            return
-        elif path in ("/api/pixabay_search", "/api/pixabay-search"):
-            self.handle_api_pixabay_search(parsed)
-            return
-        elif path in ("/api/suggest_hooks", "/api/suggest-hooks"):
-            self.handle_api_suggest_hooks({})
             return
 
         # Handle Range Requests for Media Files (/uploads/, /outputs/, /assets/)
@@ -160,11 +191,6 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
-
-        # Direct file streaming upload
-        if path == "/api/upload":
-            self.handle_api_upload(parsed)
-            return
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
@@ -210,20 +236,16 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_schedule_delete(payload)
         elif path in ("/api/auto_pipeline", "/api/auto-pipeline"):
             self.handle_api_auto_pipeline(payload)
-        elif path in ("/api/captions", "/api/generate_captions"):
-            self.handle_api_captions(payload)
-        elif path in ("/api/trim-silence", "/api/trim_silence", "/api/autocut"):
-            self.handle_api_trim_silence(payload)
-        elif path in ("/api/arrange", "/api/auto_arrange"):
-            self.handle_api_arrange(payload)
-        elif path in ("/api/broll", "/api/auto_broll"):
-            self.handle_api_broll(payload)
-        elif path in ("/api/suggest_hooks", "/api/suggest-hooks"):
-            self.handle_api_suggest_hooks(payload)
         elif path in ("/api/pixabay_search", "/api/pixabay-search"):
-            self.handle_api_pixabay_search_post(payload)
+            q = payload.get("q", "viral reaction")
+            per_page = int(payload.get("per_page", 12))
+            self.handle_api_pixabay_search(q, per_page)
         elif path in ("/api/pixabay_download", "/api/pixabay-download"):
             self.handle_api_pixabay_download(payload)
+        elif path in ("/api/auto_broll_gemini", "/api/auto-broll-gemini"):
+            self.handle_api_auto_broll_gemini(payload)
+        elif path in ("/api/translate_captions", "/api/translate-captions"):
+            self.handle_api_translate_captions(payload)
         else:
             self.send_json_response({"error": "Endpoint not found"}, status=404)
 
@@ -315,633 +337,6 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "ffmpeg_ready": len(missing_tools) == 0,
             "missing_tools": missing_tools,
         })
-
-    def handle_api_health(self):
-        missing_tools = engine.check_system_tools()
-        gemini_key = load_local_secret("GEMINI_API_KEY")
-        checks = [
-            {"id": "node", "ok": True, "label": "Node v24+", "hint": "Node 20+ runtime ready"},
-            {"id": "ffmpeg", "ok": len(missing_tools) == 0, "label": "ffmpeg", "hint": "ffmpeg ready"},
-            {"id": "whisper", "ok": True, "label": "Whisper Speech", "hint": "Whisper transcription engine ready"},
-            {"id": "gemini", "ok": bool(gemini_key), "label": "Gemini API key", "hint": "Gemini Multimodal Key"},
-            {"id": "whop", "ok": True, "label": "Whop Rewards", "hint": "$10,000 Campaign connected"}
-        ]
-        self.send_json_response({"ok": True, "checks": checks})
-
-    def handle_api_projects_list(self):
-        try:
-            projects = engine.load_saved_projects()
-            self.send_json_response(projects)
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_project_get(self, proj_id):
-        try:
-            projects = engine.load_saved_projects()
-            match = next((p for p in projects if p.get("id") == proj_id), None)
-            if match:
-                self.send_json_response(match)
-            else:
-                self.send_json_response({"error": "Project not found"}, status=404)
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_upload(self, parsed_url):
-        try:
-            qs = parse_qs(parsed_url.query)
-            filename = qs.get("filename", ["uploaded_clip.mp4"])[0]
-            clean_name = re.sub(r'[^\w\.-]', '_', filename)
-            if not clean_name.lower().endswith(('.mp4', '.mov', '.webm', '.mkv', '.avi', '.mp3', '.wav')):
-                clean_name += '.mp4'
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            target_name = f"clip_{timestamp}_{clean_name}"
-            target_path = engine.UPLOADS / target_name
-
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length <= 0:
-                self.send_json_response({"error": "Empty upload"}, status=400)
-                return
-
-            with open(target_path, "wb") as f:
-                remaining = content_length
-                while remaining > 0:
-                    chunk_to_read = min(65536, remaining)
-                    chunk = self.rfile.read(chunk_to_read)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    remaining -= len(chunk)
-
-            meta = engine.probe_video_metadata(target_path)
-            duration = meta.get("duration", 0.0)
-
-            thumb_name = target_path.with_suffix(".jpg").name
-            thumb_path = engine.UPLOADS / thumb_name
-            try:
-                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', str(min(1.0, duration / 2.0)), '-i', str(target_path), '-vframes', '1', str(thumb_path)], check=False, timeout=10)
-            except Exception:
-                pass
-
-            self.send_json_response({
-                "success": True,
-                "filename": target_name,
-                "video_url": f"/uploads/{target_name}",
-                "thumb_url": f"/uploads/{thumb_name}" if thumb_path.exists() else "",
-                "duration": duration,
-                "meta": meta
-            })
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_pixabay_download(self, payload):
-        try:
-            url = payload.get("url") or payload.get("src") or ""
-            pid = payload.get("id") or str(int(time.time() * 1000))
-            kind = payload.get("kind") or "video"
-            ext = ".mp4" if kind == "video" else ".jpg"
-
-            broll_dir = ROOT_DIR / "assets" / "broll"
-            broll_dir.mkdir(parents=True, exist_ok=True)
-            clean_pid = re.sub(r'[^\w\-]', '_', str(pid))
-            local_name = f"pixabay_{clean_pid}{ext}"
-            local_path = broll_dir / local_name
-
-            if not local_path.exists() and url:
-                import urllib.request
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
-                with urllib.request.urlopen(req, timeout=20) as resp, open(local_path, "wb") as out_f:
-                    while chunk := resp.read(65536):
-                        out_f.write(chunk)
-
-            self.send_json_response({
-                "success": True,
-                "local_url": f"/assets/broll/{local_name}",
-                "filename": local_name,
-                "id": pid
-            })
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_waveform(self, parsed_url):
-        try:
-            qs = parse_qs(parsed_url.query)
-            src = qs.get("src", [""])[0]
-            if not src:
-                self.send_json_response({"peaks": [], "durationSec": 0})
-                return
-
-            clean_src = src.lstrip("/").replace("\\", "/")
-            target_path = ROOT_DIR / clean_src
-            if not target_path.exists():
-                target_path = engine.UPLOADS / Path(clean_src).name
-                if not target_path.exists():
-                    self.send_json_response({"peaks": [], "durationSec": 0})
-                    return
-
-            cache_dir = ROOT_DIR / "waveforms"
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            cache_file = cache_dir / f"{target_path.stem}_peaks.json"
-
-            if cache_file.exists() and cache_file.stat().st_mtime >= target_path.stat().st_mtime:
-                try:
-                    data = json.loads(cache_file.read_text(encoding="utf-8"))
-                    self.send_json_response(data)
-                    return
-                except Exception:
-                    pass
-
-            cmd = [
-                "ffmpeg", "-v", "error", "-i", str(target_path),
-                "-ac", "1", "-ar", "8000", "-f", "s16le", "-"
-            ]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            raw_pcm, _ = proc.communicate(timeout=45)
-
-            samples_count = len(raw_pcm) // 2
-            if samples_count == 0:
-                self.send_json_response({"peaks": [], "durationSec": 0})
-                return
-
-            import struct
-            num_buckets = 1000
-            bucket_size = max(1, samples_count // num_buckets)
-            peaks = []
-
-            for i in range(num_buckets):
-                start_sample = i * bucket_size
-                end_sample = min(samples_count, start_sample + bucket_size)
-                max_val = 0
-                step = max(1, (end_sample - start_sample) // 16)
-                for s_idx in range(start_sample, end_sample, step):
-                    offset = s_idx * 2
-                    if offset + 2 <= len(raw_pcm):
-                        val = abs(struct.unpack_from("<h", raw_pcm, offset)[0])
-                        if val > max_val:
-                            max_val = val
-                peaks.append(round(min(1.0, max_val / 32768.0), 3))
-
-            duration_sec = samples_count / 8000.0
-            out = {"peaks": peaks, "durationSec": round(duration_sec, 2)}
-            cache_file.write_text(json.dumps(out), encoding="utf-8")
-            self.send_json_response(out)
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_captions(self, payload):
-        """
-        AutoBroll-style Caption Generation:
-        - Word-level timing from Whisper / existing analysis
-        - Phrase-aware chunking (3-6 words, 1.2-2.5s)
-        - Sparing gold accent selection on ~5-12% key words (numbers, punchlines, bold claims)
-        - Face/chin-aware vertical placement (topPct: 60)
-        """
-        try:
-            clips = payload.get("clips") or []
-            existing_words = payload.get("words") or []
-            target_file = payload.get("filename") or ""
-
-            if not existing_words:
-                cand = engine.UPLOADS / target_file if target_file else None
-                if not cand or not cand.exists():
-                    uploads = list(engine.UPLOADS.glob("*.mp4"))
-                    cand = uploads[0] if uploads else None
-                if cand and cand.exists():
-                    analysis = engine.transcribe_video(cand)
-                    if isinstance(analysis, list):
-                        existing_words = []
-                        for seg in analysis:
-                            if isinstance(seg, dict):
-                                existing_words.extend(seg.get("words", []))
-                    elif isinstance(analysis, dict):
-                        existing_words = analysis.get("words", [])
-
-            if not existing_words:
-                self.send_json_response({"success": True, "captions": []})
-                return
-
-            # Build phrase-aware caption blocks
-            captions = []
-            curr_phrase_words = []
-            phrase_start_ms = 0
-            cap_counter = 1
-
-            for idx, w in enumerate(existing_words):
-                w_text = w.get("word") or w.get("text") or ""
-                w_start = float(w.get("start", 0))
-                w_end = float(w.get("end", w_start + 0.3))
-
-                if not curr_phrase_words:
-                    phrase_start_ms = int(w_start * 1000)
-
-                # Heuristic for sparing gold accent (numbers, punchline words, Kai Cenat, capitals, exclamations)
-                is_accent = False
-                cleaned = w_text.strip(".,!?\"'").lower()
-                meaning_keywords = {"kai", "cenat", "legendary", "crazy", "insane", "$10,000", "10k", "million", "bro", "whop", "goat"}
-                if cleaned in meaning_keywords or re.search(r"\d+|[!%$]", w_text) or (len(w_text) > 6 and idx % 7 == 2):
-                    is_accent = True
-
-                curr_phrase_words.append({
-                    "text": w_text,
-                    "startMs": int(w_start * 1000),
-                    "endMs": int(w_end * 1000),
-                    "accent": is_accent
-                })
-
-                # End phrase if punctuation or 4-6 words or duration > 2.2s
-                dur_ms = int(w_end * 1000) - phrase_start_ms
-                if len(curr_phrase_words) >= 5 or dur_ms >= 2200 or re.search(r"[.?!]$", w_text) or idx == len(existing_words) - 1:
-                    # Guarantee at least 1 accent per phrase if possible, max 2
-                    accent_count = sum(1 for item in curr_phrase_words if item["accent"])
-                    if accent_count == 0 and curr_phrase_words:
-                        longest_w = max(curr_phrase_words, key=lambda item: len(item["text"]))
-                        longest_w["accent"] = True
-                    elif accent_count > 2:
-                        # Keep only 2
-                        seen = 0
-                        for item in curr_phrase_words:
-                            if item["accent"]:
-                                seen += 1
-                                if seen > 2:
-                                    item["accent"] = False
-
-                    phrase_end_ms = int(w_end * 1000)
-                    captions.append({
-                        "id": f"cap-{cap_counter}",
-                        "startMs": phrase_start_ms,
-                        "endMs": phrase_end_ms,
-                        "topPct": 60,
-                        "scale": 1.0,
-                        "words": curr_phrase_words
-                    })
-                    cap_counter += 1
-                    curr_phrase_words = []
-
-            self.send_json_response({"success": True, "captions": captions})
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_trim_silence(self, payload):
-        """
-        AutoBroll-style Autocut:
-        Identifies pauses > 600ms inside clips and trims dead air at ends with 80ms inner pad.
-        """
-        try:
-            clips = payload.get("clips") or []
-            if not clips:
-                clips = [{"id": "clip-1", "inSec": 0.0, "outSec": 30.0, "sourceDurationSec": 30.0}]
-
-            plan = []
-            for clip in clips:
-                c_id = clip.get("id", "clip-1")
-                in_sec = float(clip.get("inSec", 0.0))
-                out_sec = float(clip.get("outSec", in_sec + 30.0))
-                dur = out_sec - in_sec
-
-                if dur <= 5.0:
-                    continue
-
-                # Generate smart jump-cut speech segments
-                # E.g. segment 1 (0 to 45% of clip), short gap cut, segment 2
-                mid_gap_start = in_sec + (dur * 0.48)
-                mid_gap_end = mid_gap_start + 0.65  # 650ms pause cut out
-                if mid_gap_end < out_sec - 1.0:
-                    segments = [
-                        {"inSec": round(in_sec + 0.1, 2), "outSec": round(mid_gap_start - 0.08, 2)},
-                        {"inSec": round(mid_gap_end + 0.08, 2), "outSec": round(out_sec - 0.2, 2)}
-                    ]
-                else:
-                    segments = [{"inSec": round(in_sec + 0.1, 2), "outSec": round(out_sec - 0.2, 2)}]
-
-                plan.append({"id": c_id, "segments": segments})
-
-            self.send_json_response({"success": True, "plan": plan})
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_arrange(self, payload):
-        """
-        AutoBroll-style Auto-Arrange:
-        Orders takes into narrative flow and identifies duplicate retakes of the same line.
-        """
-        try:
-            clips = payload.get("clips") or []
-            if len(clips) < 2:
-                self.send_json_response({
-                    "order": [c.get("id") for c in clips],
-                    "best": [c.get("id") for c in clips],
-                    "duplicates": []
-                })
-                return
-
-            clip_ids = [c.get("id") for c in clips]
-            # Identify potential duplicate takes
-            duplicates = []
-            if len(clip_ids) >= 3:
-                duplicates = [clip_ids[-1]]  # Suggest dropping the 3rd take if retake
-
-            self.send_json_response({
-                "success": True,
-                "order": clip_ids,
-                "best": [cid for cid in clip_ids if cid not in duplicates],
-                "duplicates": duplicates
-            })
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_broll(self, payload):
-        """
-        AutoBroll-style Auto B-Roll powered by LIVE Pixabay API (Key: 58281434-0199a4345a7540437f190c4d9):
-        Queries real vertical HD footage from Pixabay based on speech context!
-        """
-        try:
-            clips = payload.get("clips") or []
-            query = payload.get("query") or "gaming streamer"
-            
-            # Fetch live stock footage from Pixabay
-            pixabay_results = self.search_pixabay_stock(query=query, media_type="video", per_page=5)
-            
-            brolls = []
-            if pixabay_results:
-                brolls.append({
-                    "id": "broll-1",
-                    "startMs": 1500,
-                    "endMs": 4200,
-                    "kind": "video",
-                    "mode": "inset",
-                    "query": pixabay_results[0].get("tags", query),
-                    "src": pixabay_results[0].get("src", ""),
-                    "thumb": pixabay_results[0].get("thumb", ""),
-                    "source": "pixabay"
-                })
-                if len(pixabay_results) > 1:
-                    brolls.append({
-                        "id": "broll-2",
-                        "startMs": 11000,
-                        "endMs": 14000,
-                        "kind": "video",
-                        "mode": "fullscreen",
-                        "query": pixabay_results[1].get("tags", query),
-                        "src": pixabay_results[1].get("src", ""),
-                        "thumb": pixabay_results[1].get("thumb", ""),
-                        "source": "pixabay"
-                    })
-            else:
-                brolls = []
-            self.send_json_response({"success": True, "broll": brolls})
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def search_pixabay_stock(self, query: str, media_type: str = "video", per_page: int = 6):
-        api_key = load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
-        import urllib.request
-        import urllib.parse
-        
-        clean_query = urllib.parse.quote_plus(query.strip() or "streamer gaming")
-        per_page = max(3, min(20, per_page))
-        
-        if media_type == "video":
-            url = f"https://pixabay.com/api/videos/?key={api_key}&q={clean_query}&per_page={per_page}"
-        else:
-            url = f"https://pixabay.com/api/?key={api_key}&q={clean_query}&image_type=photo&per_page={per_page}"
-            
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                hits = data.get("hits", [])
-                results = []
-                for h in hits:
-                    if media_type == "video":
-                        vids = h.get("videos", {})
-                        chosen = vids.get("small") or vids.get("medium") or vids.get("tiny") or vids.get("large") or {}
-                        video_url = chosen.get("url", "")
-                        thumb = chosen.get("thumbnail") or h.get("userImageURL") or ""
-                        results.append({
-                            "id": f"px-vid-{h.get('id')}",
-                            "src": video_url,
-                            "thumb": thumb,
-                            "kind": "video",
-                            "tags": h.get("tags", ""),
-                            "duration": h.get("duration", 0),
-                            "width": chosen.get("width", 1080),
-                            "height": chosen.get("height", 1920)
-                        })
-                    else:
-                        results.append({
-                            "id": f"px-img-{h.get('id')}",
-                            "src": h.get("webformatURL") or h.get("largeImageURL", ""),
-                            "thumb": h.get("previewURL", ""),
-                            "kind": "image",
-                            "tags": h.get("tags", "")
-                        })
-                return results
-        except Exception as e:
-            sys.stderr.write(f"[Pixabay Search Error] {e}\n")
-            return []
-
-    def handle_api_pixabay_search(self, parsed_url):
-        try:
-            qs = parse_qs(parsed_url.query)
-            q = qs.get("q", ["gaming streamer"])[0]
-            kind = qs.get("kind", ["video"])[0]
-            per_page = int(qs.get("per_page", [6])[0])
-            results = self.search_pixabay_stock(query=q, media_type=kind, per_page=per_page)
-            self.send_json_response({"success": True, "query": q, "results": results})
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_pixabay_search_post(self, payload):
-        try:
-            q = payload.get("query") or payload.get("q") or "gaming streamer"
-            kind = payload.get("kind") or payload.get("media_type") or "video"
-            per_page = int(payload.get("per_page") or 6)
-            results = self.search_pixabay_stock(query=q, media_type=kind, per_page=per_page)
-            self.send_json_response({"success": True, "query": q, "results": results})
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
-
-    def handle_api_suggest_hooks(self, payload):
-        """
-        AI Edit Suggestions & 100/100 Viral Hook Ratings for Whop Clipping:
-        - 5 Proven KosherPlug Whop Archetypes: Reaction, Top Moments (#3 #2 #1), Text on Screen, Gaming, Phonk Beat Sync
-        - Scored Candidates (100/100, 99/100, 98/100) dynamically generated by Gemini from the actual video transcript!
-        """
-        try:
-            target_dur = float(payload.get("target_duration", 30.0))
-            filename = payload.get("filename") or ""
-            clips = payload.get("clips") or []
-            if not filename and clips:
-                c_src = clips[0].get("src", "")
-                filename = Path(c_src).name
-
-            # 5 Proven Whop Archetypes
-            archetypes = [
-                {
-                    "id": "reaction",
-                    "name": "Reaction & Emotion Peak",
-                    "rating": "100/100",
-                    "hook_score": 100,
-                    "retention": "100%",
-                    "desc": "Top reacted video + bottom reactor facecam with instant emotion spike in 1st 1.5s.",
-                    "layout": "split-50-50",
-                    "caption_style": "gold-accent",
-                    "speed": 1.0,
-                    "whop_appeal": "High US/UK Engagement • Top Viral Format"
-                },
-                {
-                    "id": "top-moments",
-                    "name": "Ranked Top Moments (#3, #2, #1)",
-                    "rating": "100/100",
-                    "hook_score": 100,
-                    "retention": "98%",
-                    "desc": "Countdown format forces viewers to watch until #1, maximizing algorithmic retention.",
-                    "layout": "full-main",
-                    "caption_style": "gold-accent",
-                    "speed": 1.0,
-                    "whop_appeal": "Highest Average View Duration (AVD)"
-                },
-                {
-                    "id": "text-on-screen",
-                    "name": "Kinetic Storytime / Word-by-Word",
-                    "rating": "99/100",
-                    "hook_score": 99,
-                    "retention": "97%",
-                    "desc": "Bold kinetic gold accent subtitles placed under chin, zero dead air, high readability.",
-                    "layout": "full-main",
-                    "caption_style": "gold-accent",
-                    "speed": 1.0,
-                    "whop_appeal": "Accessibility & Silent Auto-Play Dominance"
-                },
-                {
-                    "id": "gaming",
-                    "name": "RGB Gaming & Clutch Moment",
-                    "rating": "98/100",
-                    "hook_score": 98,
-                    "retention": "95%",
-                    "desc": "9:16 gameplay framing + neon camera border and hype reaction.",
-                    "layout": "split-60-40",
-                    "caption_style": "gold-accent",
-                    "speed": 1.0,
-                    "whop_appeal": "Twitch Gaming Community Benchmark"
-                },
-                {
-                    "id": "phonk-beat-sync",
-                    "name": "Phonk Velocity Beat Sync",
-                    "rating": "99/100",
-                    "hook_score": 99,
-                    "retention": "99%",
-                    "desc": "Cuts strictly locked to 140 BPM phonk drops with smooth speed ramps.",
-                    "layout": "full-main",
-                    "caption_style": "gold-accent",
-                    "speed": 1.15,
-                    "whop_appeal": "TikTok Sound Trend Velocity"
-                }
-            ]
-
-            candidates = []
-            video_path = None
-            if filename:
-                cand = engine.UPLOADS / filename
-                if cand.exists():
-                    video_path = cand
-
-            if video_path and video_path.exists():
-                analysis = engine.transcribe_video(video_path)
-                transcript_text = ""
-                words = []
-                if isinstance(analysis, list):
-                    for seg in analysis:
-                        if isinstance(seg, dict):
-                            transcript_text += seg.get("text", "") + " "
-                            words.extend(seg.get("words", []))
-                elif isinstance(analysis, dict):
-                    transcript_text = analysis.get("text", "")
-                    words = analysis.get("words", [])
-
-                meta = engine.probe_video_metadata(video_path)
-                v_duration = meta.get("duration", 30.0)
-
-                api_key = load_local_secret("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
-                if api_key and transcript_text.strip():
-                    prompt = (
-                        "You are an elite short-form video editor for the Kai Cenat Whop clipping campaign ($10,000 pool).\n"
-                        "Audience MUST be at least 50% native English speakers (USA, UK, CA, AU, NZ).\n"
-                        "Campaign requirement: Kai Cenat as main focus, positive/funny framing, high viewer retention.\n\n"
-                        f"Video duration: {round(v_duration, 1)} seconds.\n"
-                        f"Transcript:\n\"\"\"{transcript_text.strip()[:3000]}\"\"\"\n\n"
-                        "Identify the TOP 3 viral hook segments (each 15-30 seconds long within the video duration).\n"
-                        "For each candidate, provide:\n"
-                        "- id: 'hook-1', 'hook-2', 'hook-3'\n"
-                        "- title: High-CTR punchy title (max 50 chars)\n"
-                        "- start: float start seconds\n"
-                        "- end: float end seconds\n"
-                        "- duration: float seconds\n"
-                        "- rating: '100/100' or '99/100'\n"
-                        "- score: 100 or 99\n"
-                        "- badge: e.g. '🔥 100/100 VIRAL HOOK'\n"
-                        "- retention_peak: '100%' or '99%'\n"
-                        "- hook_quote: Exact opening words spoken in the first 2 seconds\n"
-                        "- formula: One of 'Reaction Peak (KosherPlug Whop Formula)', 'Curiosity Gap Countdown', 'Kinetic Storytime', 'Phonk Velocity Beat Sync', 'RGB Gaming'\n"
-                        "- why_it_works: 1 sentence explaining why this hooks US/UK viewers\n\n"
-                        "Return ONLY JSON: {\"candidates\": [...]}"
-                    )
-                    req_data = json.dumps({
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}
-                    }).encode("utf-8")
-
-                    models_to_try = ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-exp", "gemini-3.5-flash-lite"]
-                    for m_name in models_to_try:
-                        try:
-                            g_url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={api_key}"
-                            import urllib.request
-                            req = urllib.request.Request(g_url, data=req_data, headers={"Content-Type": "application/json"})
-                            with urllib.request.urlopen(req, timeout=15) as resp:
-                                g_resp = json.loads(resp.read().decode("utf-8"))
-                                g_text = g_resp["candidates"][0]["content"]["parts"][0]["text"]
-                                g_json = json.loads(g_text)
-                                if isinstance(g_json, list):
-                                    candidates = g_json
-                                elif isinstance(g_json, dict):
-                                    candidates = g_json.get("candidates") or []
-                                if candidates:
-                                    break
-                        except Exception as ge:
-                            sys.stderr.write(f"[Gemini Hook Error on {m_name}] {ge}\n")
-
-                if not candidates and words:
-                    first_quote = " ".join([w.get("word", "") for w in words[:6]]).strip()
-                    end_time = min(v_duration, 28.0)
-                    candidates = [
-                        {
-                            "id": "hook-1",
-                            "title": "Kai Cenat Stream Viral Peak",
-                            "start": 0.0,
-                            "end": end_time,
-                            "duration": round(end_time, 1),
-                            "rating": "100/100",
-                            "score": 100,
-                            "badge": "🔥 100/100 VIRAL HOOK",
-                            "retention_peak": "100%",
-                            "hook_quote": first_quote,
-                            "formula": "Reaction Peak (KosherPlug Whop Formula)",
-                            "why_it_works": "⚡ High speech velocity • Zero intro lag • 50%+ US/UK audience appeal"
-                        }
-                    ]
-
-            self.send_json_response({
-                "success": True,
-                "archetypes": archetypes,
-                "candidates": candidates,
-                "whop_rules": {
-                    "focus": "Kai Cenat",
-                    "audience_target": "50%+ USA, UK, CA, AU, NZ",
-                    "hashtag": "#KaiCenat",
-                    "submit_window": "30 minutes from posting"
-                }
-            })
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
 
     def handle_api_repos_status(self):
         try:
@@ -2146,40 +1541,31 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         system_directive = (
             "You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor. "
             "Always address the user as 'Sir' or 'sir'. "
-            "You have DIRECT CONTROL over the user's video editing suite. You can actively manipulate the video timeline, split cuts, delete segments, switch layouts, apply B-rolls, customize captions, and export. "
+            "You have DIRECT CONTROL over the user's OpenChatCut / autobroll video editor suite. You can actively manipulate the video timeline, split cuts, delete segments, trigger 1-click auto-edit, translate speech to US/UK English with Gemini, fetch Pixabay stock B-roll, check Kai Cenat Whop campaign rules, and export 1080p vertical shorts. "
             "The user speaks to you in Tagalog (Filipino / Taglish) or English. You understand Tagalog and Taglish 100% fluently. "
             "CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English (the user specifically requested English spoken voice because it sounds best, but you fully comprehend their Tagalog). "
             "Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech. Never repeat canned phrases. "
             "Whenever the user asks or commands an edit, you MUST return executable actions in your JSON response! "
             "Available Actions: "
+            "- 'auto_edit': { 'action': 'auto_edit' } -> Master 1-Click AI Auto-Edit (9:16 vertical re-frame, jump-cuts silences, translates speech to US/UK English, and auto-plans Pixabay stock B-roll for Kai Cenat Whop challenge) "
+            "- 'translate_captions': { 'action': 'translate_captions', 'lang': 'en' } -> Translates subtitles to natural American/British English for 50%+ US/UK audience compliance "
+            "- 'auto_broll': { 'action': 'auto_broll' } -> Gemini analyzes transcript context and matches high-resolution Pixabay stock B-roll "
+            "- 'search_pixabay': { 'action': 'search_pixabay', 'query': '<search_query>' } -> Queries Pixabay stock video library "
+            "- 'whop_rules_check': { 'action': 'whop_rules_check' } -> Verifies Kai Cenat $10k Whop campaign requirements "
             "- 'split': { 'action': 'split', 'time': <seconds_float or null> } "
             "- 'delete': { 'action': 'delete' } "
-            "- 'set_layout': { 'action': 'set_layout', 'mode': 'split-50-50' | 'split-60-40' | 'full-main' | 'ambient-blur' | 'pip-facecam' } "
-            "- 'set_broll': { 'action': 'set_broll', 'preset': 'minecraft-parkour' | 'subway-surfers' | 'satisfying-slime' | 'neon-runner' } "
-            "- 'set_caption_style': { 'action': 'set_caption_style', 'style': 'hormozi-pop' | 'mrbeast-bold' | 'neon-cyber' | 'minimal-sub' } "
-            "- 'set_banner': { 'action': 'set_banner', 'text': '<banner_title>' } "
+            "- 'undo': { 'action': 'undo' } "
+            "- 'redo': { 'action': 'redo' } "
             "- 'seek': { 'action': 'seek', 'time': <seconds_float> } "
             "- 'play': { 'action': 'play' } "
             "- 'pause': { 'action': 'pause' } "
-            "- 'insert_image': { 'action': 'insert_image' } "
-            "- 'add_text': { 'action': 'add_text', 'text': '<text_overlay_content>', 'preset': 'heading' | 'neon-title' | 'cta-pill' } "
-            "- 'set_watermark': { 'action': 'set_watermark', 'text': '<handle_text>', 'enabled': <true|false> } "
+            "- 'aspect_ratio': { 'action': 'aspect_ratio', 'ratio': '9:16' | '16:9' | '1:1' } "
             "- 'freeze_frame': { 'action': 'freeze_frame', 'duration': 2.0 } "
             "- 'jump_cuts': { 'action': 'jump_cuts' } "
-            "- 'aspect_ratio': { 'action': 'aspect_ratio', 'ratio': '9:16' | '16:9' | '1:1' } "
-            "- 'highlight_zoom': { 'action': 'highlight_zoom', 'mode': 'keyword-punch' | 'ken-burns' | 'add' | 'off' } "
-            "- 'auto_curate': { 'action': 'auto_curate' } "
-            "- 'translit': { 'action': 'translit', 'mode': 'taglish' | 'tl' | 'phonetic' | 'hinglish' | 'es' | 'romaji' | 'original' } "
-            "- 'add_sfx': { 'action': 'add_sfx', 'sfx': 'whoosh' | 'pop' | 'cash' | 'bass-drop' | 'shutter' | 'glitch' | 'riser' | 'ding' | 'auto-sync' } "
-            "- 'face_track': { 'action': 'face_track', 'enabled': true } "
-            "- 'hook_title': { 'action': 'hook_title', 'style': 'viral-card' | 'hormozi-tape' | 'breaking-news' | 'neon-glass' | 'minimal-white' | 'kinetic-slam', 'generate': <true|false> } "
-            "- 'add_vfx': { 'action': 'add_vfx', 'vfx': 'speedLines' | 'impactFlash' | 'neonGlow' | 'spotlight' | 'rgbSplit' | 'vhs' } "
-            "- 'auto_broll': { 'action': 'auto_broll', 'topic': 'auto' | 'money-counter' | 'bull-chart' | 'neural-ai' | 'countdown-timer' | 'code-terminal' | 'global-reach' } "
-            "- 'undo': { 'action': 'undo' } "
-            "- 'redo': { 'action': 'redo' } "
-            "- 'auto_edit': { 'action': 'auto_edit' } "
-            "- 'set_clipping_type': { 'action': 'set_clipping_type', 'archetype': 'reaction' | 'gaming' | 'top-moments' | 'text-on-screen' | 'music-edit', 'autoApply': true } "
-            "- 'client_prompt_edit': { 'action': 'client_prompt_edit', 'prompt': '<client_brief_text>' } "
+            "- 'add_text': { 'action': 'add_text', 'text': '<text_overlay_content>', 'preset': 'heading' | 'neon-title' | 'cta-pill' } "
+            "- 'set_watermark': { 'action': 'set_watermark', 'text': '<handle_text>', 'enabled': <true|false> } "
+            "- 'post_caption': { 'action': 'post_caption', 'campaign': 'kai-cenat', 'platform': 'tiktok' | 'shorts' | 'reels' } "
+            "- 'post_timer': { 'action': 'post_timer' } "
             "- 'export': { 'action': 'export' } "
             "OUTPUT FORMAT: You MUST return a single JSON object: "
             "{\"reply\": \"Your British spoken response here, sir.\", \"actions\": [ ...actions if any, else [] ]} "
@@ -2375,7 +1761,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         try:
             temp_f.write_text(json.dumps(req_body), encoding="utf-8")
             file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
-            for model_name in ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-exp", "gemini-3.5-flash-lite"]:
+            for model_name in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 proc = subprocess.run(
                     ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
@@ -3018,6 +2404,242 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "created_items": created_items,
             "queue": existing_queue
         })
+
+    # ---------------- PIXABAY & REAL STOCK B-ROLL (autobroll) ----------------
+    def handle_api_pixabay_search(self, query: str = "car", per_page: int = 12):
+        pixabay_key = load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
+        clean_q = (query or "viral reaction").strip()
+        encoded_q = urllib.parse.quote(clean_q)
+        url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page={min(max(per_page, 4), 24)}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                hits = data.get("hits", [])
+                results = []
+                for h in hits:
+                    videos = h.get("videos", {})
+                    v_obj = videos.get("medium") or videos.get("large") or videos.get("small") or videos.get("tiny") or {}
+                    pic_id = h.get("picture_id")
+                    thumb = f"https://i.vimeocdn.com/video/{pic_id}_640x360.jpg" if pic_id else ""
+                    results.append({
+                        "id": h.get("id"),
+                        "tags": h.get("tags", ""),
+                        "duration": h.get("duration", 0),
+                        "width": v_obj.get("width", 1920),
+                        "height": v_obj.get("height", 1080),
+                        "url": v_obj.get("url", ""),
+                        "thumbnail": thumb,
+                        "views": h.get("views", 0),
+                        "likes": h.get("likes", 0),
+                        "user": h.get("user", "")
+                    })
+                self.send_json_response({
+                    "success": True,
+                    "query": clean_q,
+                    "total": data.get("totalHits", len(results)),
+                    "hits": results
+                })
+        except Exception as e:
+            sys.stderr.write(f"[Pixabay Search Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e), "hits": []}, status=500)
+
+    def handle_api_pixabay_download(self, payload: dict):
+        url = payload.get("url", "").strip()
+        clip_id = str(payload.get("id") or int(time.time()))
+        if not url:
+            self.send_json_response({"success": False, "error": "No video URL provided"}, status=400)
+            return
+
+        dest_dir = engine.UPLOADS
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        local_filename = f"pixabay_{clip_id}.mp4"
+        local_file = dest_dir / local_filename
+
+        try:
+            if not local_file.exists() or local_file.stat().st_size < 1000:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as resp, open(local_file, "wb") as f:
+                    f.write(resp.read())
+
+            self.send_json_response({
+                "success": True,
+                "local_path": f"/uploads/{local_filename}",
+                "filename": local_filename,
+                "size_bytes": local_file.stat().st_size
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Pixabay Download Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e)}, status=500)
+
+    def handle_api_auto_broll_gemini(self, payload: dict):
+        """
+        autobroll algorithm: Reads transcript, uses Gemini to select 2-4 key moments and stock queries,
+        then calls Pixabay to retrieve matching stock videos.
+        """
+        words = payload.get("words", [])
+        if not words or not isinstance(words, list):
+            self.send_json_response({"error": "No words provided"}, status=400)
+            return
+
+        transcript_text = " ".join([str(w.get("word", "")).strip() for w in words[:200]])
+        total_duration = max(float(w.get("end", 0)) for w in words) if words else 30.0
+
+        pixabay_key = load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
+        gemini_key = load_local_secret("GEMINI_API_KEY")
+
+        cues_plan = []
+        if gemini_key:
+            prompt = (
+                "You are an expert short-form video editor for TikTok / YouTube Shorts.\n"
+                "Given this video transcript, select 2 to 4 visual moments where adding stock B-roll cutaway footage "
+                "will maximize audience retention.\n"
+                f"Transcript: \"{transcript_text[:1200]}\"\n\n"
+                "Output ONLY a raw JSON array of objects. Example:\n"
+                '[\n  {"query": "sports car drift", "start_sec": 4.0, "duration": 2.5, "mode": "cutaway"},\n'
+                '  {"query": "money rain cash", "start_sec": 14.0, "duration": 2.0, "mode": "cutaway"}\n]\n'
+                "Do NOT wrap in markdown quotes. Just return the JSON array."
+            )
+            raw = query_gemini_api(prompt, gemini_key, timeout=12)
+            if raw:
+                try:
+                    clean = raw
+                    if "```" in clean:
+                        clean = clean.split("```")[1]
+                        if clean.startswith("json"):
+                            clean = clean[4:]
+                    parsed = json.loads(clean.strip())
+                    if isinstance(parsed, list):
+                        cues_plan = parsed
+                except Exception as e:
+                    sys.stderr.write(f"[Auto Broll Gemini parse notice] {e}\n")
+
+        # Fallback if Gemini returned nothing or empty
+        if not cues_plan:
+            cues_plan = [
+                {"query": "hypercar drift", "start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "mode": "cutaway"},
+                {"query": "crowd reaction cheering", "start_sec": min(12.0, total_duration * 0.5), "duration": 2.0, "mode": "cutaway"}
+            ]
+
+        # Sourcing videos from Pixabay for each cue
+        final_brolls = []
+        for idx, cue in enumerate(cues_plan[:4]):
+            q = str(cue.get("query", "action")).strip()
+            st = float(cue.get("start_sec", idx * 6.0))
+            dur = float(cue.get("duration", 2.5))
+            encoded_q = urllib.parse.quote(q)
+            p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={encoded_q}&per_page=3"
+            try:
+                req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    d = json.loads(r.read().decode("utf-8"))
+                    hits = d.get("hits", [])
+                    if hits:
+                        hit = hits[0]
+                        v_obj = hit.get("videos", {}).get("medium") or hit.get("videos", {}).get("large") or {}
+                        pic_id = hit.get("picture_id")
+                        thumb = f"https://i.vimeocdn.com/video/{pic_id}_640x360.jpg" if pic_id else ""
+                        final_brolls.append({
+                            "id": f"broll_{hit.get('id')}_{idx}",
+                            "pixabay_id": hit.get("id"),
+                            "query": q,
+                            "start": st,
+                            "duration": dur,
+                            "mode": cue.get("mode", "cutaway"),
+                            "url": v_obj.get("url", ""),
+                            "thumbnail": thumb,
+                            "tags": hit.get("tags", "")
+                        })
+            except Exception as e:
+                sys.stderr.write(f"[Pixabay fetch for cue '{q}' notice] {e}\n")
+
+        self.send_json_response({
+            "success": True,
+            "broll_cues": final_brolls,
+            "count": len(final_brolls)
+        })
+
+    def handle_api_translate_captions(self, payload: dict):
+        """
+        Translates subtitle transcript words to natural US/UK English via Gemini.
+        Preserves word start and end timestamps so karaoke timing remains intact!
+        """
+        words = payload.get("words", [])
+        target_lang = payload.get("target_lang", "en").lower()
+        gemini_key = load_local_secret("GEMINI_API_KEY")
+
+        if not words or not isinstance(words, list):
+            self.send_json_response({"error": "No words provided"}, status=400)
+            return
+
+        if not gemini_key:
+            self.send_json_response({"success": False, "error": "No Gemini API key configured"}, status=400)
+            return
+
+        src_tokens = [str(w.get("word", "")).strip() for w in words]
+        lang_name = "natural, punchy US/UK English suitable for viral TikTok and YouTube Shorts" if target_lang in ("en", "us", "uk") else target_lang
+
+        prompt = (
+            f"You are an elite bilingual video translator and subtitler.\n"
+            f"Translate this list of {len(src_tokens)} spoken subtitle tokens into {lang_name}.\n"
+            "CRITICAL: Return ONLY a raw JSON array of strings of the EXACT SAME LENGTH "
+            f"({len(src_tokens)} items), where each element corresponds directly to the translated word.\n"
+            "Keep slang natural, energetic, and engaging for a native English audience.\n"
+            f"Input tokens: {json.dumps(src_tokens)}\n"
+            "Output: JSON array of strings only."
+        )
+
+        raw = query_gemini_api(prompt, gemini_key, timeout=15)
+        out_words = []
+        if raw:
+            try:
+                clean = raw
+                if "```" in clean:
+                    clean = clean.split("```")[1]
+                    if clean.startswith("json"):
+                        clean = clean[4:]
+                arr = json.loads(clean.strip())
+                if isinstance(arr, list) and len(arr) == len(words):
+                    for orig, trans in zip(words, arr):
+                        item = dict(orig)
+                        item["origWord"] = orig.get("origWord") or orig.get("word", "")
+                        item["word"] = str(trans)
+                        out_words.append(item)
+            except Exception as e:
+                sys.stderr.write(f"[Translate Captions Parse Error] {e}\n")
+
+        # If 1-to-1 matching had different token length or failed, fallback to sentence-level timing distribution
+        if not out_words and raw:
+            try:
+                clean = raw
+                if "```" in clean:
+                    clean = clean.split("```")[1]
+                    if clean.startswith("json"):
+                        clean = clean[4:]
+                arr = json.loads(clean.strip())
+                if isinstance(arr, list) and arr:
+                    total_dur = float(words[-1].get("end", 30)) - float(words[0].get("start", 0))
+                    start_base = float(words[0].get("start", 0))
+                    per_word = max(0.2, total_dur / len(arr))
+                    for i, w_str in enumerate(arr):
+                        out_words.append({
+                            "word": str(w_str),
+                            "start": round(start_base + i * per_word, 2),
+                            "end": round(start_base + (i + 1) * per_word, 2)
+                        })
+            except Exception:
+                pass
+
+        if out_words:
+            self.send_json_response({
+                "success": True,
+                "target_lang": target_lang,
+                "words": out_words
+            })
+        else:
+            self.send_json_response({"success": False, "error": "Translation could not be formatted properly"}, status=500)
 
 
 def load_upload_schedule():

@@ -21,9 +21,12 @@ hf_cache/
 uploads/
 outputs/
 temp/
+assets/broll/
 
 # External cloned reference repos (they have their own upstream repos)
 references/
+clones/
+waveforms/
 
 # Large Video Media files & Partial Downloads
 *.mp4

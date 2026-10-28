@@ -1,737 +1,822 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" data-cc-skin="graphite">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoBroll — AI Short-Form Video Editor Studio</title>
+  <title>OpenChatCut × WhopClipper — AI Video Editor & Stock B-Roll Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&family=Anton&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="bg-obsidian text-on-surface">
-  <!-- System Pulse Edge Indicator -->
-  <div id="systemPulseBar" class="system-pulse-bar" aria-hidden="true"></div>
-
-  <!-- Hidden HTML5 Media Pool & File Inputs -->
+<body>
+  <!-- Hidden Background Hardware Media Pipeline -->
   <div class="hidden-media-pool" aria-hidden="true">
     <video id="mainVideoEl" playsinline preload="auto" crossorigin="anonymous"></video>
     <video id="brollVideoEl" playsinline loop muted preload="auto" crossorigin="anonymous"></video>
-    <audio id="musicAudioEl" preload="auto"></audio>
-    <input type="file" id="mainVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" multiple />
-    <input type="file" id="brollVideoFileInput" accept="image/*,video/*" multiple />
-    <input type="file" id="musicFileInput" accept="audio/*" />
-    <input type="file" id="importProjectFileInput" accept=".json,application/json" />
+    <input type="file" id="mainVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
+    <input type="file" id="brollVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
+    <input type="file" id="importProjectFileInput" accept="application/json,.whopclip.json" />
+    <input type="file" id="visualOverlayFileInput" accept="image/*,video/*" />
   </div>
 
   <!-- =====================================================================
-       AUTOBROLL TOP NAVIGATION BAR
+       TOPBAR: OPENCHATCUT GRAPHITE PRO HEADER
        ===================================================================== -->
-  <header class="autobroll-header" role="banner">
-    <div class="header-left">
-      <button type="button" id="backToProjectsBtn" class="header-brand-btn" title="Saved Projects Library" aria-label="Saved Projects">
-        <span class="material-symbols-outlined icon-brand">arrow_back</span>
-        <span class="brand-title">AutoBroll</span>
-      </button>
-      <div class="header-divider" aria-hidden="true"></div>
-      <input
-        type="text"
-        id="projectNameInput"
-        class="project-name-input"
-        value="Viral Shorts Studio — Master"
-        title="Click to rename project"
-        aria-label="Project name"
-      />
-      <div class="history-controls">
-        <button type="button" id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-          <span class="material-symbols-outlined">undo</span>
+  <header class="opencut-navbar">
+    <div class="nav-left">
+      <div class="nav-logo" title="OpenChatCut × WhopClipper Studio">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#dc7036" stroke="#dc7036"/>
+          <path d="M2 17l10 5 10-5" stroke="#e6ac42"/>
+          <path d="M2 12l10 5 10-5" stroke="#3b82f6"/>
+        </svg>
+      </div>
+
+      <div class="project-title-wrap">
+        <input
+          type="text"
+          id="projectNameInput"
+          class="project-name-input"
+          value="Kai Cenat Reach Clip — 9:16 Master"
+          title="Click to rename project"
+        />
+        <span id="projectAspectBadge" class="project-badge">9:16 VERTICAL</span>
+      </div>
+
+      <div class="nav-history-group">
+        <button type="button" id="undoBtn" class="nav-btn nav-icon-btn" title="Undo (Ctrl+Z)" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+          </svg>
         </button>
-        <button type="button" id="redoBtn" class="icon-btn" title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo" disabled>
-          <span class="material-symbols-outlined">redo</span>
+        <button type="button" id="redoBtn" class="nav-btn nav-icon-btn" title="Redo (Ctrl+Y)" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>
+          </svg>
         </button>
       </div>
+
+      <button type="button" id="saveClipBtn" class="nav-btn nav-btn-ghost" title="Save Project (Ctrl+S)">
+        <span>💾 Save</span>
+      </button>
+
+      <button type="button" id="openSavedVaultBtn" class="nav-btn nav-btn-ghost" title="Open Saved Clips Vault">
+        <span>📁 Vault (<span id="savedClipsCountBadge">0</span>)</span>
+      </button>
     </div>
 
-    <!-- Center Action Pill (Format & Whop Campaign) -->
-    <div class="header-center">
-      <div class="campaign-pill" title="Format: 9:16 Vertical for TikTok, Reels, Shorts">
-        <span class="pulse-indicator"></span>
-        <span class="campaign-label">9:16 VERTICAL • US/UK AUDIENCE</span>
+    <!-- Center Format / Auto-Edit CTA -->
+    <div class="nav-center">
+      <div class="campaign-pill" title="Whop Campaign Preset">
+        <span class="pill-dot"></span>
+        <select id="campaignSelect" class="campaign-select" aria-label="Format Selector">
+          <option value="tiktok-viral" data-cpm="2.50" data-handle="@KaiCenatClips • 9:16" selected>Kai Cenat Whop UGC (9:16)</option>
+          <option value="youtube-shorts" data-cpm="2.00" data-handle="@KaiCenatDaily • Shorts">YouTube Shorts (9:16)</option>
+          <option value="instagram-reels" data-cpm="2.20" data-handle="@KaiCenatMoments • Reels">Instagram Reels (9:16)</option>
+        </select>
       </div>
+
+      <button id="oneClickAutoEditBtn" class="btn-opencut-auto" title="1-Click AI Auto-Edit: Highlight Selection, Pauses Cut, US/UK Translation & Pixabay Stock B-Roll">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+        <span>⚡ 1-Click AI Auto-Edit</span>
+      </button>
     </div>
 
-    <!-- Right AI Action Toolbar & Export -->
-    <div class="header-right">
-      <!-- 4-Step AutoBroll AI Core Actions -->
-      <button
-        type="button"
-        id="btnAutoArrange"
-        class="ab-action-btn"
-        title="Auto-Arrange: AI transcribes all raw takes, orders into narrative flow, and detects retakes"
-      >
-        <span class="material-symbols-outlined btn-icon" id="arrangeIcon">sort</span>
-        <span id="arrangeBtnLabel">Auto-arrange</span>
+    <!-- Right: J.A.R.V.I.S. + AI Keys + Export -->
+    <div class="nav-right">
+      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="Toggle J.A.R.V.I.S. AI Co-Editor (Ctrl+J)">
+        <div class="jarvis-reactor" id="jarvisReactor">
+          <div class="reactor-core"></div>
+          <div class="reactor-ring ring-1"></div>
+          <div class="reactor-ring ring-2"></div>
+        </div>
+        <span class="jarvis-label">J.A.R.V.I.S.</span>
       </button>
 
-      <button
-        type="button"
-        id="btnAutoCut"
-        class="ab-action-btn"
-        title="Autocut: Cuts silence at ends and long pauses inside every clip with smart jump-cuts"
-      >
-        <span class="material-symbols-outlined btn-icon" id="cutIcon">cut</span>
-        <span id="cutBtnLabel">Autocut</span>
+      <button type="button" id="openAiKeyModalBtn" class="nav-btn nav-btn-ai-key" title="Google Gemini & Pixabay API Keys">
+        <span class="ai-key-icon">🔑</span>
+        <span id="aiKeyStatusText">Keys</span>
+        <span id="aiKeyStatusDot" class="ai-key-dot" style="background:#10b981;"></span>
       </button>
 
-      <button
-        type="button"
-        id="btnDraft"
-        class="ab-btn-ghost"
-        title="Fast draft preview export"
-      >
-        Draft
+      <button id="openExportModalBtn" class="btn-opencut-export" title="Render & Export Video (.MP4 / .WEBM)">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Export</span>
       </button>
 
-      <button
-        type="button"
-        id="btnExportMp4"
-        class="ab-btn-primary"
-        title="Export full MP4 video with burned-in gold accent captions & B-roll"
-      >
-        Export mp4
+      <button type="button" id="themeToggleBtn" class="nav-btn nav-icon-btn" title="Toggle Theme">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
       </button>
-
-      <!-- Auxiliary Tools Pills -->
-      <div class="header-aux-group">
-        <button type="button" id="openPostCaptionBtn" class="aux-pill-btn" title="Generate US/UK Kai Cenat Post Caption & Hashtags (#KaiCenat)">
-          👑 US/UK Caption
-        </button>
-        <button type="button" id="openScheduleQueueBtn" class="aux-pill-btn" title="Auto-Upload Queue & 30-min Whop Submit Timer">
-          ⏱ Schedule (<span id="scheduleQueueCountBadge">0</span>)
-        </button>
-        <button type="button" id="openAiSettingsBtn" class="icon-btn" title="AI Provider & API Key Settings" aria-label="AI Settings">
-          <span class="material-symbols-outlined">settings</span>
-        </button>
-      </div>
     </div>
   </header>
 
-  <!-- Auto-Arrange Duplicate Retakes Review Banner (Non-destructive until confirmed) -->
-  <div id="dupSuggestionBanner" class="dup-suggestion-banner hidden" role="region" aria-label="Duplicate takes suggestion">
-    <div class="dup-banner-content">
-      <span class="material-symbols-outlined dup-banner-icon">auto_awesome</span>
-      <span>
-        AI grouped your takes — remove <strong id="dupCount">0</strong> duplicate take(s), keeping the best delivery of each? (Ctrl+Z undoes)
-      </span>
+  <!-- =====================================================================
+       STATUS TELEMETRY BAR: WHOP RULES & AUDIENCE CHECK
+       ===================================================================== -->
+  <div class="repo-engines-bar" id="repoEnginesBar" title="Active Campaign & Editing Pipeline">
+    <div class="repo-bar-label">
+      <span class="pulse-engine-dot"></span>
+      <span class="repo-bar-title">WHOP CAMPAIGN:</span>
     </div>
-    <div class="dup-banner-actions">
-      <button type="button" id="keepAllTakesBtn" class="dup-btn-ghost">Keep all (Esc)</button>
-      <button type="button" id="removeDuplicatesBtn" class="dup-btn-confirm">Remove duplicates</button>
+    <div class="repo-badges-container" id="repoBadgesContainer">
+      <div class="repo-badge active" title="Required hashtag for payouts">
+        <span class="badge-icon">#️⃣</span>
+        <span class="badge-name">#KaiCenat</span>
+        <span class="badge-tag">REQUIRED</span>
+      </div>
+      <div class="repo-badge active" title="Must be 50%+ US/UK/CA/AU/NZ">
+        <span class="badge-icon">🌐</span>
+        <span class="badge-name">US/UK 50%+ Native</span>
+        <span class="badge-tag">VERIFIED</span>
+      </div>
+      <div class="repo-badge active" title="Real Stock Media Engine">
+        <span class="badge-icon">🎬</span>
+        <span class="badge-name">Pixabay Live</span>
+        <span class="badge-tag">API CONNECTED</span>
+      </div>
+      <div class="repo-badge active" title="AI Transcription & Speech Translation">
+        <span class="badge-icon">🧠</span>
+        <span class="badge-name">Gemini 3.5 AI</span>
+        <span class="badge-tag">READY</span>
+      </div>
+    </div>
+    <div class="repo-pipeline-status" id="repoPipelineStatus">
+      <span class="status-check">🟢</span>
+      <span class="status-text">CAMPAIGN RULES COMPLIANT</span>
     </div>
   </div>
 
   <!-- =====================================================================
-       MAIN WORKSPACE (3-COLUMN AUTOBROLL STUDIO)
+       MAIN 3-PANEL WORKSPACE (OPENCHATCUT ARCHITECTURE)
        ===================================================================== -->
-  <main class="autobroll-workspace">
-    <!-- -----------------------------------------------------------------
-         LEFT PANEL: ASSETS SIDEBAR (Video Clips, Audio Music, B-Roll Assets)
-         ----------------------------------------------------------------- -->
-    <aside class="assets-sidebar" id="assetsSidebar" aria-label="Assets">
-      <div class="sidebar-header">
-        <span class="sidebar-title">ASSETS</span>
-        <button type="button" id="addClipFileBtn" class="icon-btn-accent" title="Upload Video Clips" aria-label="Add clips">
-          <span class="material-symbols-outlined">add_circle</span>
+  <main class="opencut-workspace">
+    <!-- LEFT PANEL: ICON RAIL + DRAWER TABS -->
+    <div class="opencut-left-panel">
+      <nav class="opencut-icon-rail" aria-label="Tool Navigation">
+        <button type="button" class="rail-btn active" data-rail-tab="assets" title="Media & Ingest (Upload & Stream Links)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span class="rail-label">Media</span>
         </button>
-      </div>
 
-      <!-- Import Drag-and-Drop Area -->
-      <div id="importDropZone" class="import-drop-zone">
-        <span class="material-symbols-outlined drop-icon">cloud_upload</span>
-        <span class="drop-text">Drop video clips here</span>
-        <span class="drop-sub">MP4, MOV, WebM</span>
-      </div>
-
-      <!-- Quick URL Ingest Row -->
-      <div class="url-ingest-box">
-        <div class="url-input-wrap">
-          <input
-            type="text"
-            id="streamUrlInput"
-            class="ab-input"
-            placeholder="Paste YouTube, Twitch, or MP4..."
-            aria-label="Stream URL"
-          />
-          <button type="button" id="extractUrlBtn" class="ab-btn-accent" title="Extract video clip">
-            Extract
-          </button>
-        </div>
-      </div>
-
-      <!-- 💡 AI Edit Suggestions & 100/100 Hooks Quick Access -->
-      <div style="padding: 0 12px 10px;">
-        <button
-          type="button"
-          id="sidebarOpenSuggestionsBtn"
-          class="ab-primary-cta"
-          style="width:100%;background:linear-gradient(135deg,rgba(255,176,32,0.18),rgba(57,217,138,0.12));border:1px solid rgba(255,176,32,0.4);color:#FFB020;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;"
-          title="View 100/100 Whop Hook Suggestions & 5 Edit Archetypes"
-        >
-          <span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>
-          <span>⚡ 100/100 Hooks &amp; Archetypes</span>
+        <button type="button" class="rail-btn" data-rail-tab="broll" title="Pixabay Live Stock B-Roll Studio">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+            <line x1="7" y1="2" x2="7" y2="22"/>
+            <line x1="17" y1="2" x2="17" y2="22"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <line x1="2" y1="7" x2="7" y2="7"/>
+            <line x1="2" y1="17" x2="7" y2="17"/>
+            <line x1="17" y1="17" x2="22" y2="17"/>
+            <line x1="17" y1="7" x2="22" y2="7"/>
+          </svg>
+          <span class="rail-label">B-Roll</span>
         </button>
-      </div>
 
-      <!-- Scrollable Assets List -->
-      <div class="assets-scroll-view">
-        <!-- 1. Video Clips Pool -->
-        <section class="asset-section" aria-labelledby="headingClips">
-          <div class="section-title-row">
-            <h3 id="headingClips" class="section-heading">VIDEO CLIPS (<span id="clipsCountBadge">1</span>)</h3>
-            <button type="button" id="browseClipsBtn" class="text-link-btn">+ Browse</button>
-          </div>
-          <div id="clipsListContainer" class="clips-grid">
-            <!-- Dynamic Clips Rendered Here -->
-          </div>
-        </section>
+        <button type="button" class="rail-btn" data-rail-tab="captions" title="Subtitles & Gemini AI Translation (US/UK 50%+)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <path d="M7 15h4M7 11h2M13 11h4M15 15h2"/>
+          </svg>
+          <span class="rail-label">Captions</span>
+        </button>
 
-        <!-- 2. Audio & Music Bed Track -->
-        <section class="asset-section" aria-labelledby="headingAudio">
-          <div class="section-title-row">
-            <h3 id="headingAudio" class="section-heading">AUDIO &amp; MUSIC</h3>
-            <button type="button" id="browseMusicBtn" class="text-link-btn">+ Add Music</button>
+        <button type="button" class="rail-btn" data-rail-tab="schedule" title="Whop Kai Cenat Rules & Auto-Upload Scheduler">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <polyline points="9 16 12 19 16 14"/>
+          </svg>
+          <span class="rail-label">Whop</span>
+        </button>
+
+        <button type="button" class="rail-btn" data-rail-tab="settings" title="Project & AI Key Settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span class="rail-label">Settings</span>
+        </button>
+      </nav>
+
+      <!-- Active Tool Drawer Panel -->
+      <div class="opencut-drawer">
+        <!-- ==========================================
+             DRAWER TAB 1: MEDIA & INGEST (ZERO DEMO DATA)
+             ========================================== -->
+        <div id="drawerTab-assets" class="drawer-content active">
+          <!-- Real File Upload Dropzone -->
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>UPLOAD STREAM / VIDEO</span></div>
+            <div id="videoDropzone" class="upload-dropzone" role="button" tabindex="0" title="Click or drop real video file">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span id="dropzoneMainLabel" class="dropzone-primary">Upload Video (.MP4 / .MOV / .WEBM)</span>
+              <span id="dropzoneSubLabel" class="dropzone-secondary">Direct hardware stream — zero lag</span>
+            </div>
           </div>
-          <div id="musicAssetCard" class="music-asset-card">
-            <div class="music-info-row">
-              <span class="material-symbols-outlined music-icon">music_note</span>
-              <div class="music-details">
-                <span id="musicTitleLabel" class="music-title">No music loaded</span>
-                <span id="musicSubLabel" class="music-sub">Auto-ducking under voice enabled</span>
-              </div>
-              <button type="button" id="toggleMusicMuteBtn" class="icon-btn-sm" title="Mute/Unmute Music">
-                <span class="material-symbols-outlined" id="musicMuteIcon">volume_up</span>
+
+          <!-- YouTube / Twitch URL Ingest -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>PASTE STREAM LINK:</span>
+              <span id="activeSourceBadge" class="status-pill status-emerald">1080p REALTIME</span>
+            </div>
+            <div class="url-ingest-row">
+              <input
+                type="text"
+                id="streamUrlInput"
+                class="studio-input url-input"
+                placeholder="Paste YouTube, Twitch or Shorts link..."
+                value=""
+                aria-label="Stream URL"
+              />
+              <button id="extractUrlBtn" class="btn-mini btn-accent" title="Analyze link & extract clip">
+                Extract
               </button>
             </div>
-            <div class="music-sliders-box">
-              <div class="slider-row">
-                <span class="slider-label">Volume</span>
-                <span id="musicVolDisplay" class="mono-text">80%</span>
-              </div>
-              <input type="range" id="musicVolumeSlider" min="0" max="150" step="5" value="80" class="ab-slider" />
-              <div class="slider-row" style="margin-top:6px;">
-                <span class="slider-label">Auto-Duck Voice</span>
-                <span id="musicDuckDisplay" class="mono-text">−14 dB</span>
-              </div>
-              <input type="range" id="musicDuckSlider" min="0" max="30" step="2" value="14" class="ab-slider" />
-            </div>
-          </div>
-        </section>
-
-        <!-- 3. B-Roll Footage Pool (User uploads + Stock assets) -->
-        <section class="asset-section" aria-labelledby="headingBrollAssets">
-          <div class="section-title-row">
-            <h3 id="headingBrollAssets" class="section-heading">B-ROLL POOL</h3>
-            <button type="button" id="addBrollAssetBtn" class="text-link-btn">+ Add Visual</button>
-          </div>
-          <div id="brollAssetsGrid" class="broll-assets-grid">
-            <!-- Dynamic B-Roll Assets Rendered Here -->
-          </div>
-        </section>
-      </div>
-    </aside>
-
-    <!-- -----------------------------------------------------------------
-         CENTER PANEL: PREVIEW PLAYER & TRANSPORT STAGE
-         ----------------------------------------------------------------- -->
-    <section class="preview-stage" id="previewStage" aria-label="Preview">
-      <div class="stage-viewport-wrapper" id="stageViewportWrapper">
-        <!-- 9:16 Phone Aspect Ratio Frame -->
-        <div class="preview-canvas-box" id="previewCanvasBox">
-          <canvas id="mainCanvas" width="1080" height="1920"></canvas>
-
-          <!-- Interactive Hit-Test Overlay (Drag captions / Pan / Corner resize) -->
-          <div id="stageOverlay" class="stage-overlay"></div>
-
-          <!-- Selection Bounding Box & Corner Resize Handle -->
-          <div id="selectionBox" class="selection-box hidden">
-            <div id="selectionResizeHandle" class="resize-handle" title="Drag to resize"></div>
-          </div>
-
-          <!-- Clip Keyframe (Diamond) Button on Selected Clip -->
-          <button
-            type="button"
-            id="clipKeyframeBtn"
-            class="keyframe-diamond-btn hidden"
-            title="Add or remove zoom/pan keyframe at playhead"
-          >
-            <span class="material-symbols-outlined keyframe-icon">diamond</span>
-            <span>Keyframe</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Transport Bar -->
-      <div class="transport-bar" role="group" aria-label="Transport">
-        <div class="transport-timecode">
-          <span id="currentPlayheadTime" class="timecode-mono">00:00</span>
-          <span class="timecode-sep">/</span>
-          <span id="totalDurationTime" class="timecode-mono">00:30</span>
-        </div>
-
-        <div class="transport-controls">
-          <button type="button" id="skipPrevClipBtn" class="transport-btn" title="Previous Clip (Home)" aria-label="Previous clip">
-            <span class="material-symbols-outlined">skip_previous</span>
-          </button>
-
-          <button type="button" id="playPauseBtn" class="transport-play-btn" title="Play / Pause (Space)" aria-label="Play">
-            <span class="material-symbols-outlined play-icon" id="playPauseIcon">play_arrow</span>
-          </button>
-
-          <button type="button" id="skipNextClipBtn" class="transport-btn" title="Next Clip (End)" aria-label="Next clip">
-            <span class="material-symbols-outlined">skip_next</span>
-          </button>
-        </div>
-
-        <div class="transport-actions">
-          <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen Preview" aria-label="Fullscreen">
-            <span class="material-symbols-outlined">fullscreen</span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- -----------------------------------------------------------------
-         RIGHT PANEL: INSPECTOR (Captions / B-roll / Styles / Settings)
-         ----------------------------------------------------------------- -->
-    <aside class="inspector-panel" id="inspectorSidebar" aria-label="Inspector">
-      <div class="inspector-header">
-        <div class="inspector-title-wrap">
-          <h2 class="inspector-title">Inspector</h2>
-          <span class="inspector-subtitle">Properties &amp; Polish</span>
-        </div>
-
-        <!-- 5 Clean Inspector Tabs -->
-        <div class="inspector-tabs" role="tablist">
-          <button type="button" class="tab-btn active" id="tabBtnCaptions" role="tab" aria-selected="true" data-tab="captions">Captions</button>
-          <button type="button" class="tab-btn" id="tabBtnBroll" role="tab" aria-selected="false" data-tab="broll">B-roll</button>
-          <button type="button" class="tab-btn" id="tabBtnSuggestions" role="tab" aria-selected="false" data-tab="suggestions">⚡ Suggestions</button>
-          <button type="button" class="tab-btn" id="tabBtnStyles" role="tab" aria-selected="false" data-tab="styles">Styles</button>
-          <button type="button" class="tab-btn" id="tabBtnSettings" role="tab" aria-selected="false" data-tab="settings">Settings</button>
-        </div>
-      </div>
-
-      <div class="inspector-content">
-        <!-- =============================================================
-             TAB 1: CAPTIONS & CLIP PROPERTIES
-             ============================================================= -->
-        <div id="inspectorTabCaptions" class="tab-panel active">
-          <!-- Primary AI Action: Generate Captions -->
-          <button type="button" id="generateCaptionsBtn" class="ab-primary-cta" title="Generate phrase-aware human-like captions with sparing gold accents">
-            <span class="material-symbols-outlined cta-icon" id="captionsGenIcon">auto_awesome</span>
-            <span id="captionsGenLabel">Generate AI Captions</span>
-          </button>
-          <p id="captionProgressLabel" class="progress-sub-label hidden">Transcribing &amp; detecting accents…</p>
-
-          <!-- Selected Clip Properties Card -->
-          <section class="inspector-card" id="selectedClipCard">
-            <div class="card-header">
-              <span class="card-title">CLIP PROPERTIES</span>
-              <div class="card-header-actions">
-                <button type="button" id="splitSelectedClipBtn" class="icon-btn-sm" title="Split Clip at Playhead (S)">
-                  <span class="material-symbols-outlined">cut</span>
-                </button>
-                <button type="button" id="deleteSelectedClipBtn" class="icon-btn-sm text-error" title="Delete Clip (Del)">
-                  <span class="material-symbols-outlined">delete</span>
-                </button>
-              </div>
-            </div>
-            <div class="clip-info-row">
-              <span id="selectedClipNameLabel" class="clip-name">Clip #1</span>
-              <span id="selectedClipDurLabel" class="mono-badge">0.0s – 30.0s</span>
-            </div>
-
-            <!-- Playback Speed -->
-            <div class="property-block">
-              <div class="slider-row">
-                <span class="prop-label">Playback Speed</span>
-                <span id="clipSpeedDisplay" class="mono-text">1.00×</span>
-              </div>
-              <div class="speed-chips-row">
-                <button type="button" class="speed-chip" data-speed="0.5">0.5×</button>
-                <button type="button" class="speed-chip active" data-speed="1.0">1.0×</button>
-                <button type="button" class="speed-chip" data-speed="1.25">1.25×</button>
-                <button type="button" class="speed-chip" data-speed="1.5">1.5×</button>
-                <button type="button" class="speed-chip" data-speed="2.0">2.0×</button>
-              </div>
-            </div>
-
-            <!-- Clip Volume & Mute -->
-            <div class="property-block">
-              <div class="slider-row">
-                <span class="prop-label">Clip Audio Volume</span>
-                <span id="clipVolumeDisplay" class="mono-text">100%</span>
-              </div>
-              <input type="range" id="clipVolumeSlider" min="0" max="200" step="5" value="100" class="ab-slider" />
-            </div>
-          </section>
-
-          <!-- Selected Caption Phrase Card (Live Word-by-Word Accent Toggler) -->
-          <section class="inspector-card" id="selectedCaptionCard">
-            <div class="card-header">
-              <span class="card-title">CAPTION PHRASE</span>
-              <span id="selectedCaptionTimingBadge" class="mono-badge">0.0s – 2.0s</span>
-            </div>
-
-            <textarea
-              id="inspCaptionTextInput"
-              class="ab-textarea"
-              rows="2"
-              placeholder="Caption phrase text..."
-            ></textarea>
-
-            <!-- Interactive Word-by-Word Accent Chips -->
-            <div class="accent-chips-wrapper">
-              <span class="chips-hint">Click any word to toggle sparing gold accent:</span>
-              <div id="accentWordsChipContainer" class="accent-words-grid">
-                <!-- Interactive word chips will populate here -->
-              </div>
-            </div>
-
-            <!-- Vertical Position (Chin-aware placement) -->
-            <div class="property-block">
-              <div class="slider-row">
-                <span class="prop-label">Vertical Placement (Top %)</span>
-                <span id="captionTopPctDisplay" class="mono-text">60%</span>
-              </div>
-              <input type="range" id="captionTopPctSlider" min="10" max="85" step="1" value="60" class="ab-slider" />
-              <span class="helper-text">Placed under chin to avoid covering mouth or face</span>
-            </div>
-
-            <!-- Caption Size / Scale -->
-            <div class="property-block">
-              <div class="slider-row">
-                <span class="prop-label">Caption Scale</span>
-                <span id="captionScaleDisplay" class="mono-text">1.00×</span>
-              </div>
-              <input type="range" id="captionScaleSlider" min="0.7" max="1.6" step="0.05" value="1.0" class="ab-slider" />
-            </div>
-          </section>
-        </div>
-
-        <!-- =============================================================
-             TAB 2: AUTO B-ROLL & LIVE PIXABAY STOCK SEARCH
-             ============================================================= -->
-        <div id="inspectorTabBroll" class="tab-panel">
-          <button type="button" id="generateBrollBtn" class="ab-primary-cta" title="AI detects moments where visuals strengthen the story">
-            <span class="material-symbols-outlined cta-icon" id="brollGenIcon">movie</span>
-            <span id="brollGenLabel">Auto B-roll (AI Plan)</span>
-          </button>
-          <p id="brollProgressLabel" class="progress-sub-label hidden">Finding visual cutaways…</p>
-
-          <!-- Live Pixabay Stock Video Search (Using User's API Key) -->
-          <div class="pixabay-search-section">
-            <div class="section-title-row" style="margin-top:14px;margin-bottom:6px;">
-              <span class="prop-label" style="display:flex;align-items:center;gap:6px;color:#FFB020;font-weight:700;">
-                <span class="material-symbols-outlined" style="font-size:16px;color:#39d98a;">travel_explore</span>
-                LIVE PIXABAY HD STOCK (API CONNECTED)
-              </span>
-            </div>
-            <div class="pixabay-input-row">
-              <input type="text" id="pixabaySearchInput" class="ab-input" placeholder="Search stock videos (e.g. gaming, drift, crowd)..." />
-              <button type="button" id="pixabaySearchBtn" class="ab-btn-accent">Search</button>
-            </div>
-            <div class="quick-tags-row">
-              <button type="button" class="quick-tag-chip" data-query="Kai Cenat">🔥 Kai Cenat</button>
-              <button type="button" class="quick-tag-chip" data-query="drift car phonk">🚗 Phonk Drift</button>
-              <button type="button" class="quick-tag-chip" data-query="gamer pc setup">🎮 Gaming PC</button>
-              <button type="button" class="quick-tag-chip" data-query="money cash dollar">💰 Money</button>
-              <button type="button" class="quick-tag-chip" data-query="shocked reaction crowd">😱 Crowd</button>
-            </div>
-            <div id="pixabayLoadingLabel" class="progress-sub-label hidden">Searching Pixabay stock API…</div>
-            <div id="pixabayResultsContainer" class="pixabay-results-grid">
-              <!-- Live Pixabay results rendered here -->
-            </div>
-          </div>
-
-          <div class="broll-settings-block" style="margin-top:16px;">
-            <span class="prop-label">Active Cutaway Modes:</span>
-            <p class="helper-text">Fullscreen (covers face 2s) • Inset (clean corner card) • Top (upper 45%)</p>
-          </div>
-
-          <div id="brollItemsList" class="broll-items-list">
-            <!-- Dynamic B-roll Cards Rendered Here -->
-          </div>
-        </div>
-
-        <!-- =============================================================
-             TAB 3: AI EDIT SUGGESTIONS & 100/100 HOOK RATINGS
-             ============================================================= -->
-        <div id="inspectorTabSuggestions" class="tab-panel">
-          <div class="suggestions-header-card">
-            <div class="shc-top">
-              <span class="badge-100-pill">⚡ 100/100 WHOP VIRAL HOOKS</span>
-              <button type="button" id="refreshSuggestionsBtn" class="icon-btn-sm" title="Refresh AI Suggestions">
-                <span class="material-symbols-outlined">refresh</span>
-              </button>
-            </div>
-            <h3 class="shc-title">Edit Archetypes &amp; Hook Rankings</h3>
-            <p class="helper-text">KosherPlug Whop Strategy: 1.2s Instant Hook • 50%+ US/UK Native English • Mandatory #KaiCenat</p>
-          </div>
-
-          <!-- Section A: 100/100 Hook Candidates -->
-          <section class="inspector-card" style="margin-top:12px;">
-            <div class="card-header">
-              <span class="card-title">CURATED 100/100 HOOK CANDIDATES</span>
-              <span class="score-pill-gold">100/100</span>
-            </div>
-            <div id="hookCandidatesContainer" class="hook-candidates-list">
-              <!-- Rendered dynamically -->
-            </div>
-          </section>
-
-          <!-- Section B: 5 Whop Edit Archetypes -->
-          <section class="inspector-card" style="margin-top:12px;">
-            <div class="card-header">
-              <span class="card-title">5 WHOP EDIT ARCHETYPES</span>
-              <span class="mono-badge">5 Options</span>
-            </div>
-            <div id="archetypesContainer" class="archetypes-list">
-              <!-- Rendered dynamically -->
-            </div>
-          </section>
-        </div>
-
-        <!-- =============================================================
-             TAB 4: STYLES (Accent Colors & Typography)
-             ============================================================= -->
-        <div id="inspectorTabStyles" class="tab-panel">
-          <div class="inspector-card">
-            <span class="card-title">CAPTION ACCENT COLOR</span>
-            <p class="helper-text">Sparing accent color applied to key punchline and keyword highlights:</p>
-            <div class="swatches-grid" id="accentColorSwatches">
-              <button type="button" class="color-swatch active" data-color="#FFB020" style="background:#FFB020;" title="Gold (Default)"></button>
-              <button type="button" class="color-swatch" data-color="#c2c1ff" style="background:#c2c1ff;" title="Electric Purple"></button>
-              <button type="button" class="color-swatch" data-color="#ffb785" style="background:#ffb785;" title="Warm Peach"></button>
-              <button type="button" class="color-swatch" data-color="#adc6ff" style="background:#adc6ff;" title="Sky Blue"></button>
-              <button type="button" class="color-swatch" data-color="#39d98a" style="background:#39d98a;" title="Emerald Mint"></button>
-              <button type="button" class="color-swatch" data-color="#ff6b8b" style="background:#ff6b8b;" title="Neon Rose"></button>
-            </div>
-          </div>
-
-          <div class="inspector-card">
-            <span class="card-title">SUBTITLE TYPOGRAPHY</span>
-            <div class="property-block">
-              <span class="prop-label">Font Family</span>
-              <select id="captionFontSelect" class="ab-select">
-                <option value="Inter" selected>Inter (Clean Modern Editorial)</option>
-                <option value="JetBrains Mono">JetBrains Mono (Technical / Fast)</option>
-                <option value="Anton">Anton (Bold High-Impact)</option>
-                <option value="Montserrat">Montserrat (Extra Bold Sans)</option>
+            <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:10px; color:#94a3b8; font-weight:700;">AUDIO:</span>
+              <select id="streamAudioLanguageSelect" class="studio-input" style="flex:1; font-size:11px; padding:4px 8px; background:#141414; border:1px solid #363636; color:#e2e2e2;">
+                <option value="en" selected>🇺🇸 English (Original Audio)</option>
+                <option value="tl">🇵🇭 Tagalog / Filipino Audio</option>
+                <option value="auto">🌐 Auto-Detect Voice</option>
               </select>
             </div>
-            <div class="property-block">
-              <label class="checkbox-row">
-                <input type="checkbox" id="captionUppercaseToggle" checked />
-                <span>UPPERCASE ALL WORDS</span>
+          </div>
+
+          <!-- Project Videos Library -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>📁 PROJECT VIDEOS:</span>
+              <button type="button" id="refreshVideosBtn" class="btn-micro" title="Refresh video list">🔄 Refresh</button>
+            </div>
+            <select id="serverVideoSelect" class="studio-input" style="width:100%; font-size:12px; background:#141414; border:1px solid #363636; color:#f1f5f9; padding:8px 10px; border-radius:6px; cursor:pointer;">
+              <option value="">Loading videos...</option>
+            </select>
+          </div>
+
+          <!-- Canvas Layout & Framing Modes -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>📐 9:16 CANVAS FRAMING</span>
+            </div>
+            <div id="layoutModeGrid" class="capcut-layout-grid">
+              <button type="button" class="layout-card active" data-layout="full-main">
+                <span class="layout-icon">📱</span>
+                <span class="layout-name">Full 9:16</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="ambient-blur">
+                <span class="layout-icon">🖼️</span>
+                <span class="layout-name">Blur Fit</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="split-60-40">
+                <span class="layout-icon">⚡</span>
+                <span class="layout-name">Split 60/40</span>
+              </button>
+              <button type="button" class="layout-card" data-layout="pip-facecam">
+                <span class="layout-icon">🎯</span>
+                <span class="layout-name">PiP Box</span>
+              </button>
+            </div>
+            <div style="display:flex; gap:4px; margin-top:6px;">
+              <button type="button" class="btn-chip active" id="drawerFitScreenBtn" style="flex:1; justify-content:center;">Fit Screen</button>
+              <button type="button" class="btn-chip" id="drawerFillCropBtn" style="flex:1; justify-content:center;">Fill 9:16 Crop</button>
+            </div>
+          </div>
+
+          <!-- Target Duration & Jump-Cuts -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>⏱️ TARGET DURATION:</span>
+              <span id="targetDurationDisplay" class="mono-val">30s (Shorts/TikTok)</span>
+            </div>
+            <input type="range" id="targetDurationSlider" min="15" max="90" step="5" value="30" class="drawer-slider" />
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button type="button" id="autoJumpCutsQuickBtn" class="btn-chip" style="flex:1; justify-content:center; border-color:#dc7036; color:#dc7036;" title="Automatically split and remove dead-air pauses">
+                ✂️ Auto Jump-Cuts
+              </button>
+              <button type="button" id="resetMasterTrackBtn" class="btn-chip" style="flex:1; justify-content:center;" title="Restore continuous uncut master video">
+                🔄 Uncut Master
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             DRAWER TAB 2: PIXABAY LIVE STOCK B-ROLL (autobroll)
+             ========================================== -->
+        <div id="drawerTab-broll" class="drawer-content">
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span style="color:var(--accent-coral); font-weight:800;">🎬 PIXABAY STOCK MEDIA</span>
+              <span class="status-pill status-emerald">LIVE API</span>
+            </div>
+            <p style="font-size:10.5px; color:#b0b0b0; margin:0 0 8px 0; line-height:1.4;">
+              Search real stock footage from Pixabay. Videos stream live and can be inserted directly onto the timeline at playhead.
+            </p>
+
+            <div class="pixabay-search-container">
+              <div class="pixabay-search-bar">
+                <input
+                  type="text"
+                  id="pixabaySearchInput"
+                  class="pixabay-search-input"
+                  placeholder="Search stock video (e.g. sports car, crowd, city)..."
+                  value="sports car"
+                />
+                <button type="button" id="pixabaySearchBtn" class="pixabay-search-btn">
+                  🔍 Search
+                </button>
+              </div>
+
+              <!-- Quick Curated Category Chips -->
+              <div class="pixabay-tags-row" id="pixabayCategoryRow">
+                <button type="button" class="pixabay-tag-chip active" data-q="sports car drift">🏎️ Car Phonk</button>
+                <button type="button" class="pixabay-tag-chip" data-q="crowd cheering reaction">🔥 Reaction</button>
+                <button type="button" class="pixabay-tag-chip" data-q="counting money cash">💰 Money</button>
+                <button type="button" class="pixabay-tag-chip" data-q="gaming neon arcade">🎮 Gaming</button>
+                <button type="button" class="pixabay-tag-chip" data-q="city night lights">🌆 City Night</button>
+              </div>
+
+              <!-- Auto-Broll from Gemini button (autobroll style) -->
+              <button
+                type="button"
+                id="autoFetchPixabayBrollBtn"
+                class="btn-primary-glow"
+                style="width:100%; padding:9px 12px; font-weight:800; font-size:11.5px; background:linear-gradient(135deg, #dc7036, #e6ac42); border:none; border-radius:6px; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px;"
+                title="Gemini analyzes speech transcript, chooses visual moments, and fetches matching Pixabay B-roll"
+              >
+                <span>⚡ Auto-Fetch AI B-Roll (Gemini + Pixabay)</span>
+              </button>
+            </div>
+
+            <!-- Live Pixabay Video Grid -->
+            <div class="drawer-section-title" style="margin-top:10px;">
+              <span>STOCK CLIPS (CLICK TO PREVIEW):</span>
+            </div>
+            <div id="pixabayVideoGrid" class="pixabay-video-grid">
+              <div style="grid-column:1/-1; text-align:center; padding:20px; color:#808080; font-size:11px;">
+                Type a keyword or click a category to search Pixabay stock videos...
+              </div>
+            </div>
+          </div>
+
+          <!-- Active B-Roll on Timeline -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>ACTIVE B-ROLL ON TIMELINE:</span>
+              <span id="brollCutawaysCountBadge" class="status-pill status-cyan">0 CLIPS</span>
+            </div>
+            <div id="activeBrollCutawaysList" class="visual-overlays-list"></div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             DRAWER TAB 3: CAPTIONS & GEMINI US/UK TRANSLATION
+             ========================================== -->
+        <div id="drawerTab-captions" class="drawer-content">
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>💬 DYNAMIC SUBTITLES</span>
+              <label style="display:inline-flex; align-items:center; gap:5px; font-size:10.5px; cursor:pointer; color:#10b981;">
+                <input type="checkbox" id="captionsEnabledToggle" checked />
+                <span>Enabled</span>
               </label>
             </div>
+            <div id="captionPresetGrid" class="caption-preset-grid"></div>
           </div>
-        </div>
 
-        <!-- =============================================================
-             TAB 4: SETTINGS & CAMPAIGN RULES
-             ============================================================= -->
-        <div id="inspectorTabSettings" class="tab-panel">
-          <div class="inspector-card">
-            <span class="card-title">SEQUENCE SETTINGS</span>
-            <div class="property-block">
-              <span class="prop-label">Aspect Ratio &amp; Canvas</span>
-              <select id="aspectRatioSelect" class="ab-select">
-                <option value="9:16" selected>9:16 Vertical (1080×1920) — TikTok / Shorts / Reels</option>
-                <option value="16:9">16:9 Landscape (1920×1080) — YouTube Standard</option>
-                <option value="1:1">1:1 Square (1080×1080) — Instagram Feed</option>
+          <!-- AI TRANSLATION BOX (US/UK 50%+ NATIVE AUDIENCE REQUIREMENT) -->
+          <div class="drawer-section translation-box">
+            <div class="drawer-section-title" style="margin-bottom:6px;">
+              <span style="color:#e6ac42; font-weight:800;">🌐 US/UK 50%+ AUDIENCE TRANSLATION</span>
+              <span class="status-pill status-amber">GEMINI AI</span>
+            </div>
+            <p style="font-size:10.5px; color:#b0b0b0; margin:0 0 8px 0; line-height:1.4;">
+              Whop rule requirement: Audience must be ≥ 50% native English (USA, CA, AU, UK, NZ).
+              Translates spoken words into natural creator English while preserving exact karaoke word timestamps!
+            </p>
+            <div style="display:flex; gap:6px;">
+              <select id="targetLangSelect" class="studio-input" style="flex:1; font-size:11px; padding:6px 8px; background:#141414; border:1px solid #363636; color:#ffffff;">
+                <option value="en" selected>🇺🇸 English (US / UK Native Slang)</option>
+                <option value="original">Original Audio Words</option>
               </select>
-            </div>
-            <div class="property-block">
-              <span class="prop-label">Target Clip Duration</span>
-              <div class="duration-chips">
-                <button type="button" class="dur-chip active" data-dur="30">30s (Shorts)</button>
-                <button type="button" class="dur-chip" data-dur="45">45s</button>
-                <button type="button" class="dur-chip" data-dur="60">60s (Max)</button>
-              </div>
+              <button
+                type="button"
+                id="translateSubtitlesBtn"
+                class="btn-mini btn-accent"
+                style="padding:6px 12px; font-weight:800; background:var(--accent-coral);"
+                title="Translate all transcript words to English with Gemini"
+              >
+                🌐 Translate
+              </button>
             </div>
           </div>
 
-          <div class="inspector-card">
-            <span class="card-title">KAI CENAT CAMPAIGN COMPLIANCE</span>
-            <ul class="compliance-list">
-              <li>✓ Main Focus: Kai Cenat</li>
-              <li>✓ Dates: 10.21 – 10.31 content window</li>
-              <li>✓ 50%+ Native English (USA, UK, CA, AU, NZ)</li>
-              <li>✓ Mandatory Hashtag: #KaiCenat</li>
-              <li>✓ Submit to Whop within 30 minutes of posting</li>
-            </ul>
+          <!-- Typography & Formatting -->
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>TYPOGRAPHY &amp; POSITION</span></div>
+            <div style="display:grid; grid-template-columns: 1fr auto auto; gap:6px; align-items:center; margin-bottom:8px;">
+              <select id="captionFontFamilySelect" class="studio-input" style="font-size:11px; padding:5px 8px; background:#141414; border:1px solid #363636; color:#fff;">
+                <option value="Plus Jakarta Sans" selected>Plus Jakarta (Hormozi)</option>
+                <option value="Montserrat">Montserrat ExtraBold</option>
+                <option value="Anton">Anton Impact (MrBeast)</option>
+                <option value="JetBrains Mono">JetBrains Mono</option>
+              </select>
+              <input type="color" id="captionColorInput" value="#ffffff" title="Base Text Color" class="color-swatch-input" />
+              <input type="color" id="captionHighlightColorInput" value="#facc15" title="Active Word Highlight Color" class="color-swatch-input" />
+            </div>
+
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Font Size</span>
+                <span id="captionFontSizeLabel" class="mono-val">68px</span>
+              </div>
+              <input type="range" id="captionFontSizeSlider" min="32" max="108" step="2" value="68" class="drawer-slider" />
+            </div>
+
+            <div class="slider-control">
+              <div class="slider-label-row">
+                <span>Vertical Position (Y)</span>
+                <span id="captionPosYLabel" class="mono-val">72%</span>
+              </div>
+              <input type="range" id="captionPosYSlider" min="12" max="90" step="1" value="72" class="drawer-slider" />
+            </div>
+
+            <label class="toggle-row">
+              <span>Auto Keyword Emojis (🔥, 💰, ⚡)</span>
+              <input type="checkbox" id="autoEmojiToggle" checked />
+            </label>
+          </div>
+
+          <!-- FilmCraft Word-Cut Transcript -->
+          <div class="drawer-section transcript-group">
+            <div class="drawer-section-title">
+              <span>WORD-CUT TRANSCRIPT</span>
+              <span class="tiny-hint">Click=Seek • DblClick=Edit</span>
+            </div>
+            <div class="filmcraft-word-toolbar">
+              <button type="button" id="transcriptTrimInBtn" class="btn-chip" title="Trim video start to selected word">⏪ In</button>
+              <button type="button" id="transcriptTrimOutBtn" class="btn-chip" title="Trim video end to selected word">Out ⏩</button>
+              <button type="button" id="transcriptCutWordBtn" class="btn-chip" style="border-color:#f43f5e; color:#fb7185;" title="Cut selected word out of video timeline">✂️ Cut Word</button>
+              <button type="button" id="retranscribeSubtitlesBtn" class="btn-chip" style="border-color:#10b981; color:#10b981;" title="Retranscribe audio with Faster-Whisper AI">🔄 Retranscribe</button>
+            </div>
+            <div id="transcriptWordCloud" class="transcript-word-cloud"></div>
           </div>
         </div>
-      </div>
-    </aside>
-  </main>
 
-  <!-- =====================================================================
-       BOTTOM TIMELINE (OBSIDIAN EDIT UNIFIED MULTI-TRACK)
-       ===================================================================== -->
-  <footer class="autobroll-timeline" id="timelineFooter" aria-label="Timeline">
-    <!-- Timeline Toolbar -->
-    <div class="timeline-toolbar">
-      <div class="timeline-tools-left">
-        <button type="button" id="timelineSplitBtn" class="tl-btn" title="Split Clip at Playhead (S)">
-          <span class="material-symbols-outlined tl-icon">cut</span>
-          <span>Split (S)</span>
-        </button>
+        <!-- ==========================================
+             DRAWER TAB 4: WHOP CAMPAIGN, RULES & AUTO-UPLOAD
+             ========================================== -->
+        <div id="drawerTab-schedule" class="drawer-content">
+          <!-- Kai Cenat Whop Campaign Official Requirements Box -->
+          <div class="drawer-section whop-rules-card">
+            <div class="whop-rules-header">
+              <h4>📋 KAI CENAT $10,000 CAMPAIGN RULES</h4>
+              <span class="status-pill status-amber">OFFICIAL</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Source:</strong> Sourced strictly from Kai Cenat Twitch or YouTube</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Main Focus:</strong> Video must feature Kai Cenat as the central focus</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Date Range:</strong> Clipped content MUST BE from 10.21 to 10.31</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Platforms:</strong> Only TikTok, Instagram Reels, and YouTube Shorts</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Audience:</strong> ≥ 50% native English countries (USA, CA, AU, UK, NZ)</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Hashtag:</strong> Captions MUST contain hashtag <code>#KaiCenat</code></span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">✅</span>
+              <span><strong>Payout Pool:</strong> $10,000 pool split by approved views (min 350k views)</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">🚫</span>
+              <span><strong>No Logos:</strong> Logos of any kind are strictly prohibited</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">🚫</span>
+              <span><strong>No Hate Farming:</strong> No negative false narratives or botting</span>
+            </div>
+            <div class="whop-rule-item">
+              <span class="whop-rule-icon">⏱️</span>
+              <span><strong>30-Min Rule:</strong> Submit clip link to Whop within 30 minutes of posting!</span>
+            </div>
+          </div>
 
-        <button type="button" id="timelineTrimInBtn" class="tl-btn" title="Trim Left (Q)">
-          <span class="material-symbols-outlined tl-icon">first_page</span>
-          <span>In (Q)</span>
-        </button>
+          <!-- 30-Minute Post Submission Timer -->
+          <div class="drawer-section whop-submission-timer-box">
+            <div style="font-size:11px; font-weight:800; color:#fff;">WHOP 30-MINUTE SUBMISSION TRACKER</div>
+            <div id="whopSubmissionTimer" class="whop-timer-display">30:00</div>
+            <div style="font-size:10px; color:#b0b0b0;">Submit clip link in Whop Content Rewards app within 30m of posting!</div>
+            <a href="https://whop.com" target="_blank" class="btn-mini btn-accent" style="display:inline-block; margin-top:8px; text-decoration:none; padding:6px 14px; font-weight:700;">
+              🔗 Open Whop Content Rewards
+            </a>
+          </div>
 
-        <button type="button" id="timelineTrimOutBtn" class="tl-btn" title="Trim Right (W)">
-          <span class="material-symbols-outlined tl-icon">last_page</span>
-          <span>Out (W)</span>
-        </button>
+          <!-- US/UK Post Caption & Hashtags Generator -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>AUTO-GENERATE POST CAPTION (US/UK):</span>
+              <button type="button" id="generatePostCaptionBtn" class="btn-micro" style="background:var(--accent-coral); color:#fff; font-weight:800; border:none;">
+                ✨ Generate
+              </button>
+            </div>
+            <textarea
+              id="postCaptionTextarea"
+              class="studio-input"
+              rows="3"
+              style="width:100%; font-size:11px; line-height:1.4; resize:vertical; padding:8px; background:#141414; border:1px solid #363636; color:#ffffff; border-radius:6px;"
+              placeholder="Auto-generated viral caption with #KaiCenat..."
+            >Bro was NOT expecting this reaction from Kai Cenat 💀🔥 Watch till the end! #KaiCenat #KaiCenatClips #Shorts #Viral</textarea>
+            <div style="display:flex; justify-content:space-between; margin-top:6px;">
+              <span style="font-size:10px; color:#10b981;">✓ Includes required #KaiCenat</span>
+              <button type="button" id="copyHashtagsBtn" class="btn-chip" title="Copy caption & hashtags">📋 Copy</button>
+            </div>
+          </div>
 
-        <button type="button" id="timelineDeleteBtn" class="tl-btn text-error" title="Delete Selected Clip (Del)">
-          <span class="material-symbols-outlined tl-icon">delete</span>
-          <span>Delete</span>
-        </button>
+          <!-- Scheduled Queue -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>SCHEDULED UPLOAD QUEUE (<span id="queueCountBadge">0</span>):</span>
+              <button type="button" id="refreshQueueBtn" class="btn-micro">🔄</button>
+            </div>
+            <div id="scheduledQueueList" class="scheduled-queue-list"></div>
+          </div>
+        </div>
 
-        <button type="button" id="timelineDuplicateBtn" class="tl-btn" title="Duplicate Clip (Ctrl+D)">
-          <span class="material-symbols-outlined tl-icon">content_copy</span>
-          <span>Duplicate</span>
-        </button>
-      </div>
+        <!-- ==========================================
+             DRAWER TAB 5: SETTINGS & API KEYS
+             ========================================== -->
+        <div id="drawerTab-settings" class="drawer-content">
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>GOOGLE GEMINI API KEY</span></div>
+            <input
+              type="password"
+              id="geminiApiKeyInput"
+              class="studio-input"
+              placeholder="Paste Google AI Studio API key..."
+              value=""
+            />
+            <div style="font-size:10px; color:#10b981; margin-top:4px;">
+              ✓ Connected via secret_keys.json (Supports Gemini 3.5 Flash & Multimodal)
+            </div>
+          </div>
 
-      <div class="timeline-tools-center">
-        <span id="timelineSelectionBadge" class="selection-pill">Selected: Master Clip</span>
-      </div>
-
-      <div class="timeline-tools-right">
-        <button type="button" id="timelineSnapBtn" class="tl-btn active" title="Magnetic Snapping">
-          <span>🧲 Snap</span>
-        </button>
-        <div class="timeline-zoom-box">
-          <span class="zoom-label">−</span>
-          <input type="range" id="timelineZoomSlider" min="20" max="200" value="80" class="zoom-slider" title="Zoom Timeline" />
-          <span class="zoom-label">+</span>
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>PIXABAY API KEY</span></div>
+            <input
+              type="text"
+              id="pixabayApiKeyInput"
+              class="studio-input"
+              value="58281434-0199a4345a7540437f190c4d9"
+              readonly
+            />
+            <div style="font-size:10px; color:#10b981; margin-top:4px;">
+              ✓ Active Stock Footage Key: 58281434-0199a4345a7540437f190c4d9
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Multi-Track Ruler & Tracks Stage -->
-    <div class="timeline-stage-wrapper" id="timelineStageWrapper">
-      <!-- Track Header Labels -->
-      <div class="track-headers-column">
-        <div class="track-header-cell"><span class="track-lbl">💬 Captions</span></div>
-        <div class="track-header-cell"><span class="track-lbl">🎬 B-Roll</span></div>
-        <div class="track-header-cell"><span class="track-lbl">🎥 Video</span></div>
-        <div class="track-header-cell"><span class="track-lbl">🎵 Audio</span></div>
+    <!-- ===================================================================
+         CENTER STAGE: 9:16 VIDEO CANVAS & CONTROLS
+         =================================================================== -->
+    <div class="opencut-center-panel">
+      <div class="canvas-viewport" id="previewCanvasBox">
+        <canvas id="previewCanvas" width="1080" height="1920"></canvas>
       </div>
 
-      <!-- Tracks Scroll Area -->
-      <div class="timeline-canvas-scroll" id="timelineCanvasScroll">
-        <!-- Frame Ruler -->
+      <!-- Playback Transport Bar -->
+      <div class="canvas-transport-bar">
+        <button type="button" id="stepBackBtn" class="transport-btn" title="Step Back 1s">⏮</button>
+        <button type="button" id="playPauseBtn" class="transport-btn transport-btn-play" title="Play / Pause (Space)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" id="playIconSvg">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </button>
+        <button type="button" id="stepForwardBtn" class="transport-btn" title="Step Forward 1s">⏭</button>
+
+        <div class="timecode-display">
+          <span id="currentTimecode" class="tc-current">00:00.00</span>
+          <span class="tc-sep">/</span>
+          <span id="totalDurationTimecode" class="tc-total">00:30.00</span>
+        </div>
+
+        <span class="status-pill status-cyan" style="font-size:10px;">1080×1920 • 60 FPS</span>
+
+        <button type="button" id="loopToggleBtn" class="transport-btn" title="Toggle Loop Playback">🔁</button>
+        <button type="button" id="fullscreenBtn" class="transport-btn" title="Fullscreen (F)">⛶</button>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         RIGHT PANEL: J.A.R.V.I.S. AI AGENT (OPENCHATCUT STYLE) & INSPECTOR
+         =================================================================== -->
+    <div class="opencut-right-panel" id="inspectorSidebar">
+      <!-- J.A.R.V.I.S. Embedded Chat Panel -->
+      <div class="openchatcut-jarvis-panel" id="openchatcutJarvisPanel">
+        <div class="jarvis-panel-header">
+          <div class="jarvis-header-title">
+            <div class="jarvis-reactor" style="width:18px; height:18px;">
+              <div class="reactor-core"></div>
+            </div>
+            <span>J.A.R.V.I.S. AI DIRECTOR</span>
+          </div>
+          <span class="status-pill status-emerald" style="font-size:9.5px;">ONLINE</span>
+        </div>
+
+        <!-- Chat Stream -->
+        <div id="jarvisChatMessages" class="jarvis-chat-stream">
+          <div class="jarvis-chat-bubble jarvis-bubble-ai">
+            At your command, sir. I have configured the studio for Kai Cenat Whop clipping. How would you like me to edit this video?
+          </div>
+        </div>
+
+        <!-- Quick Action Command Pills -->
+        <div class="jarvis-quick-pills">
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickAutoEditBtn">⚡ 1-Click Auto-Edit</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickTranslateBtn">🌐 Translate to English</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickBrollBtn">🎬 Auto-Fetch B-Roll</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickSilenceBtn">✂️ Cut Pauses</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickWhopCheckBtn">🏆 Whop Rules Check</button>
+        </div>
+
+        <!-- Prompt Input Bar -->
+        <div class="jarvis-input-bar">
+          <input
+            type="text"
+            id="jarvisTextInput"
+            class="jarvis-input-field"
+            placeholder="Tell J.A.R.V.I.S. how to edit..."
+          />
+          <button type="button" id="jarvisMicBtn" class="jarvis-action-icon-btn" title="Voice Command">
+            🎤
+          </button>
+          <button type="button" id="jarvisSendBtn" class="jarvis-action-icon-btn" title="Send Instruction">
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- =====================================================================
+       BOTTOM 4-TRACK MULTI-TRACK TIMELINE (AUTOBROLL STYLE)
+       ===================================================================== -->
+  <footer class="opencut-timeline" aria-label="Multi-Track Video Timeline">
+    <div class="timeline-toolbar">
+      <div class="toolbar-left">
+        <button type="button" id="timelineUndoBtn" class="toolbar-btn" title="Undo (Ctrl+Z)" disabled>↩</button>
+        <button type="button" id="timelineRedoBtn" class="toolbar-btn" title="Redo (Ctrl+Y)" disabled>↪</button>
+        <div class="toolbar-divider"></div>
+
+        <button type="button" id="capcutSplitBtn" class="toolbar-btn" title="Split at Playhead (S / Ctrl+B)">
+          ✂️ <span>Split</span>
+        </button>
+
+        <button type="button" id="capcutTrimInBtn" class="toolbar-btn" title="Trim Left (Q)">
+          <span>⏪ In (Q)</span>
+        </button>
+
+        <button type="button" id="capcutTrimOutBtn" class="toolbar-btn" title="Trim Right (W)">
+          <span>Out (W) ⏩</span>
+        </button>
+
+        <button type="button" id="timelineFreezeBtn" class="toolbar-btn" title="Freeze Frame 2s">
+          <span>❄️ Freeze</span>
+        </button>
+
+        <button type="button" id="timelineAddBrollBtn" class="toolbar-btn toolbar-btn-accent" title="Add Stock B-Roll at Playhead">
+          <span>🎬 + Stock B-Roll</span>
+        </button>
+
+        <button type="button" id="addCaptionPhraseBtn" class="toolbar-btn toolbar-btn-accent" title="Add Subtitle Phrase">
+          <span>💬 + Caption</span>
+        </button>
+
+        <button type="button" id="capcutDeleteBtn" class="toolbar-btn toolbar-btn-danger" title="Delete Selected Clip (Del)">
+          <span>🗑️ Delete</span>
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <button type="button" id="snappingToggleBtn" class="toolbar-btn active" title="Magnetic Snapping">
+          <span>🧲 Snap</span>
+        </button>
+        <button type="button" id="rippleToggleBtn" class="toolbar-btn active" title="Ripple Edit">
+          <span>↔ Ripple</span>
+        </button>
+        <button type="button" id="zoomFitTimelineBtn" class="toolbar-btn" title="Fit Timeline">
+          <span>Fit</span>
+        </button>
+        <div class="timeline-zoom-control">
+          <span class="zoom-btn" id="zoomOutBtn">−</span>
+          <input type="range" id="timelineZoomSlider" min="0" max="100" value="100" class="zoom-slider" />
+          <span class="zoom-btn" id="zoomInBtn">+</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4-Track Area -->
+    <div class="timeline-tracks-wrapper">
+      <div class="track-headers">
+        <div class="track-header-item track-h-captions">
+          <span class="track-name">💬 Captions</span>
+        </div>
+        <div class="track-header-item track-h-overlays">
+          <span class="track-name">🎬 Pixabay B-Roll</span>
+        </div>
+        <div class="track-header-item track-h-video">
+          <span class="track-name">📹 Master Video</span>
+        </div>
+        <div class="track-header-item track-h-audio">
+          <span class="track-name">🎵 Voice Audio</span>
+        </div>
+      </div>
+
+      <div id="timelineStage" class="timeline-stage">
+        <!-- Ruler -->
         <div id="timelineRuler" class="timeline-ruler"></div>
-
-        <!-- Track 1: Captions Lane -->
-        <div id="captionTrackLane" class="timeline-track track-captions"></div>
-
-        <!-- Track 2: B-Roll Lane -->
-        <div id="brollTrackLane" class="timeline-track track-broll"></div>
-
-        <!-- Track 3: Video Clips Lane (Waveforms & Thumbnails) -->
-        <div id="videoTrackLane" class="timeline-track track-video">
-          <canvas id="videoWaveformCanvas" class="waveform-canvas"></canvas>
+        <!-- Track 1: Captions -->
+        <div id="captionTrackLane" class="track-lane track-captions"></div>
+        <!-- Track 2: B-Roll Cutaways -->
+        <div id="overlayTrackLane" class="track-lane track-overlays"></div>
+        <!-- Track 3: Video Cuts -->
+        <div id="videoTrackLane" class="track-lane track-video-cuts"></div>
+        <!-- Track 4: Audio Waveform -->
+        <div id="audioTrackLane" class="track-lane track-audio">
+          <canvas id="waveformCanvas" width="1400" height="34"></canvas>
         </div>
-
-        <!-- Track 4: Audio Music Lane -->
-        <div id="audioTrackLane" class="timeline-track track-audio">
-          <canvas id="musicWaveformCanvas" class="waveform-canvas"></canvas>
-        </div>
-
-        <!-- Playhead Line & Needle -->
+        <!-- Playhead -->
         <div id="timelinePlayhead" class="timeline-playhead">
-          <div class="playhead-handle"></div>
+          <div class="playhead-cap"></div>
         </div>
       </div>
     </div>
   </footer>
 
   <!-- =====================================================================
-       MODAL 1: EXPORT VIDEO & US/UK HASHTAGS GENERATOR
+       EXPORT MODAL
        ===================================================================== -->
-  <div id="exportModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+  <div id="exportModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="exportTitle" class="modal-title">Export MP4 &amp; Campaign Distribution</h3>
-        <button type="button" id="closeExportModalBtn" class="modal-close-btn">&times;</button>
+        <h3 class="modal-title">Render &amp; Export Video</h3>
+        <button type="button" id="closeExportModalBtn" class="modal-close">&times;</button>
       </div>
-
       <div class="modal-body">
-        <div class="export-specs-grid">
-          <div class="spec-cell">
-            <span class="spec-k">RESOLUTION</span>
-            <span class="spec-v">1080×1920 (9:16)</span>
-          </div>
-          <div class="spec-cell">
-            <span class="spec-k">TARGET AUDIENCE</span>
-            <span class="spec-v">50%+ USA, UK, CA, AU</span>
-          </div>
-          <div class="spec-cell">
-            <span class="spec-k">RENDER ENGINE</span>
-            <span class="spec-v">Hardware FFmpeg H.264</span>
-          </div>
-          <div class="spec-cell">
-            <span class="spec-k">REWARD POOL</span>
-            <span class="spec-v">$10,000 Whop Payout</span>
-          </div>
+        <div class="export-spec-grid">
+          <div class="spec-cell"><strong>Resolution:</strong> 1080 × 1920 (9:16 Vertical)</div>
+          <div class="spec-cell"><strong>Frame Rate:</strong> 60 FPS Hardware Render</div>
+          <div class="spec-cell"><strong>Audio:</strong> -14 LUFS Loudness Normalized</div>
+          <div class="spec-cell"><strong>Format:</strong> H.264 / AAC High Profile MP4</div>
         </div>
-
-        <!-- Render Progress Bar -->
-        <div id="exportProgressSection" class="export-progress-section hidden">
-          <div class="progress-track">
-            <div id="exportProgressBar" class="progress-fill"></div>
-          </div>
-          <div class="progress-info">
-            <span id="exportProgressStatus">Rendering video frames…</span>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button type="button" id="startFfmpegRenderBtn" class="btn-primary-glow" style="flex:1; padding:10px; font-weight:800; background:linear-gradient(135deg,#dc7036,#e6ac42); border:none; border-radius:6px; color:#fff; cursor:pointer;">
+            🚀 Fast FFmpeg Hardware Export (.MP4)
+          </button>
+          <button type="button" id="exportJsonProjectBtn" class="btn-chip" style="padding:10px 14px;">
+            Export Project (.JSON)
+          </button>
+        </div>
+        <div id="exportProgressSection" class="hidden" style="margin-top:12px;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+            <span id="exportProgressStatus">Rendering...</span>
             <span id="exportProgressPercent">0%</span>
           </div>
-        </div>
-
-        <!-- Render Buttons -->
-        <div class="export-buttons-row">
-          <button type="button" id="startFfmpegRenderBtn" class="ab-primary-cta full-width">
-            ⚡ Fast Server FFmpeg Render (.MP4)
-          </button>
-          <button type="button" id="startVideoRenderBtn" class="ab-btn-ghost full-width">
-            Record Canvas Stream (.WebM)
-          </button>
-        </div>
-
-        <!-- US/UK High-CPM Post Caption & Hashtags Generator -->
-        <div class="post-caption-box">
-          <div class="pc-header">
-            <span class="pc-title">📣 US/UK POST CAPTION &amp; HASHTAGS</span>
-            <button type="button" id="generatePostCaptionBtn" class="ab-btn-accent-sm">✨ Generate</button>
-          </div>
-          <div class="pc-platform-tabs">
-            <button type="button" class="pc-tab active" data-platform="tiktok">TikTok</button>
-            <button type="button" class="pc-tab" data-platform="reels">Instagram Reels</button>
-            <button type="button" class="pc-tab" data-platform="shorts">YouTube Shorts</button>
-          </div>
-          <textarea id="postCaptionTextarea" class="ab-textarea pc-textarea" rows="4" placeholder="AI caption and #KaiCenat hashtags will appear here..."></textarea>
-          <div class="pc-actions">
-            <button type="button" id="copyHashtagsBtn" class="ab-btn-primary">📋 Copy Caption</button>
-            <button type="button" id="postSubmitTimerBtn" class="ab-btn-ghost">⏱ Start 30-min Whop Submit Timer</button>
+          <div class="progress-bar-wrap">
+            <div id="exportProgressBar" class="progress-bar-fill" style="width:0%;"></div>
           </div>
         </div>
       </div>
@@ -739,57 +824,33 @@
   </div>
 
   <!-- =====================================================================
-       MODAL 2: AUTO-UPLOAD QUEUE & WHOP TRACKER
-       ===================================================================== -->
-  <div id="scheduleModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title">⏱ Auto-Upload Queue &amp; Whop Tracker</h3>
-        <button type="button" id="closeScheduleModalBtn" class="modal-close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p class="helper-text">Automated uploads timed at peak US viewer hours (6 PM - 9 PM EST):</p>
-        <div id="scheduleQueueItems" class="queue-items-list">
-          <!-- Queue items rendered here -->
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =====================================================================
-       MODAL 3: AI ENGINE & API KEY SETTINGS
+       AI KEY MODAL
        ===================================================================== -->
   <div id="aiKeyModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title">AI Engine Settings</h3>
-        <button type="button" id="closeAiKeyModalBtn" class="modal-close-btn">&times;</button>
+        <h3 class="modal-title">🔑 Configure API Keys</h3>
+        <button type="button" id="closeAiKeyModalBtn" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Google Gemini API Key:</label>
-          <input type="password" id="userAiApiKeyInput" class="ab-input" placeholder="Configured securely on server (.env)" />
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Pixabay API Key (Live Stock HD Videos):</label>
-          <input type="password" id="userPixabayApiKeyInput" class="ab-input" placeholder="Configured securely on server (.env)" />
-        </div>
-        <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Pexels API Key (Optional):</label>
-          <input type="password" id="userPexelsApiKeyInput" class="ab-input" placeholder="Pexels API key..." />
-        </div>
-        <div class="modal-actions-right" style="margin-top:16px;">
-          <button type="button" id="saveAiKeyBtn" class="ab-btn-primary">Save Settings</button>
-        </div>
+        <label style="font-size:11px; font-weight:700; color:#fff;">Google Gemini AI Key (AI Studio):</label>
+        <input type="password" id="userAiApiKeyInput" class="studio-input" style="width:100%; margin:4px 0 10px 0;" placeholder="AI Studio Key..." />
+        <label style="font-size:11px; font-weight:700; color:#fff;">Pixabay API Key (Stock Media):</label>
+        <input type="text" id="userPixabayKeyInput" class="studio-input" style="width:100%; margin:4px 0 10px 0;" value="58281434-0199a4345a7540437f190c4d9" readonly />
+        <button type="button" id="saveAiKeyBtn" class="btn-primary-glow" style="width:100%; padding:8px; font-weight:700; background:var(--accent-coral); color:#fff; border:none; border-radius:6px; cursor:pointer;">
+          Save Keys
+        </button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Core Scripts -->
+  <!-- Scripts -->
+  <script src="broll-engine.js"></script>
   <script src="audio-engine.js"></script>
+  <script src="jarvis-engine.js"></script>
   <script src="clipper-app.js"></script>
 </body>
 </html>
