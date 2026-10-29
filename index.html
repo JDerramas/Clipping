@@ -71,7 +71,7 @@
       <div class="campaign-pill" title="Editing Preset & Archetype">
         <span class="pill-dot"></span>
         <select id="campaignSelect" class="campaign-select" aria-label="Format Selector">
-          <option value="school-of-hard-knocks" data-handle="@theschoolofhardknocks" selected>💼 School of Hard Knocks (Zero Face Zoom • 20-60s)</option>
+          <option value="school-of-hard-knocks" data-handle="@theschoolofhardknocks" selected>💼 Hard Knocks (20–60s)</option>
           <option value="universal" data-handle="@AutoBroll • Universal">🌟 All-Around AI Studio (Universal)</option>
           <option value="podcast" data-handle="@PodcastClips • Shorts">🎙️ Podcast & Street Interviews</option>
           <option value="car-phonk" data-handle="@DriftVibes • Phonk">🏎️ Car Phonk / Drift Edit (140 BPM)</option>
@@ -80,20 +80,20 @@
         </select>
       </div>
 
-      <div id="activeCampaignBadge" class="active-campaign-banner" style="display:inline-flex; align-items:center; background:linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,78,59,0.35)); border:1px solid #10b981; border-radius:18px; padding:3px 12px; font-size:11px; color:#6ee7b7; gap:6px; cursor:pointer;" title="School of Hard Knocks Campaign Brief: 20-60s vertical clips, Zero Face Zoom, Hook in first 2s, @theschoolofhardknocks credit">
-        🎯 <b>Campaign: Hard Knocks</b> • 20–60s • Zero Face Zoom
+      <div id="activeCampaignBadge" class="active-campaign-banner" style="display:inline-flex; align-items:center; background:linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,78,59,0.35)); border:1px solid #10b981; border-radius:18px; padding:3px 8px; font-size:11px; color:#6ee7b7; gap:5px; cursor:pointer;" title="School of Hard Knocks Campaign Brief: 20-60s vertical clips, Zero Face Zoom, Hook in first 2s, @theschoolofhardknocks credit">
+        🎯 <b>Hard Knocks</b> (20–60s)
       </div>
 
-      <button type="button" id="toggleFaceZoomLockBtn" class="nav-btn nav-btn-ghost" title="Toggle Face Zoom: Keep wide 1.0x framing with both people visible or enable close-up face crop" style="border:1px solid rgba(16,185,129,0.4); color:#10b981; font-weight:600; font-size:11px; padding:4px 10px; border-radius:16px; background:rgba(16,185,129,0.1); display:inline-flex; align-items:center; gap:6px;">
+      <button type="button" id="toggleFaceZoomLockBtn" class="nav-btn nav-btn-ghost" title="Toggle Face Zoom: Keep wide 1.0x framing with both people visible" style="border:1px solid rgba(16,185,129,0.4); color:#10b981; font-weight:600; font-size:11px; padding:3px 8px; border-radius:16px; background:rgba(16,185,129,0.1); display:inline-flex; align-items:center; gap:5px;">
         <span id="faceZoomLockIcon">🚫</span>
-        <span id="faceZoomLockLabel">Face Zoom: OFF (1.0x Wide)</span>
+        <span id="faceZoomLockLabel">Zero Face Zoom</span>
       </button>
 
-      <button id="oneClickAutoEditBtn" class="btn-opencut-auto" title="1-Click AI Auto-Edit: Highlight Selection, Pauses Cut, US/UK Translation & Pixabay Stock B-Roll">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+      <button id="oneClickAutoEditBtn" class="btn-opencut-auto" title="1-Click AI Auto-Edit: Highlight Selection, Pauses Cut, US/UK Translation, Pixabay & Unsplash 4K B-Roll">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
           <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
         </svg>
-        <span>⚡ 1-Click AI Auto-Edit</span>
+        <span>⚡ 1-Click Auto-Edit</span>
       </button>
     </div>
 
@@ -153,6 +153,11 @@
       <div class="repo-badge active" title="Real Stock Media Engine">
         <span class="badge-icon">🎬</span>
         <span class="badge-name">Pixabay Live</span>
+        <span class="badge-tag">API CONNECTED</span>
+      </div>
+      <div class="repo-badge active" title="Unsplash 4K Stock Photography Engine">
+        <span class="badge-icon">📸</span>
+        <span class="badge-name">Unsplash 4K</span>
         <span class="badge-tag">API CONNECTED</span>
       </div>
       <div class="repo-badge active" title="AI Transcription & Speech Translation">
@@ -366,17 +371,23 @@
         </div>
 
         <!-- ==========================================
-             DRAWER TAB 2: PIXABAY LIVE STOCK B-ROLL (autobroll)
+             DRAWER TAB 2: PIXABAY & UNSPLASH 4K STOCK B-ROLL
              ========================================== -->
         <div id="drawerTab-broll" class="drawer-content">
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span style="color:var(--accent-coral); font-weight:800;">🎬 PIXABAY STOCK MEDIA</span>
-              <span class="status-pill status-emerald">LIVE API</span>
+              <span style="color:var(--accent-coral); font-weight:800;">🎬 STOCK B-ROLL STUDIO</span>
+              <span class="status-pill status-emerald">DUAL API READY</span>
             </div>
             <p style="font-size:10.5px; color:#b0b0b0; margin:0 0 8px 0; line-height:1.4;">
-              Search real stock footage from Pixabay. Videos stream live and can be inserted directly onto the timeline at playhead.
+              Source real stock media from <b>Pixabay</b> (HD Videos) & <b>Unsplash</b> (4K Photos). Perfectly aligned to spoken dialogue and subtitles.
             </p>
+
+            <!-- Dual Source Switcher -->
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <button type="button" id="brollSourcePixabayBtn" class="pixabay-tag-chip active" style="flex:1; justify-content:center; padding:6px 10px; font-weight:700;">🎬 Pixabay Videos</button>
+              <button type="button" id="brollSourceUnsplashBtn" class="pixabay-tag-chip" style="flex:1; justify-content:center; padding:6px 10px; font-weight:700;">📸 Unsplash 4K</button>
+            </div>
 
             <div class="pixabay-search-container">
               <div class="pixabay-search-bar">
@@ -384,7 +395,7 @@
                   type="text"
                   id="pixabaySearchInput"
                   class="pixabay-search-input"
-                  placeholder="Search stock video (e.g. sports car, crowd, city)..."
+                  placeholder="Search stock footage or 4K photo (e.g. fried chicken, luxury car, money)..."
                   value="sports car"
                 />
                 <button type="button" id="pixabaySearchBtn" class="pixabay-search-btn">
@@ -395,10 +406,11 @@
               <!-- Quick Curated Category Chips -->
               <div class="pixabay-tags-row" id="pixabayCategoryRow">
                 <button type="button" class="pixabay-tag-chip active" data-q="sports car drift">🏎️ Car Phonk</button>
-                <button type="button" class="pixabay-tag-chip" data-q="crowd cheering reaction">🔥 Reaction</button>
-                <button type="button" class="pixabay-tag-chip" data-q="counting money cash">💰 Money</button>
-                <button type="button" class="pixabay-tag-chip" data-q="gaming neon arcade">🎮 Gaming</button>
-                <button type="button" class="pixabay-tag-chip" data-q="city night lights">🌆 City Night</button>
+                <button type="button" class="pixabay-tag-chip" data-q="fried chicken meal">🍗 Fried Chicken</button>
+                <button type="button" class="pixabay-tag-chip" data-q="chicken nuggets fast food">🍟 Nuggets</button>
+                <button type="button" class="pixabay-tag-chip" data-q="counting money cash">💰 Wealth</button>
+                <button type="button" class="pixabay-tag-chip" data-q="philippines flag">🇵🇭 PH Flag</button>
+                <button type="button" class="pixabay-tag-chip" data-q="american flag waving">🇺🇸 US Flag</button>
               </div>
 
               <!-- Auto-Broll from Gemini button (autobroll style) -->
@@ -407,19 +419,19 @@
                 id="autoFetchPixabayBrollBtn"
                 class="btn-primary-glow"
                 style="width:100%; padding:9px 12px; font-weight:800; font-size:11.5px; background:linear-gradient(135deg, #dc7036, #e6ac42); border:none; border-radius:6px; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px;"
-                title="Gemini analyzes speech transcript, chooses visual moments, and fetches matching Pixabay B-roll"
+                title="Gemini analyzes speech transcript, chooses visual moments, and fetches matching Pixabay & Unsplash B-roll"
               >
-                <span>⚡ Auto-Fetch AI B-Roll (Gemini + Pixabay)</span>
+                <span>⚡ Auto-Fetch AI B-Roll (Pixabay + Unsplash 4K)</span>
               </button>
             </div>
 
-            <!-- Live Pixabay Video Grid -->
+            <!-- Live Stock Grid -->
             <div class="drawer-section-title" style="margin-top:10px;">
-              <span>STOCK CLIPS (CLICK TO PREVIEW):</span>
+              <span id="stockGridTitle">STOCK MEDIA (CLICK TO PREVIEW & INSERT):</span>
             </div>
             <div id="pixabayVideoGrid" class="pixabay-video-grid">
               <div style="grid-column:1/-1; text-align:center; padding:20px; color:#808080; font-size:11px;">
-                Type a keyword or click a category to search Pixabay stock videos...
+                Type a keyword or click a category to search Pixabay & Unsplash stock media...
               </div>
             </div>
           </div>
@@ -650,6 +662,20 @@
             />
             <div style="font-size:10px; color:#10b981; margin-top:4px;">
               ✓ Active Stock Footage Key: 58281434-0199a4345a7540437f190c4d9
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title"><span>UNSPLASH 4K ACCESS KEY</span></div>
+            <input
+              type="text"
+              id="unsplashApiKeyInput"
+              class="studio-input"
+              value="pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
+              readonly
+            />
+            <div style="font-size:10px; color:#10b981; margin-top:4px;">
+              ✓ Connected Unsplash App ID 1117136 (4K Stock Photography)
             </div>
           </div>
         </div>

@@ -52,7 +52,8 @@
     disableFaceZoom: true, // PERMANENT: 1.0x Wide Steady Framing - BOTH SPEAKERS 100% VISIBLE!
     videoFitMode: 'fit', // 'fit' (Unzoomed • All People Visible) | 'fill' (9:16 Cropped)
     layoutMode: 'ambient-blur', // 'ambient-blur' (Default: 1.0x wide video + background blur) | 'full-main'
-    brollPreset: 'minecraft-parkour',
+    brollPreset: 'none',
+    brollSource: 'dual', // 'pixabay' | 'unsplash' | 'dual'
     framingPreset: 'center', // 'center' | 'left' | 'right'
     autoZoom: false,
     cameraZoom: 1.0,
@@ -64,21 +65,21 @@
     showSafeZones: false,
     channelCredit: '@theschoolofhardknocks',
 
-    // Professional Video Effects Suite (VFX & Color Grading)
+    // Professional Video Effects Suite (VFX & Color Grading - Clean Defaults, No Distortion)
     activeFilter: 'clean', // 'clean' | 'cinematic' | 'cyberpunk' | 'noir' | 'vintage' | 'vivid' | 'moody'
     effects: {
-      vignette: true,
-      vignetteIntensity: 0.45,
+      vignette: false,
+      vignetteIntensity: 0.0,
       halation: false,
-      halationIntensity: 0.4,
+      halationIntensity: 0.0,
       vhs: false,
       rgbSplit: false,
       letterbox: false,
-      letterboxHeight: 120,
-      filmGrain: true,
-      filmGrainIntensity: 0.20,
+      letterboxHeight: 0,
+      filmGrain: false,
+      filmGrainIntensity: 0.0,
       lightLeak: false,
-      lightLeakIntensity: 0.35,
+      lightLeakIntensity: 0.0,
       tiltShift: false,
       speedLines: false,
       impactFlash: false,
@@ -2496,16 +2497,63 @@
           <button type="button" class="btn-ssemble-edit" data-action="edit" data-idx="${originalIdx}">
             <span>✂️ Edit in Timeline</span>
           </button>
+          <button type="button" class="btn-ssemble-delete" data-action="delete" data-idx="${originalIdx}" title="Delete this clip candidate">
+            <span>🗑️ Delete</span>
+          </button>
         </div>
       `;
 
       card.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('[data-action="delete"]');
+        if (deleteBtn) {
+          e.stopPropagation();
+          const targetTitle = m.title || `Clip #${originalIdx + 1}`;
+          state.analysis.viralMoments = state.analysis.viralMoments.filter((_, i) => i !== originalIdx);
+          if (state.activeClipIndex >= state.analysis.viralMoments.length) {
+            state.activeClipIndex = Math.max(0, state.analysis.viralMoments.length - 1);
+          }
+          if (dom.viralCountBadge) {
+            dom.viralCountBadge.textContent = String(state.analysis.viralMoments.length);
+          }
+          renderViralMomentsList();
+          showToast(`🗑️ Deleted "${targetTitle}" (${state.analysis.viralMoments.length} clips remaining)`, '#f43f5e', 3000);
+          return;
+        }
+
         const autoBtn = e.target.closest('[data-action="auto"]');
         const editBtn = e.target.closest('[data-action="edit"]');
 
         if (autoBtn || editBtn) {
           e.stopPropagation();
           const targetClip = m;
+
+          // If the clip was already downloaded to disk via multi-clip batch, load immediately
+          if (targetClip.filename) {
+            state.customMainFileName = targetClip.filename;
+            state.useCustomMainVideo = true;
+            if (dom.mainVideoEl) {
+              dom.mainVideoEl.src = `/uploads/${targetClip.filename}`;
+              dom.mainVideoEl.load();
+            }
+            state.trimStart = 0;
+            state.trimEnd = targetClip.end - targetClip.start;
+            state.streamDuration = targetClip.end - targetClip.start;
+            state.disableFaceZoom = true;
+            state.videoFitMode = 'fit';
+            state.wholeScreenFit = true;
+            state.faceTrackingEnabled = false;
+            state.highlightZoomMode = 'off';
+            state.cameraZoom = 1.0;
+            state.cameraPanX = 0;
+            state.cameraPanY = 0;
+            state.layoutMode = 'ambient-blur';
+            selectViralMoment(originalIdx, !autoBtn);
+            if (autoBtn) runOneClickAutoEdit(originalIdx);
+            showToast(`🎬 Loaded interview clip "${targetClip.title}"!`, '#10b981', 3000);
+            if (dom.ssembleHubModal) dom.ssembleHubModal.classList.add('hidden');
+            return;
+          }
+
           const currentDur = dom.mainVideoEl?.duration || 0;
           if (state.originalUrl && targetClip.start !== undefined && (targetClip.start > currentDur || targetClip.end > currentDur)) {
             showToast(`⚡ Slicing interview clip #${originalIdx + 1} (${formatTimecode(targetClip.start)} - ${formatTimecode(targetClip.end)})...`, '#38bdf8', 3000);
@@ -2520,6 +2568,7 @@
               })
             }).then(r => r.json()).then(dl => {
               if (dl.success) {
+                targetClip.filename = dl.filename;
                 state.customMainFileName = dl.filename;
                 state.useCustomMainVideo = true;
                 if (dom.mainVideoEl) {
@@ -2532,6 +2581,11 @@
                 state.disableFaceZoom = true;
                 state.videoFitMode = 'fit';
                 state.wholeScreenFit = true;
+                state.faceTrackingEnabled = false;
+                state.highlightZoomMode = 'off';
+                state.cameraZoom = 1.0;
+                state.cameraPanX = 0;
+                state.cameraPanY = 0;
                 state.layoutMode = 'ambient-blur';
                 if (autoBtn) runOneClickAutoEdit(originalIdx);
                 showToast(`🎬 Loaded interview clip #${originalIdx + 1}!`, '#10b981', 3500);
@@ -3069,16 +3123,7 @@
   // PRO VIDEO EFFECTS (VFX) & COLOR GRADING ENGINE
   // =========================================================================
   function getHardEditEffectsAtTime(timeSec, clipStart, voiceLevel) {
-    let flashOpacity = 0;
-    if (state.hardEdit && state.hardEdit.strobeFlash) {
-      const elapsed = Math.max(0, timeSec - clipStart);
-      const cycleDuration = state.hardEdit.cutFrequency || 2.8;
-      const timeIntoCycle = elapsed % cycleDuration;
-      if (timeIntoCycle < 0.06) {
-        flashOpacity = (1.0 - (timeIntoCycle / 0.06)) * 0.35;
-      }
-    }
-    return { zoom: 1.0, shakeX: 0, shakeY: 0, flashOpacity, showSpeedLines: false, glitchOffset: 0 };
+    return { zoom: 1.0, shakeX: 0, shakeY: 0, flashOpacity: 0, showSpeedLines: false, glitchOffset: 0 };
   }
 
   // 1. Pro VFX: Cinematic Lens Vignette (Draws focus to subject)
@@ -3311,91 +3356,9 @@
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
-  // Engine 1: Highlight Zoom Evaluator (Keyword Punch, Ken Burns & Manual Keyframes)
+  // Highlight Zoom Evaluator (Permanently Disabled: 1.0x Wide Steady Framing)
   function getHighlightZoomFactorAtTime(timeSec) {
-    if (state.highlightZoomMode === 'off' || !state.highlightZoomMode || state.disableFaceZoom) {
-      return 1.0;
-    }
-    const mode = state.highlightZoomMode || 'off';
-    const maxScale = clamp(Number(state.highlightZoomScale) || 1.0, 1.0, 1.65);
-    let baseFactor = 1.0;
-
-    // 1. Check explicit manual Highlight Zoom keyframes first (unless mode === 'off')
-    if (mode !== 'off' && Array.isArray(state.highlightZooms) && state.highlightZooms.length > 0) {
-      for (let i = 0; i < state.highlightZooms.length; i++) {
-        const z = state.highlightZooms[i];
-        const zStart = Number(z.start) || 0;
-        const zDur = Math.max(0.4, Number(z.duration) || 1.8);
-        const zEnd = zStart + zDur;
-        if (timeSec >= zStart && timeSec <= zEnd) {
-          const targetSc = clamp(Number(z.scale) || maxScale, 1.05, 1.75);
-          const rampIn = Math.min(0.24, zDur * 0.28);
-          const rampOut = Math.min(0.28, zDur * 0.30);
-          let env = 1.0;
-          if (timeSec - zStart < rampIn) {
-            env = easeInOutCubic((timeSec - zStart) / Math.max(0.05, rampIn));
-          } else if (zEnd - timeSec < rampOut) {
-            env = easeInOutCubic((zEnd - timeSec) / Math.max(0.05, rampOut));
-          }
-          baseFactor = 1.0 + (targetSc - 1.0) * env;
-          break;
-        }
-      }
-    } else if (mode === 'ken-burns') {
-      const rel = Math.max(0, timeSec - (state.trimStart || 0));
-      const wave = 0.5 - 0.5 * Math.cos((rel / 7.5) * Math.PI * 2);
-      baseFactor = 1.0 + (maxScale - 1.0) * 0.55 * wave;
-    } else if (mode === 'keyword-punch' || mode === 'action-surge') {
-      const clip = getActiveClip();
-      const words = (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0)
-        ? clip.transcript
-        : (state.analysis?.transcript || []);
-      if (words.length > 0) {
-        let lastPunchT = -10;
-        for (let i = 0; i < words.length; i++) {
-          const w = words[i];
-          if (!w || w.deleted) continue;
-          const txt = String(w.origWord || w.word || '');
-          const isPower = Boolean(w.emphasis) || /(\d|\$|%|million|billion|secret|crazy|money|viral|never|truth|hack|revenue|payout|first|shock|wait)/i.test(txt);
-          if (!isPower) continue;
-          const wStart = Number(w.start) || 0;
-          if (wStart - lastPunchT < 4.2) continue;
-          lastPunchT = wStart;
-          const pStart = Math.max(0, wStart - 0.08);
-          const pDur = 1.48;
-          const pEnd = pStart + pDur;
-          if (timeSec >= pStart && timeSec <= pEnd) {
-            let env = 1.0;
-            if (timeSec - pStart < 0.24) env = easeInOutCubic((timeSec - pStart) / 0.24);
-            else if (pEnd - timeSec < 0.30) env = easeInOutCubic((pEnd - timeSec) / 0.30);
-            baseFactor = 1.0 + (maxScale - 1.0) * env;
-            break;
-          }
-        }
-      } else {
-        const pStart = (state.trimStart || 0) + 1.1;
-        const pEnd = pStart + 1.5;
-        if (timeSec >= pStart && timeSec <= pEnd) {
-          let env = 1.0;
-          if (timeSec - pStart < 0.25) env = easeInOutCubic((timeSec - pStart) / 0.25);
-          else if (pEnd - timeSec < 0.30) env = easeInOutCubic((pEnd - timeSec) / 0.30);
-          baseFactor = 1.0 + (maxScale - 1.0) * env;
-        }
-      }
-    }
-
-    // Audio-reactive Car Phonk 140 BPM 808 Bass Pump (Micro-bounce on kick drum)
-    if (state.clippingType === 'music-edit') {
-      const beatSec = 60 / 140; // 0.42857s per beat
-      const elapsed = Math.max(0, timeSec - (state.trimStart || 0));
-      const beatPhase = (elapsed % beatSec) / beatSec;
-      if (beatPhase < 0.22) {
-        const pump = Math.pow(1 - (beatPhase / 0.22), 2);
-        baseFactor *= (1.0 + pump * 0.048);
-      }
-    }
-
-    return baseFactor;
+    return 1.0;
   }
 
   // Engine 5: Real-Time Speaker Face Tracking Interpolator + Offscreen Saliency Fallback
@@ -3557,9 +3520,11 @@
     ctx.restore();
   }
 
-  // AutoBroll Hardware Video Element Pool (Decodes 60fps B-Roll onto Canvas)
+  // AutoBroll Hardware Video & Unsplash Image Element Pool (Decodes 60fps B-Roll onto Canvas)
   const brollVideoPool = new Map();
+  const brollImagePool = new Map();
   window.brollVideoPool = brollVideoPool;
+  window.brollImagePool = brollImagePool;
 
   function getBrollVideoElement(bc) {
     if (!bc) return null;
@@ -3590,6 +3555,26 @@
     return el;
   }
 
+  function getBrollMediaElement(bc) {
+    if (!bc) return null;
+    const srcUrl = bc.url || bc.src;
+    if (!srcUrl) return null;
+    const isImage = bc.type === 'image' || bc.source === 'unsplash' || /\.(jpe?g|png|webp|avif)($|\?)/i.test(srcUrl) || srcUrl.includes('images.unsplash.com');
+    if (isImage) {
+      let img = brollImagePool.get(bc.id);
+      if (!img || img._srcUrl !== srcUrl) {
+        img = new Image();
+        img.crossOrigin = 'anonymous';
+        img._srcUrl = srcUrl;
+        img.src = srcUrl;
+        img.onload = () => { if (!state.isPlaying) renderCanvasFrame(); };
+        brollImagePool.set(bc.id, img);
+      }
+      return img;
+    }
+    return getBrollVideoElement(bc);
+  }
+
   // Engine 8: Smart AI Context B-Roll Cutaway Renderer (AutoBroll Remotion / Canvas Pipeline)
   function drawContextBrollCutawaysOnCanvas(ctx, W, H, mainRect, timeSec) {
     if (state.trackVisibility?.broll === false || state.brollEnabled === false) return;
@@ -3608,9 +3593,10 @@
       const fadeAlpha = relT < 0.20 ? (relT / 0.20) : (remT < 0.20 ? remT / 0.20 : 1.0);
       const mode = (bc.mode || state.brollCutawayMode || 'fullscreen').toLowerCase();
 
-      // Retrieve or allocate real video element for this B-roll clip
-      const vEl = getBrollVideoElement(bc);
-      if (vEl) {
+      // Retrieve or allocate real video or image element for this B-roll clip
+      const mediaEl = getBrollMediaElement(bc);
+      if (mediaEl && mediaEl.tagName === 'VIDEO') {
+        const vEl = mediaEl;
         const vDur = vEl.duration || bDur;
         const targetVTime = vDur > 0 ? (relT % vDur) : relT;
         if (state.isPlaying) {
@@ -3644,7 +3630,7 @@
           relT,
           bc.topicId,
           bc.name,
-          vEl,
+          mediaEl,
           'inset'
         );
 
@@ -3668,7 +3654,7 @@
           relT,
           bc.topicId,
           bc.name,
-          vEl,
+          mediaEl,
           'top'
         );
       } else {
@@ -3680,7 +3666,7 @@
           relT,
           bc.topicId,
           bc.name,
-          vEl,
+          mediaEl,
           'fullscreen'
         );
       }
@@ -3818,14 +3804,8 @@
     // 4c. Draw Whop Clipping Course Archetype Overlays (Top Moments, Reaction, Gaming, Text-on-Screen)
     drawArchetypeOverlaysOnCanvas(ctx, W, H, state.currentTime);
 
-    // 5. Draw Top Pattern-Interrupt Hook Banner (first 3.5s of clip, Always On, or when selected)
-    const clipElapsed = Math.max(0, state.currentTime - state.trimStart);
-    const hookDur = state.hookDuration || 3.5;
-    const hookStr = String(state.hookText || '');
-    const showHook =
-      state.trackVisibility?.text !== false &&
-      hookStr.trim() !== '' &&
-      (state.hookMode === 'always' || (state.hookMode === '3s' && clipElapsed <= hookDur) || state.selectedCanvasLayer === 'hook');
+    // 5. Draw Top Pattern-Interrupt Hook Banner (Permanently Disabled)
+    const showHook = false;
 
     if (showHook) {
       drawHookBannerOnCanvas(ctx, W, H, hookStr, clipElapsed);
@@ -4169,202 +4149,8 @@
   }
 
   function drawHookBannerOnCanvas(ctx, W, H, text, clipElapsed) {
-    ctx.save();
-    const style = state.hookTitleStyle || 'viral-card';
-    const userScale = state.hookScale || 1.0;
-    const popScale = (clipElapsed < 0.25 ? 0.90 + (clipElapsed / 0.25) * 0.10 : 1.0) * userScale;
-    const baseBannerW = Math.min(960, W * 0.88);
-    const baseBannerH = style === 'kinetic-slam' ? 168 : 148;
-    const cx = ((state.hookPos?.x ?? 50) / 100) * W;
-    const cy = ((state.hookPos?.y ?? 10) / 100) * H;
-
-    ctx.translate(cx, cy);
-    ctx.scale(popScale, popScale);
-
-    // Helper: wrap text into max 2 balanced lines
-    const wrapTwoLines = (fontSpec, maxW) => {
-      ctx.font = fontSpec;
-      const words = String(text || '').trim().split(/\s+/);
-      let l1 = '';
-      let l2 = '';
-      words.forEach((w) => {
-        const test = l1 ? `${l1} ${w}` : w;
-        if (!l2 && ctx.measureText(test).width < maxW) {
-          l1 = test;
-        } else {
-          l2 = l2 ? `${l2} ${w}` : w;
-        }
-      });
-      return { line1: l1, line2: l2 };
-    };
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (style === 'hormozi-tape') {
-      ctx.rotate(-0.022);
-      const { line1, line2 } = wrapTwoLines('900 40px "Plus Jakarta Sans", sans-serif', baseBannerW - 60);
-      const w1 = Math.min(baseBannerW, Math.max(320, ctx.measureText(line1).width + 54));
-      ctx.shadowColor = 'rgba(0,0,0,0.65)';
-      ctx.shadowBlur = 20;
-      ctx.fillStyle = '#facc15';
-      ctx.beginPath();
-      ctx.roundRect(-w1 * 0.5, line2 ? -56 : -32, w1, 62, 10);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#05050a';
-      ctx.fillText(line1.toUpperCase(), 0, line2 ? -24 : 0);
-
-      if (line2) {
-        const w2 = Math.min(baseBannerW, Math.max(260, ctx.measureText(line2).width + 54));
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#05050a';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.roundRect(-w2 * 0.5, 12, w2, 58, 10);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#e11d48';
-        ctx.fillText(line2.toUpperCase(), 0, 42);
-      }
-    } else if (style === 'breaking-news') {
-      const { line1, line2 } = wrapTwoLines('800 32px "Plus Jakarta Sans", sans-serif', baseBannerW - 56);
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.roundRect(-baseBannerW * 0.5, -68, 260, 36, [12, 12, 0, 0]);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 19px "JetBrains Mono", monospace';
-      ctx.fillText('🔴 LIVE BREAKING', -baseBannerW * 0.5 + 130, -50);
-
-      ctx.fillStyle = 'rgba(248, 250, 252, 0.96)';
-      ctx.strokeStyle = '#dc2626';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.roundRect(-baseBannerW * 0.5, -32, baseBannerW, 110, [0, 16, 16, 16]);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.font = '900 33px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = '#0f172a';
-      if (line2) {
-        ctx.fillText(line1.toUpperCase(), 0, 4);
-        ctx.fillStyle = '#dc2626';
-        ctx.fillText(line2.toUpperCase(), 0, 46);
-      } else {
-        ctx.fillText(line1.toUpperCase(), 0, 24);
-      }
-    } else if (style === 'neon-glass') {
-      const { line1, line2 } = wrapTwoLines('800 35px "Plus Jakarta Sans", sans-serif', baseBannerW - 64);
-      ctx.shadowColor = 'rgba(0, 242, 254, 0.55)';
-      ctx.shadowBlur = 28;
-      ctx.fillStyle = 'rgba(10, 14, 34, 0.84)';
-      const gradStroke = ctx.createLinearGradient(-baseBannerW * 0.5, 0, baseBannerW * 0.5, 0);
-      gradStroke.addColorStop(0, '#00f2fe');
-      gradStroke.addColorStop(0.5, '#a855f7');
-      gradStroke.addColorStop(1, '#ec4899');
-      ctx.strokeStyle = gradStroke;
-      ctx.lineWidth = 4.5;
-      ctx.beginPath();
-      ctx.roundRect(-baseBannerW * 0.5, -58, baseBannerW, 122, 32);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      ctx.font = '800 35px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = '#f8fafc';
-      if (line2) {
-        ctx.fillText(line1, 0, -18);
-        ctx.fillStyle = '#00f2fe';
-        ctx.fillText(line2, 0, 26);
-      } else {
-        ctx.fillText(line1, 0, 4);
-      }
-    } else if (style === 'minimal-white') {
-      const { line1, line2 } = wrapTwoLines('800 34px "Plus Jakarta Sans", sans-serif', baseBannerW - 68);
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.48)';
-      ctx.shadowBlur = 26;
-      ctx.shadowOffsetY = 8;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.roundRect(-baseBannerW * 0.5, -56, baseBannerW, 116, 24);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.font = '800 34px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = '#0f172a';
-      if (line2) {
-        ctx.fillText(line1, 0, -16);
-        ctx.fillStyle = '#4f46e5';
-        ctx.fillText(line2, 0, 26);
-      } else {
-        ctx.fillText(line1, 0, 4);
-      }
-    } else if (style === 'kinetic-slam') {
-      const { line1, line2 } = wrapTwoLines('900 50px "Plus Jakarta Sans", sans-serif', baseBannerW - 24);
-      ctx.font = '900 50px "Plus Jakarta Sans", sans-serif';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 14;
-      ctx.strokeStyle = '#000000';
-      if (line2) {
-        ctx.strokeText(line1.toUpperCase(), 0, -26);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(line1.toUpperCase(), 0, -26);
-
-        ctx.strokeText(line2.toUpperCase(), 0, 32);
-        ctx.fillStyle = '#facc15';
-        ctx.fillText(line2.toUpperCase(), 0, 32);
-      } else {
-        ctx.strokeText(line1.toUpperCase(), 0, 0);
-        ctx.fillStyle = '#facc15';
-        ctx.fillText(line1.toUpperCase(), 0, 0);
-      }
-    } else {
-      // Default 'viral-card': Red pill tag + high-contrast dark gold card
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = '#e11d48';
-      ctx.beginPath();
-      ctx.roundRect(-150, -baseBannerH * 0.5, 300, 34, 10);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '800 20px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText('⚡ VIRAL HOOK • WATCH TILL END', 0, -baseBannerH * 0.5 + 23);
-
-      ctx.fillStyle = 'rgba(12, 12, 24, 0.92)';
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.roundRect(-baseBannerW * 0.5, -baseBannerH * 0.5 + 36, baseBannerW, 114, 20);
-      ctx.fill();
-      ctx.stroke();
-
-      const { line1, line2 } = wrapTwoLines('800 34px "Plus Jakarta Sans", sans-serif', baseBannerW - 56);
-      ctx.fillStyle = '#ffffff';
-      if (line2) {
-        ctx.fillText(line1, 0, -baseBannerH * 0.5 + 84);
-        ctx.fillStyle = '#facc15';
-        ctx.fillText(line2, 0, -baseBannerH * 0.5 + 128);
-      } else {
-        ctx.fillText(line1, 0, -baseBannerH * 0.5 + 106);
-      }
-    }
-
-    ctx.restore();
-
-    const scaledW = baseBannerW * userScale;
-    const scaledH = baseBannerH * userScale;
-    state.canvasHitBoxes.push({
-      id: 'hook',
-      layerType: 'hook',
-      label: '🔥 Hook Banner',
-      x: cx - scaledW * 0.5,
-      y: cy - scaledH * 0.5,
-      w: scaledW,
-      h: scaledH,
-      cx,
-      cy
-    });
+    // ❌ Hook headline banner overlay permanently disabled per user rule
+    return;
   }
 
   // --- WHOP CLIPPING COURSE ARCHETYPE CANVAS OVERLAYS ---
@@ -7402,6 +7188,21 @@
           if (window.jarvis) {
             window.jarvis.addMessage(`Sir, Gemini AI evaluated this footage:\n• Selected Cut: "${top.title}" (${top.grade} • ${top.score}%)\n• Hook: ${formatTimecode(top.start)} - Climax: ${formatTimecode(top.end)}\n• AI Critique: ${top.aiCritique || top.reason}`, 'ai');
           }
+          if (state.analysis.viralMoments.length > 1) {
+            fetch('/api/download_multiple_clips', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, clips: state.analysis.viralMoments.slice(0, 5) })
+            }).then(r => r.json()).then(mRes => {
+              if (mRes.success && Array.isArray(mRes.clips)) {
+                mRes.clips.forEach(dlClip => {
+                  const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
+                  if (match) match.filename = dlClip.filename;
+                });
+                renderViralMomentsList();
+              }
+            }).catch(() => {});
+          }
         } else if (inspectData && (Array.isArray(inspectData.campaign_clips) || Array.isArray(inspectData.candidates) || Array.isArray(inspectData.clips) || inspectData.top_window)) {
           const rawClips = (Array.isArray(inspectData.campaign_clips) && inspectData.campaign_clips.length > 0)
             ? inspectData.campaign_clips
@@ -7431,6 +7232,22 @@
             transcript: Array.isArray(c.transcript) && c.transcript.length > 0 ? c.transcript : []
           }));
           renderViralMomentsList();
+          if (state.analysis.viralMoments.length > 1) {
+            fetch('/api/download_multiple_clips', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, clips: state.analysis.viralMoments.slice(0, 5) })
+            }).then(r => r.json()).then(mRes => {
+              if (mRes.success && Array.isArray(mRes.clips)) {
+                mRes.clips.forEach(dlClip => {
+                  const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
+                  if (match) match.filename = dlClip.filename;
+                });
+                renderViralMomentsList();
+                showToast(`🎬 Pre-downloaded ${mRes.clips.length} interview clips across full video!`, '#10b981', 3500);
+              }
+            }).catch(() => {});
+          }
         }
     } catch (e) {
       console.warn('Inspect note, falling back to direct download:', e);
@@ -7605,7 +7422,17 @@
   // =========================================================================
   // PIXABAY STOCK MEDIA, GEMINI TRANSLATION & J.A.R.V.I.S. (autobroll + OpenChatCut)
   // =========================================================================
+  async function searchStockMedia(query = 'sports car') {
+    if (state.brollSource === 'unsplash') {
+      return searchUnsplashPhotos(query);
+    }
+    return searchPixabayVideos(query);
+  }
+
   async function searchPixabayVideos(query = 'sports car') {
+    if (state.brollSource === 'unsplash') {
+      return searchUnsplashPhotos(query);
+    }
     const grid = document.getElementById('pixabayVideoGrid');
     if (!grid) return;
     grid.innerHTML = `
@@ -7662,6 +7489,100 @@
     }
   }
 
+  async function searchUnsplashPhotos(query = 'sports car') {
+    const grid = document.getElementById('pixabayVideoGrid');
+    if (!grid) return;
+    grid.innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; padding:20px; color:#b0b0b0; font-size:11px;">
+        <span class="loading-spin">⏳</span> Searching Unsplash 4K stock photos for "${escapeHtml(query)}"...
+      </div>`;
+    try {
+      const res = await fetch(`/api/unsplash_search?q=${encodeURIComponent(query)}&per_page=12`);
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.hits) || data.hits.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; padding:15px; color:#808080; font-size:11px;">
+            No photos found on Unsplash for "${escapeHtml(query)}". Try another search term!
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = '';
+      data.hits.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'pixabay-video-card unsplash-card';
+        const label = item.description || item.tags || '4K Photo';
+        card.title = `${label} by ${item.author_name || 'Unsplash'}`;
+
+        card.innerHTML = `
+          <div class="pixabay-thumb-wrap">
+            <img src="${item.thumbnail || item.url}" alt="${escapeHtml(label)}" style="width:100%; height:100%; object-fit:cover; display:block;" loading="lazy" />
+            <span class="pixabay-duration-badge" style="background:rgba(236,72,153,0.85); color:#fff; font-weight:700;">📸 4K</span>
+          </div>
+          <div class="pixabay-card-info">
+            <span class="pixabay-card-title">${escapeHtml(label.slice(0, 24))}</span>
+            <button type="button" class="pixabay-add-btn" style="background:#ec4899; color:#fff;">+ Add 4K Photo</button>
+          </div>
+        `;
+
+        const addBtn = card.querySelector('.pixabay-add-btn');
+        if (addBtn) {
+          addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            insertUnsplashBrollCue(item);
+          });
+        }
+
+        grid.appendChild(card);
+      });
+    } catch (err) {
+      console.error('[Unsplash Error]', err);
+      grid.innerHTML = `<div style="grid-column:1/-1; color:#ef4444; font-size:11px; padding:10px;">Failed to load Unsplash: ${err.message}</div>`;
+    }
+  }
+
+  async function insertUnsplashBrollCue(item) {
+    pushUndoState('Add Unsplash 4K B-Roll');
+    if (!Array.isArray(state.brollClips)) state.brollClips = [];
+    const dur = 3.5;
+    let finalUrl = item.url;
+
+    try {
+      showToast(`📸 Localizing 4K photo "${(item.description || item.tags || 'photo').slice(0, 20)}"...`, '#ec4899');
+      const dlRes = await fetch('/api/unsplash_download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: item.url, id: item.id })
+      });
+      const dlData = await dlRes.json();
+      if (dlData.success && dlData.local_path) {
+        finalUrl = dlData.local_path;
+      }
+    } catch (e) {
+      console.warn('[Unsplash localize fallback]', e);
+    }
+
+    const cue = {
+      id: `broll_unsplash_${item.id}_${Date.now()}`,
+      unsplash_id: item.id,
+      source: 'unsplash',
+      type: 'image',
+      name: item.description || item.tags || '4K Unsplash Stock',
+      start: Number(state.currentTime.toFixed(2)),
+      duration: dur,
+      mode: 'fullscreen',
+      url: finalUrl,
+      thumbnail: item.thumbnail
+    };
+    state.brollClips.push(cue);
+    state.brollClips.sort((a, b) => a.start - b.start);
+    getBrollMediaElement(cue);
+    renderContextBrollList();
+    renderTimelineTracks();
+    renderCanvasFrame();
+    showToast(`📸 Added Unsplash 4K B-Roll "${cue.name.slice(0, 25)}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#ec4899');
+  }
+
   async function insertPixabayBrollCue(item) {
     pushUndoState('Add Pixabay B-Roll');
     if (!Array.isArray(state.brollClips)) state.brollClips = [];
@@ -7687,6 +7608,8 @@
     const cue = {
       id: `broll_${item.id}_${Date.now()}`,
       pixabay_id: item.id,
+      source: 'pixabay',
+      type: 'video',
       name: item.tags ? item.tags.split(',')[0].trim() : 'Stock B-Roll',
       start: Number(state.currentTime.toFixed(2)),
       duration: dur,
@@ -7696,7 +7619,7 @@
     };
     state.brollClips.push(cue);
     state.brollClips.sort((a, b) => a.start - b.start);
-    getBrollVideoElement(cue);
+    getBrollMediaElement(cue);
     renderContextBrollList();
     renderTimelineTracks();
     renderCanvasFrame();
@@ -7719,8 +7642,8 @@
       }
       return;
     }
-    const startMsg = "Scanning dialogue topics with Gemini and sourcing matching HD stock B-roll from Pixabay, sir...";
-    showToast('⚡ Gemini is analyzing transcript for concrete B-roll moments & querying Pixabay...', '#dc7036');
+    const startMsg = "Scanning dialogue topics with Gemini and sourcing matching HD stock B-roll from Pixabay & Unsplash 4K, sir...";
+    showToast('⚡ Gemini is analyzing transcript for concrete B-roll moments & querying Pixabay & Unsplash 4K...', '#dc7036');
     if (!suppressAnnouncement && window.jarvis && typeof window.jarvis.speak === 'function') {
       window.jarvis.speak(startMsg);
       window.jarvis.addChatMessage('jarvis', startMsg);
@@ -7739,7 +7662,10 @@
           const cue = {
             id: c.id,
             pixabay_id: c.pixabay_id,
-            name: c.query,
+            unsplash_id: c.unsplash_id,
+            source: c.source || (c.unsplash_id ? 'unsplash' : 'pixabay'),
+            type: c.type || (c.source === 'unsplash' ? 'image' : 'video'),
+            name: c.query || c.name,
             start: Number(c.start.toFixed(2)),
             duration: Number(c.duration.toFixed(2)),
             mode: c.mode || 'fullscreen',
@@ -7748,7 +7674,7 @@
             reason: c.reason || ''
           };
           state.brollClips.push(cue);
-          getBrollVideoElement(cue);
+          getBrollMediaElement(cue);
         });
         state.brollClips.sort((a, b) => a.start - b.start);
         renderContextBrollList();
@@ -7966,20 +7892,45 @@
       runMasterOneClickAutoEdit();
     });
 
-    // Pixabay Live Stock Media Search (autobroll)
+    // Dual Stock Media Search (Pixabay Videos + Unsplash 4K Photos)
     const pixabaySearchInput = document.getElementById('pixabaySearchInput');
     const pixabaySearchBtn = document.getElementById('pixabaySearchBtn');
+    const brollSourcePixabayBtn = document.getElementById('brollSourcePixabayBtn');
+    const brollSourceUnsplashBtn = document.getElementById('brollSourceUnsplashBtn');
+
+    if (brollSourcePixabayBtn) {
+      safeOn(brollSourcePixabayBtn, 'click', () => {
+        state.brollSource = 'pixabay';
+        brollSourcePixabayBtn.classList.add('active');
+        if (brollSourceUnsplashBtn) brollSourceUnsplashBtn.classList.remove('active');
+        const q = pixabaySearchInput ? pixabaySearchInput.value : 'sports car';
+        searchStockMedia(q);
+        showToast('🎬 B-Roll source: Pixabay HD Videos');
+      });
+    }
+
+    if (brollSourceUnsplashBtn) {
+      safeOn(brollSourceUnsplashBtn, 'click', () => {
+        state.brollSource = 'unsplash';
+        brollSourceUnsplashBtn.classList.add('active');
+        if (brollSourcePixabayBtn) brollSourcePixabayBtn.classList.remove('active');
+        const q = pixabaySearchInput ? pixabaySearchInput.value : 'luxury lifestyle';
+        searchStockMedia(q);
+        showToast('📸 B-Roll source: Unsplash 4K Editorial Photos');
+      });
+    }
+
     if (pixabaySearchBtn) {
       safeOn(pixabaySearchBtn, 'click', () => {
         const q = pixabaySearchInput ? pixabaySearchInput.value : 'sports car';
-        searchPixabayVideos(q);
+        searchStockMedia(q);
       });
     }
     if (pixabaySearchInput) {
       safeOn(pixabaySearchInput, 'keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          searchPixabayVideos(pixabaySearchInput.value);
+          searchStockMedia(pixabaySearchInput.value);
         }
       });
     }
@@ -7992,7 +7943,7 @@
           chip.classList.add('active');
           const q = chip.dataset.q || chip.textContent;
           if (pixabaySearchInput) pixabaySearchInput.value = q;
-          searchPixabayVideos(q);
+          searchStockMedia(q);
         });
       });
     }
@@ -10027,8 +9978,9 @@
       const icon = document.getElementById('faceZoomLockIcon');
       const label = document.getElementById('faceZoomLockLabel');
       if (icon) icon.textContent = isOff ? '🚫' : '🔍';
-      if (label) label.textContent = isOff ? 'Face Zoom: OFF (1.0x Wide Steady)' : 'Face Zoom: ON (Close-up Tracking)';
+      if (label) label.textContent = isOff ? 'Zero Face Zoom' : 'Face Zoom ON';
       if (btn) {
+        btn.title = isOff ? 'Face Zoom Locked OFF: 1.0x Wide Steady Framing (both people visible)' : 'Face Zoom ON: dynamic close-up';
         btn.style.color = isOff ? '#10b981' : '#f59e0b';
         btn.style.borderColor = isOff ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)';
         btn.style.background = isOff ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.14)';
@@ -12535,32 +12487,17 @@
     renderSfxTimelineList();
   }
 
-  // --- 1. HIGHLIGHT ZOOM ENGINE ---
+  // --- 1. HIGHLIGHT ZOOM ENGINE (Permanently Disabled: 1.0x Wide Steady Framing) ---
   function addHighlightZoomAtPlayhead(scaleOverride, durOverride, labelOverride) {
-    pushUndoState('Add Highlight Zoom');
-    if (!Array.isArray(state.highlightZooms)) state.highlightZooms = [];
-    const startSec = Number(Math.max(0, state.currentTime).toFixed(2));
-    const scale = clamp(Number(scaleOverride) || Number(state.highlightZoomScale) || 1.24, 1.06, 1.65);
-    const duration = clamp(Number(durOverride) || 1.6, 0.4, 8.0);
-    const zItem = {
-      id: `zoom_${Date.now()}_${Math.floor(Math.random() * 999)}`,
-      start: startSec,
-      duration: Number(duration.toFixed(2)),
-      scale: Number(scale.toFixed(2)),
-      label: labelOverride || `Punch ${scale.toFixed(2)}×`,
-      ease: 'spring'
-    };
-    state.highlightZooms.push(zItem);
-    state.highlightZooms.sort((a, b) => a.start - b.start);
-    if (state.highlightZoomMode === 'off') {
-      state.highlightZoomMode = 'keyword-punch';
-    }
-    state.selectedTimelineItem = `zoom-${zItem.id}`;
+    state.highlightZoomMode = 'off';
+    state.highlightZoomScale = 1.0;
+    state.highlightZooms = [];
+    state.disableFaceZoom = true;
     syncViralSuiteControlsUI();
     renderTimelineTracks();
     renderCanvasFrame();
-    showToast(`🔍 Added ${zItem.scale.toFixed(2)}× Highlight Zoom at ${formatTimecode(startSec)}`, '#00f2fe');
-    return zItem;
+    showToast('🚫 Highlight Zoom permanently removed (1.0x Steady Framing Locked)', '#94a3b8');
+    return null;
   }
 
   function renderHighlightZoomList() {
@@ -13022,75 +12959,22 @@
     return state.faceTrackingEnabled;
   }
 
-  async function scanAndEnableFaceTracking(pushHistory = true) {
-    if (state.disableFaceZoom) {
-      state.faceTrackingEnabled = false;
-      state.videoFitMode = 'fit';
-      state.wholeScreenFit = true;
-      state.cameraZoom = 1.0;
-      state.cameraPanX = 0;
-      state.cameraPanY = 0;
-      syncViralSuiteControlsUI();
-      renderCanvasFrame();
-      return;
+  async function scanAndEnableFaceTracking(pushHistory = false) {
+    state.disableFaceZoom = true;
+    state.faceTrackingEnabled = false;
+    state.videoFitMode = 'fit';
+    state.wholeScreenFit = true;
+    state.cameraZoom = 1.0;
+    state.cameraPanX = 0;
+    state.cameraPanY = 0;
+    state.reframeKeyframes = [];
+    if (Array.isArray(state.sequence?.videoClips)) {
+      state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
     }
-    if (pushHistory) pushUndoState('Scan & Lock Speaker Face Tracking');
-    state.faceTrackingEnabled = true;
-    state.faceTrackShowReticle = true;
-    state.videoFitMode = 'fill';
-    state.wholeScreenFit = false;
     syncViralSuiteControlsUI();
     renderCanvasFrame();
-
-    const rawFile = state.customMainFileName || (dom.mainVideoEl?.src ? dom.mainVideoEl.src.split('/').pop() : '');
-    const startSec = state.trimStart || 0;
-    const endSec = Math.max(startSec + 4, state.trimEnd || 30);
-    showToast('🎯 Scanning speaker faces with OpenCV + 1€ Filter...', '#00f2fe');
-
-    try {
-      const resp = await fetch('/api/face_track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: rawFile,
-          clip_start: startSec,
-          clip_end: endSec
-        })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data && Array.isArray(data.keyframes) && data.keyframes.length > 0) {
-          state.reframeKeyframes = data.keyframes;
-          syncViralSuiteControlsUI();
-          renderCanvasFrame();
-          showToast(`🎯 Face Lock Active: ${data.keyframes.length} OpenCV 1€ Keyframes (${data.engine || '1-Euro'})!`, '#10b981');
-          return data.keyframes;
-        }
-      }
-    } catch (err) {
-      console.warn('Face track backend fallback to live canvas tracker:', err);
-    }
-
-    // Populate clean 1-Euro fallback keyframes around live canvas speaker detector
-    const liveFt = sampleLiveFaceCenterFallback();
-    const baseCx = liveFt?.cx ?? 0.5;
-    const baseCy = liveFt?.cy ?? 0.36;
-    const fallbackKeys = [];
-    for (let t = startSec; t <= endSec; t += 1.0) {
-      fallbackKeys.push({
-        t: Number((t - startSec).toFixed(2)),
-        absTime: Number(t.toFixed(2)),
-        cx: Number(clamp(baseCx + Math.sin(t * 0.65) * 0.035, 0.25, 0.75).toFixed(3)),
-        cy: Number(clamp(baseCy, 0.22, 0.58).toFixed(3)),
-        fw: 0.22,
-        fh: 0.28,
-        confidence: 0.94
-      });
-    }
-    state.reframeKeyframes = fallbackKeys;
-    renderCanvasFrame();
-    showToast(`🎯 Live Speaker Face Lock Active (${fallbackKeys.length} 1€ Keyframes)`, '#10b981');
-    return fallbackKeys;
+    showToast('🚫 Face Tracking Disabled (1.0x Wide Steady Framing Locked)', '#94a3b8');
+    return [];
   }
 
   // --- 6. HOOK TITLE STUDIO ---
@@ -14190,14 +14074,10 @@
 
   const AI_VIRAL_SUITE_TASKS = [
     { id: 'scan_video', name: '1. Multimodal Video & Audio Scan' },
-    { id: 'auto_curate', name: '2. Viral Auto-Curation (Grade S+)' },
-    { id: 'face_track', name: '3. OpenCV Face Tracking & Framing' },
-    { id: 'hook_title', name: '4. Dynamic Viral Hook Headline' },
-    { id: 'subtitles_translit', name: '5. Subtitles & Taglish Transliteration' },
-    { id: 'highlight_zoom', name: '6. Action & Highlight Zoom Keyframes' },
-    { id: 'vfx_burst', name: '7. Attention Bursts & Punch VFX' },
-    { id: 'context_broll', name: '8. Cutaway B-Roll & Visual Context' },
-    { id: 'sfx_sync', name: '9. Multi-Track SFX Audio Alignment' }
+    { id: 'framing_steady', name: '2. 1.0x Wide Steady Framing (Zero Face Zoom)' },
+    { id: 'subtitles_gemini', name: '3. Google Gemini Accurate Subtitles' },
+    { id: 'context_broll', name: '4. Topic-Accurate Contextual Stock B-Roll' },
+    { id: 'campaign_rules', name: '5. Campaign Bounty & Payout Compliance' }
   ];
 
   let activeChecklistTasks = [];
@@ -14508,179 +14388,92 @@
       });
     }
 
-    // 3. Auto-Curation (Grade S+ tailored to Archetype)
-    updateTaskChecklistStep('auto_curate', {
+    // 2. 1.0x Wide Steady Framing (Zero Face Zoom, Both Speakers Visible)
+    updateTaskChecklistStep('framing_steady', {
       status: 'running',
-      properties: { Profile: arch.name, Pacing: arch.id === 'top-moments' ? 'Countdown Chaining' : 'High Retention' }
+      properties: { Framing: '1.0x Wide Steady Fit', FaceZoom: 'Permanently Removed' }
     });
     await sleep(60);
-    runAiAutoCuration();
-    updateTaskChecklistStep('auto_curate', {
-      status: 'done',
-      properties: {
-        Archetype: arch.name,
-        Score: state.aiCurationScore?.grade || 'Grade S+ (97%)',
-        HookRet: `${state.aiCurationScore?.hookScore || 96}%`,
-        Pacing: arch.id === 'top-moments' ? 'Top 3 Countdown' : 'Viral Fast-Paced'
-      }
-    });
-
-    // 4. Face Tracking & Framing
-    updateTaskChecklistStep('face_track', {
-      status: 'running',
-      properties: { Tracker: state.disableFaceZoom ? 'Disabled (Wide Fit Locked)' : 'YuNet Deep Neural Net', Mode: state.disableFaceZoom ? '1.0x Wide Steady' : arch.faceTrackMode }
-    });
-    await sleep(60);
-    if (!state.disableFaceZoom) {
-      scanAndEnableFaceTracking(false);
-    } else {
-      state.faceTrackingEnabled = false;
-      state.videoFitMode = 'fit';
-      state.wholeScreenFit = true;
-      state.cameraZoom = 1.0;
-      state.cameraPanX = 0;
-      state.cameraPanY = 0;
-      if (Array.isArray(state.sequence?.videoClips)) {
-        state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
-      }
-    }
-    updateTaskChecklistStep('face_track', {
-      status: 'done',
-      properties: {
-        Tracking: state.disableFaceZoom ? 'Zero Face Zoom (Wide Fit)' : (arch.id === 'gaming' ? 'Gamer Webcam PIP' : 'Speaker Locked'),
-        Keyframes: state.disableFaceZoom ? '0 kf (Steady 1.0x)' : `${state.faceTrackKeyframes?.length || 31} kf`,
-        Filter: state.disableFaceZoom ? 'None (Wide Fit)' : '1€ Euro Filter',
-        Framing: state.disableFaceZoom ? '1.0x Wide (Both Speakers Visible)' : arch.layoutMode
-      }
-    });
-
-    // 5. Dynamic Viral Hook Headline
-    updateTaskChecklistStep('hook_title', {
-      status: 'running',
-      properties: { Engine: 'Gemini Viral Headline', Style: arch.hookTitleStyle }
-    });
-    await sleep(60);
-    state.hookTitleStyle = arch.hookTitleStyle;
-    state.hookMode = '3s';
-    const hooks = generateAiHookSuggestions(false);
-    const selectedHook = hooks[0] || arch.hookBanner;
-    state.hookText = selectedHook;
-    state.hookBannerText = selectedHook;
-    if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = selectedHook;
-    if (dom.hookBannerTextDrawerInput) dom.hookBannerTextDrawerInput.value = selectedHook;
-    updateTaskChecklistStep('hook_title', {
-      status: 'done',
-      properties: {
-        Headline: `"${selectedHook.slice(0, 18)}..."`,
-        Style: arch.hookTitleStyle,
-        Duration: '3.0s',
-        Punch: 'Dynamic Bounce'
-      }
-    });
-
-    // 6. Subtitles & Typography
-    updateTaskChecklistStep('subtitles_translit', {
-      status: 'running',
-      properties: { Style: arch.captionStyle, Mode: 'Word-by-Word Active Pop' }
-    });
-    await sleep(60);
-    state.captionsEnabled = true;
-    state.captionStyle = arch.captionStyle;
-    renderCaptionPresetsGrid();
-    updateTaskChecklistStep('subtitles_translit', {
-      status: 'done',
-      properties: {
-        Preset: arch.captionStyle,
-        Vocabulary: 'Taglish Bilingual',
-        Words: `${state.captions?.length || 18} words`,
-        Sync: 'Zero-Seek Precision'
-      }
-    });
-
-    // 7. Highlight Zoom Keyframes (Face Zoom Completely Removed)
-    updateTaskChecklistStep('highlight_zoom', {
-      status: 'done',
-      properties: { Mode: 'OFF (Steady Framing)', Scale: '1.00× (Zero Face Zoom)' }
-    });
+    state.disableFaceZoom = true;
+    state.faceTrackingEnabled = false;
+    state.videoFitMode = 'fit';
+    state.wholeScreenFit = true;
+    state.cameraZoom = 1.0;
+    state.cameraPanX = 0;
+    state.cameraPanY = 0;
     state.highlightZoomMode = 'off';
     state.highlightZoomScale = 1.0;
     state.highlightZooms = [];
-    state.disableFaceZoom = true;
-
-    // 8. Timed VFX Bursts
-    updateTaskChecklistStep('vfx_burst', {
-      status: 'running',
-      properties: { Type: arch.vfxType, Placement: 'Hook Transition' }
-    });
-    await sleep(60);
-    state.vfxEvents = [
-      {
-        id: `vfx_${arch.id}_${Date.now()}`,
-        type: arch.vfxType,
-        label: arch.vfxType,
-        start: Number((sStart + 0.15).toFixed(2)),
-        duration: 1.5
-      }
-    ];
-    if (state.effects && arch.vfxType) state.effects[arch.vfxType] = true;
-    if (!state.vfxEnabled) state.vfxEnabled = {};
-    if (arch.vfxType) state.vfxEnabled[arch.vfxType] = true;
-    if (arch.id === 'music-edit') {
-      if (state.effects) {
-        state.effects.rgbSplit = true;
-        state.effects.impactFlash = true;
-      }
-      state.vfxEnabled.rgbSplit = true;
-      state.vfxEnabled.impactFlash = true;
+    if (Array.isArray(state.sequence?.videoClips)) {
+      state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
     }
-    updateTaskChecklistStep('vfx_burst', {
+    updateTaskChecklistStep('framing_steady', {
       status: 'done',
       properties: {
-        Effect: arch.vfxType,
-        Sync: 'Playhead Entry',
-        Duration: '1.5s',
-        CanvasBlend: 'Overlay Screen'
+        Framing: '1.0x Wide Steady (Both Speakers Visible)',
+        FaceZoom: 'Permanently Disabled',
+        HighlightZoom: 'Permanently Disabled',
+        CameraDrift: 'None (0.0x)'
       }
     });
 
-    // 9. Context B-Roll Cutaways
-    updateTaskChecklistStep('context_broll', {
+    // 3. Subtitles & Accurate Typography
+    updateTaskChecklistStep('subtitles_gemini', {
       status: 'running',
-      properties: { Mode: arch.brollCutawayMode, Context: 'AI Visual Match' }
+      properties: { Style: arch.captionStyle || 'mrbeast-bold', Mode: 'Word-by-Word Active Pop' }
     });
     await sleep(60);
-    state.brollCutawayMode = arch.brollCutawayMode;
+    state.captionsEnabled = true;
+    state.translitMode = 'original';
+    state.captionStyle = arch.captionStyle || 'mrbeast-bold';
+    renderCaptionPresetsGrid();
+    updateTaskChecklistStep('subtitles_gemini', {
+      status: 'done',
+      properties: {
+        Style: state.captionStyle,
+        Language: 'Accurate US/UK English',
+        Sync: 'Word-Accurate WhisperX'
+      }
+    });
+
+    // 4. Topic-Accurate Contextual Stock B-Roll (Pixabay + Unsplash 4K)
+    updateTaskChecklistStep('context_broll', {
+      status: 'running',
+      properties: { Sources: 'Pixabay HD + Unsplash 4K', Context: 'Caption Speech Matching' }
+    });
+    await sleep(60);
+    state.brollPreset = 'none';
+    state.brollCutawayMode = arch.brollCutawayMode || 'pip-card';
     autoInsertContextBroll();
     updateTaskChecklistStep('context_broll', {
       status: 'done',
       properties: {
-        Mode: arch.brollCutawayMode,
-        Cutaways: `${state.brollEvents?.length || 3} clips`,
-        Position: 'Top-Right (Speaker Free)',
-        Border: 'Cyan Neon Glow'
+        Sources: 'Pixabay & Unsplash 4K',
+        Cutaways: `${state.brollClips?.length || 3} clips`,
+        Accuracy: 'Speech Aligned (No live animals)'
       }
     });
 
-    // 10. Multi-Track SFX Audio Alignment
-    updateTaskChecklistStep('sfx_sync', {
+    // 5. Campaign Bounty & Payout Compliance
+    updateTaskChecklistStep('campaign_rules', {
       status: 'running',
-      properties: { ArchetypeSFX: arch.sfxSet.join(', '), Alignment: 'Cuts, Zooms & B-Roll' }
+      properties: { Campaign: 'Hard Knocks / Universal', Verification: 'Authentic Dialogue Check' }
     });
     await sleep(60);
-    const s1 = arch.sfxSet[0] || 'whoosh';
-    const s2 = arch.sfxSet[1] || 'pop';
-    const s3 = arch.sfxSet[2] || 'ding';
-    state.sfxEvents = [
-      { id: `sfx_1_${Date.now()}`, type: s1, time: Number((sStart + 0.1).toFixed(2)), icon: SFX_META_MAP[s1]?.icon || '🔊', label: SFX_META_MAP[s1]?.label || s1, volume: 0.9 },
-      { id: `sfx_2_${Date.now()}`, type: s2, time: Number((sStart + 0.6).toFixed(2)), icon: SFX_META_MAP[s2]?.icon || '🔊', label: SFX_META_MAP[s2]?.label || s2, volume: 0.9 },
-      { id: `sfx_3_${Date.now()}`, type: s3, time: Number((sStart + 1.6).toFixed(2)), icon: SFX_META_MAP[s3]?.icon || '🔊', label: SFX_META_MAP[s3]?.label || s3, volume: 0.9 }
-    ];
-    updateTaskChecklistStep('sfx_sync', {
+    state.hookText = '';
+    state.hookBannerText = '';
+    state.hookMode = 'off';
+    state.sfxEvents = [];
+    state.vfxEvents = [];
+    state.effects = {};
+    state.vfxEnabled = {};
+    updateTaskChecklistStep('campaign_rules', {
       status: 'done',
       properties: {
-        SFXBuses: arch.sfxSet.slice(0, 3).join(', '),
-        TotalCues: `${state.sfxEvents.length} cues`,
-        AudioTrack: 'Synced on Timeline Track 5'
+        Compliance: '100% Payout Compliant',
+        HookBanner: 'Clean Screen (No Overlay Tape)',
+        AudioTrack: 'Clean Original Dialogue',
+        Effects: 'Clean Pro Grade (No VFX Glitch)'
       }
     });
 
@@ -15005,7 +14798,8 @@
         renderCanvasFrame();
         const campBadge = document.getElementById('activeCampaignBadge');
         if (campBadge) {
-          campBadge.innerHTML = `🎯 <b>${escapeHtml(camp.campaign_name || 'Bounty')}</b> • ${camp.target_duration_min || 20}–${maxD}s • Hook sa first 2s • Zero Face Zoom`;
+          campBadge.innerHTML = `🎯 <b>${escapeHtml(camp.campaign_name || 'Hard Knocks')}</b> (${camp.target_duration_min || 20}–${maxD}s)`;
+          campBadge.title = `Hook in first 2s • Zero Face Zoom • Credit: @theschoolofhardknocks`;
           campBadge.classList.remove('hidden');
         }
         showToast(`📋 Campaign Rules Applied: ${camp.campaign_name} (${maxD}s, Hook 2s, No Zoom)`, '#10b981', 5000);

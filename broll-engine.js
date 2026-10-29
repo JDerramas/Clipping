@@ -84,6 +84,55 @@
     }
 
     /**
+     * Search Unsplash for real 4K/HD stock photos
+     * Calls our local server proxy /api/unsplash_search
+     */
+    async searchUnsplash(query = 'car', perPage = 12) {
+      const q = String(query || 'lifestyle').trim();
+      const cacheKey = `unsplash_${q}_${perPage}`;
+      if (this.cache.has(cacheKey)) {
+        return this.cache.get(cacheKey);
+      }
+
+      try {
+        const res = await fetch(`/api/unsplash_search?q=${encodeURIComponent(q)}&per_page=${perPage}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.hits)) {
+            this.cache.set(cacheKey, data.hits);
+            return data.hits;
+          }
+        }
+      } catch (err) {
+        console.warn('[BrollEngine] Unsplash search failed:', err);
+      }
+      return [];
+    }
+
+    /**
+     * Download or cache Unsplash photo locally
+     */
+    async downloadUnsplash(imageItem) {
+      if (!imageItem || !imageItem.url) return null;
+      try {
+        const res = await fetch('/api/unsplash_download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: imageItem.url,
+            id: imageItem.id || imageItem.unsplash_id
+          })
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.error('[BrollEngine] downloadUnsplash error:', err);
+      }
+      return null;
+    }
+
+    /**
      * Automatically plan and fetch B-roll for a transcript using Gemini (autobroll style)
      */
     async autoPlanBroll(words = []) {
@@ -161,17 +210,19 @@
     }
 
     /**
-     * Renders active stock video onto canvas stage with cover-crop and mode support
+     * Renders active stock video or Unsplash 4K photo onto canvas stage with cover-crop and mode support
      */
-    renderContextBrollCutaway(ctx, rect, relT, topicId, customLabel, videoElement, mode = 'fullscreen') {
+    renderContextBrollCutaway(ctx, rect, relT, topicId, customLabel, mediaElement, mode = 'fullscreen') {
       if (!ctx || !rect) return;
       ctx.save();
 
       const r = rect;
-      // If a real video element is provided and has loaded video frames, draw with 9:16 vertical cover-crop!
-      if (videoElement && (videoElement.readyState >= 2 || (videoElement.readyState >= 1 && videoElement.currentTime > 0))) {
-        const vw = videoElement.videoWidth || 1920;
-        const vh = videoElement.videoHeight || 1080;
+      const isVideo = mediaElement && (mediaElement.readyState >= 2 || (mediaElement.readyState >= 1 && mediaElement.currentTime > 0));
+      const isImage = mediaElement && (mediaElement.naturalWidth > 0 || (mediaElement.width > 0 && mediaElement.complete));
+
+      if (isVideo || isImage) {
+        const vw = isVideo ? (mediaElement.videoWidth || 1920) : (mediaElement.naturalWidth || mediaElement.width || 1920);
+        const vh = isVideo ? (mediaElement.videoHeight || 1080) : (mediaElement.naturalHeight || mediaElement.height || 1080);
         const scale = Math.max(r.w / vw, r.h / vh);
         const drawW = vw * scale;
         const drawH = vh * scale;
@@ -185,7 +236,7 @@
           ctx.rect(r.x, r.y, r.w, r.h);
         }
         ctx.clip();
-        ctx.drawImage(videoElement, drawX, drawY, drawW, drawH);
+        ctx.drawImage(mediaElement, drawX, drawY, drawW, drawH);
 
         // For inset / PIP mode, draw sleek border
         if (mode === 'inset' || mode === 'pip-card') {

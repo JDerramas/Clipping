@@ -402,7 +402,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.send_json_response({
                 "gemini_api_key": load_local_secret("GEMINI_API_KEY"),
                 "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY"),
-                "pixabay_api_key": load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9"
+                "pixabay_api_key": load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9",
+                "unsplash_access_key": load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
             })
             return
         elif path in ("/api/pixabay_search", "/api/pixabay-search"):
@@ -410,6 +411,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             q = query_params.get("q", ["car"])[0]
             per_page = int(query_params.get("per_page", ["12"])[0])
             self.handle_api_pixabay_search(q, per_page)
+            return
+        elif path in ("/api/unsplash_search", "/api/unsplash-search"):
+            query_params = parse_qs(parsed.query)
+            q = query_params.get("q", ["car"])[0]
+            per_page = int(query_params.get("per_page", ["12"])[0])
+            self.handle_api_unsplash_search(q, per_page)
             return
         elif path in ("/api/schedule_queue", "/api/schedule-queue"):
             self.handle_api_schedule_get()
@@ -502,6 +509,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_pixabay_search(q, per_page)
         elif path in ("/api/pixabay_download", "/api/pixabay-download"):
             self.handle_api_pixabay_download(payload)
+        elif path in ("/api/unsplash_search", "/api/unsplash-search"):
+            q = payload.get("q", "luxury lifestyle")
+            per_page = int(payload.get("per_page", 12))
+            self.handle_api_unsplash_search(q, per_page)
+        elif path in ("/api/unsplash_download", "/api/unsplash-download"):
+            self.handle_api_unsplash_download(payload)
+        elif path in ("/api/download_multiple_clips", "/api/download-multiple-clips"):
+            self.handle_api_download_multiple_clips(payload)
         elif path in ("/api/auto_broll_gemini", "/api/auto-broll-gemini"):
             self.handle_api_auto_broll_gemini(payload)
         elif path in ("/api/translate_captions", "/api/translate-captions"):
@@ -2145,16 +2160,6 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 t_match = re.search(r"(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?", p_lower)
                 t_val = float(t_match.group(1)) if t_match else None
                 actions_list.append({"action": "split", "time": t_val})
-            if "minecraft" in p_lower:
-                actions_list.append({"action": "set_broll", "preset": "minecraft-parkour"})
-                if not any(a.get("action") == "set_layout" for a in actions_list):
-                    actions_list.append({"action": "set_layout", "mode": "split-50-50"})
-            elif "subway" in p_lower or "surfer" in p_lower:
-                actions_list.append({"action": "set_broll", "preset": "subway-surfers"})
-                if not any(a.get("action") == "set_layout" for a in actions_list):
-                    actions_list.append({"action": "set_layout", "mode": "split-50-50"})
-            elif "slime" in p_lower or "satisfying" in p_lower:
-                actions_list.append({"action": "set_broll", "preset": "satisfying-slime"})
             if any(k in p_lower for k in ["split 50", "split screen", "dalawang video"]):
                 actions_list.append({"action": "set_layout", "mode": "split-50-50"})
             elif any(k in p_lower for k in ["full screen", "buong screen", "solo video", "isang video"]):
@@ -2181,22 +2186,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 actions_list.append({"action": "client_prompt_edit", "prompt": prompt})
             if any(k in p_lower for k in ["export", "render", "save video", "i-download"]):
                 actions_list.append({"action": "export"})
-            if any(k in p_lower for k in ["highlight zoom", "auto zoom", "punch zoom", "zoom in"]) and not any(k in p_lower for k in ["remove", "no", "alisin", "disable", "tanggalin"]):
-                actions_list.append({"action": "highlight_zoom", "mode": "keyword-punch"})
-            if any(k in p_lower for k in ["curate", "auto curation", "find best clips", "viral moments"]):
-                actions_list.append({"action": "auto_curate"})
-            if any(k in p_lower for k in ["translit", "taglish", "translate subtitle", "romanize"]):
-                actions_list.append({"action": "translit", "mode": "taglish"})
-            if any(k in p_lower for k in ["sfx", "whoosh", "sound effect", "ka-ching", "bass drop"]):
-                sfx_pick = "cash" if "cash" in p_lower or "ching" in p_lower else ("bass-drop" if "bass" in p_lower else ("auto-sync" if "auto" in p_lower else "whoosh"))
-                actions_list.append({"action": "add_sfx", "sfx": sfx_pick})
-            if any(k in p_lower for k in ["face track", "track face", "speaker lock", "follow face"]):
-                actions_list.append({"action": "face_track", "enabled": True})
-            if any(k in p_lower for k in ["hook title", "generate hook", "hook style"]):
-                actions_list.append({"action": "hook_title", "style": "hormozi-tape", "generate": True})
-            if any(k in p_lower for k in ["vfx", "speed lines", "spotlight", "impact flash"]):
-                vfx_pick = "speedLines" if "speed" in p_lower else ("spotlight" if "spot" in p_lower else "impactFlash")
-                actions_list.append({"action": "add_vfx", "vfx": vfx_pick})
+            if any(k in p_lower for k in ["zoom", "face zoom", "highlight zoom", "punch zoom", "camera zoom", "remove zoom"]):
+                actions_list.append({"action": "disable_face_zoom"})
+            if any(k in p_lower for k in ["unsplash", "stock photo", "4k photo", "larawan"]):
+                q_u = re.search(r"(?:unsplash|photo|larawan)\s*(?:ng|for|of)?\s*[:\"]?(.+?)[\"]?$", prompt, re.I)
+                actions_list.append({"action": "search_unsplash", "query": q_u.group(1).strip() if q_u else "luxury lifestyle"})
             if any(k in p_lower for k in ["auto b-roll", "insert b-roll", "context b-roll", "broll cutaway"]):
                 actions_list.append({"action": "auto_broll", "topic": "auto"})
 
@@ -3008,6 +3002,125 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             sys.stderr.write(f"[Pixabay Download Error] {e}\n")
             self.send_json_response({"success": False, "error": str(e)}, status=500)
 
+    # ---------------- UNSPLASH 4K STOCK PHOTOGRAPHY ----------------
+    def handle_api_unsplash_search(self, query: str = "car", per_page: int = 12):
+        unsplash_key = load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
+        clean_q = (query or "luxury lifestyle").strip()
+        encoded_q = urllib.parse.quote(clean_q)
+        url = f"https://api.unsplash.com/search/photos?query={encoded_q}&per_page={min(max(per_page, 4), 30)}"
+        headers = {
+            "Authorization": f"Client-ID {unsplash_key}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                results = data.get("results", [])
+                hits = []
+                for r in results:
+                    urls = r.get("urls", {})
+                    hits.append({
+                        "id": r.get("id"),
+                        "source": "unsplash",
+                        "type": "image",
+                        "title": r.get("alt_description") or r.get("description") or clean_q,
+                        "tags": ", ".join([t.get("title", "") for t in r.get("tags", []) if t.get("title")]),
+                        "width": r.get("width", 1920),
+                        "height": r.get("height", 1080),
+                        "url": urls.get("regular") or urls.get("full") or urls.get("raw"),
+                        "full_url": urls.get("full") or urls.get("regular"),
+                        "thumbnail": urls.get("small") or urls.get("thumb") or urls.get("regular"),
+                        "user": r.get("user", {}).get("name", "Unsplash Creator")
+                    })
+                self.send_json_response({
+                    "success": True,
+                    "query": clean_q,
+                    "total": data.get("total", len(hits)),
+                    "hits": hits
+                })
+        except Exception as e:
+            sys.stderr.write(f"[Unsplash Search Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e), "hits": []}, status=500)
+
+    def handle_api_unsplash_download(self, payload: dict):
+        url = payload.get("url", "").strip()
+        photo_id = str(payload.get("id") or int(time.time()))
+        if not url:
+            self.send_json_response({"success": False, "error": "No image URL provided"}, status=400)
+            return
+
+        dest_dir = engine.UPLOADS
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        local_filename = f"unsplash_{photo_id}.jpg"
+        local_file = dest_dir / local_filename
+
+        try:
+            if not local_file.exists() or local_file.stat().st_size < 1000:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=20) as resp, open(local_file, "wb") as f:
+                    f.write(resp.read())
+
+            self.send_json_response({
+                "success": True,
+                "local_url": f"/uploads/{local_filename}",
+                "filename": local_filename,
+                "source": "unsplash",
+                "type": "image"
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Unsplash Download Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e), "fallback_url": url}, status=500)
+
+    # ---------------- MULTI-CLIP CAMPAIGN HIGHLIGHT DOWNLOADER ----------------
+    def handle_api_download_multiple_clips(self, payload: dict):
+        url = payload.get("url", "").strip()
+        clips = payload.get("clips", [])
+        if not url or not clips:
+            self.send_json_response({"success": False, "error": "Missing URL or clips array"}, status=400)
+            return
+
+        downloaded = []
+        try:
+            meta = engine.inspect_url_metadata(url)
+            for idx, c in enumerate(clips[:5]):
+                st = float(c.get("start", c.get("clip_start", 0)))
+                et = float(c.get("end", c.get("clip_end", st + 45.0)))
+                title = str(c.get("title", f"Interview Moment #{idx + 1}"))
+                try:
+                    p = engine.download_highlight_section(
+                        url=url,
+                        clip_start=st,
+                        clip_end=et,
+                        title=title,
+                        meta_info=meta
+                    )
+                    if p and p.exists():
+                        downloaded.append({
+                            "id": c.get("id", f"clip_{idx + 1}_{int(time.time())}"),
+                            "title": title,
+                            "start": st,
+                            "end": et,
+                            "filename": p.name,
+                            "url": f"/uploads/{p.name}",
+                            "score": c.get("score", 95),
+                            "grade": c.get("grade", "S+"),
+                            "reason": c.get("reason", ""),
+                            "aiCritique": c.get("aiCritique", "")
+                        })
+                except Exception as dl_e:
+                    sys.stderr.write(f"[Multi-clip download {idx}] {dl_e}\n")
+
+            self.send_json_response({
+                "success": True,
+                "count": len(downloaded),
+                "clips": downloaded
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Download Multiple Clips Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e), "clips": []}, status=500)
+
     def handle_api_auto_broll_gemini(self, payload: dict):
         """
         AutoBroll algorithm (scripts/broll-multiclip.mjs):
@@ -3203,18 +3316,63 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 except Exception as e:
                     sys.stderr.write(f"[Pixabay fetch trial '{trial_q}' notice] {e}\n")
 
-            if not hits:
-                # Fallback to car drift or money
-                fallback_q = "sports car drift" if "car" in q.lower() or "drift" in q.lower() else "counting money cash"
-                try:
-                    p_url = f"https://pixabay.com/api/videos/?key={pixabay_key}&q={urllib.parse.quote(fallback_q)}&per_page=3"
-                    req = urllib.request.Request(p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                    with urllib.request.urlopen(req, timeout=8) as r:
-                        hits = json.loads(r.read().decode("utf-8")).get("hits", [])
-                except Exception:
-                    hits = []
+            unsplash_key = load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
+            matched_unsplash = False
 
-            if hits:
+            # Prioritize Unsplash 4K photography for food items, flags, or when Pixabay has no suitable video
+            if is_food_query or is_flag_query or not hits:
+                try:
+                    u_search_term = q
+                    if "nugget" in q.lower():
+                        u_search_term = "chicken nuggets"
+                    elif "chicken" in q.lower() and "fried" not in q.lower():
+                        u_search_term = "crispy fried chicken"
+                    elif "philippines" in q.lower():
+                        u_search_term = "philippines flag"
+                    elif "american" in q.lower() or "usa" in q.lower():
+                        u_search_term = "american flag"
+
+                    u_url = f"https://api.unsplash.com/search/photos?query={urllib.parse.quote(u_search_term)}&per_page=5"
+                    u_req = urllib.request.Request(u_url, headers={"Authorization": f"Client-ID {unsplash_key}", "User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(u_req, timeout=8) as u_resp:
+                        u_data = json.loads(u_resp.read().decode("utf-8"))
+                        u_results = u_data.get("results", [])
+                        if u_results:
+                            top_u = u_results[0]
+                            u_id = top_u.get("id")
+                            u_img_url = top_u.get("urls", {}).get("regular") or top_u.get("urls", {}).get("full")
+                            u_thumb = top_u.get("urls", {}).get("small") or top_u.get("urls", {}).get("thumb")
+                            local_u_name = f"unsplash_{u_id}.jpg"
+                            local_u_path = dest_dir / local_u_name
+                            local_u_url = f"/uploads/{local_u_name}"
+                            if u_img_url and (not local_u_path.exists() or local_u_path.stat().st_size < 1000):
+                                try:
+                                    dl_u_req = urllib.request.Request(u_img_url, headers={"User-Agent": "Mozilla/5.0"})
+                                    with urllib.request.urlopen(dl_u_req, timeout=15) as u_dl, open(local_u_path, "wb") as f_u:
+                                        f_u.write(u_dl.read())
+                                except Exception as dl_u_err:
+                                    sys.stderr.write(f"[Unsplash dl error {u_id}] {dl_u_err}\n")
+                                    local_u_url = u_img_url
+
+                            final_brolls.append({
+                                "id": f"broll_unsplash_{u_id}_{idx}",
+                                "unsplash_id": u_id,
+                                "source": "unsplash",
+                                "type": "image",
+                                "query": u_search_term,
+                                "start": round(st, 2),
+                                "duration": round(dur, 2),
+                                "mode": cue.get("mode", "fullscreen"),
+                                "url": local_u_url if local_u_path.exists() else u_img_url,
+                                "thumbnail": u_thumb,
+                                "name": f"Unsplash 4K: {u_search_term.title()}",
+                                "reason": cue.get("reason", f"Accurate 4K photo for '{u_search_term}'")
+                            })
+                            matched_unsplash = True
+                except Exception as u_err:
+                    sys.stderr.write(f"[Unsplash fallback query error] {u_err}\n")
+
+            if not matched_unsplash and hits:
                 hit = hits[0]
                 hit_id = hit.get("id")
                 v_obj = hit.get("videos", {}).get("medium") or hit.get("videos", {}).get("small") or hit.get("videos", {}).get("large") or {}
@@ -3240,12 +3398,15 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 final_brolls.append({
                     "id": f"broll_{hit_id}_{idx}",
                     "pixabay_id": hit_id,
+                    "source": "pixabay",
+                    "type": "video",
                     "query": q,
                     "start": round(st, 2),
                     "duration": round(dur, 2),
                     "mode": cue.get("mode", "fullscreen"),
                     "url": local_url if local_path_on_disk.exists() else remote_url,
                     "thumbnail": thumb,
+                    "name": f"Pixabay Video: {q.title()}",
                     "tags": hit.get("tags", ""),
                     "reason": cue.get("reason", "")
                 })
