@@ -1024,3 +1024,84 @@ def parse_srt_to_karaoke_words(srt_path: Path, clip_start: float = 0.0) -> list[
             })
 
     return words_list
+
+
+def format_seconds_to_min_sec(seconds: float) -> str:
+    try:
+        s = int(seconds or 0)
+        m = s // 60
+        rem = s % 60
+        if m >= 60:
+            h = m // 60
+            rem_m = m % 60
+            return f"{h}:{rem_m:02d}:{rem:02d}"
+        return f"{m}:{rem:02d}"
+    except Exception:
+        return "0:00"
+
+
+def search_youtube_videos(query_or_channel: str, max_results: int = 6) -> list:
+    """
+    Searches YouTube or fetches latest videos from a YouTube channel/handle
+    in ~1.5s using yt-dlp flat extraction without downloading any media bytes.
+    """
+    raw = (query_or_channel or "").strip()
+    if not raw:
+        return []
+
+    target_url = raw
+    if raw.startswith("@"):
+        target_url = f"https://www.youtube.com/{raw}/videos"
+    elif "youtube.com/@" in raw and not raw.endswith("/videos") and "/watch" not in raw:
+        target_url = raw.rstrip("/") + "/videos"
+    elif not raw.startswith("http://") and not raw.startswith("https://"):
+        target_url = f"ytsearch{max_results}:{raw}"
+
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "playlistend": max_results,
+    }
+
+    results = []
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(target_url, download=False)
+            entries = info.get("entries") if isinstance(info, dict) else []
+            if not entries and isinstance(info, dict) and info.get("id"):
+                entries = [info]
+
+            for e in entries:
+                if not isinstance(e, dict):
+                    continue
+                v_id = e.get("id") or ""
+                title = e.get("title") or "Untitled Video"
+                if not v_id or (v_id.startswith("UC") and "channel" in str(e.get("_type", ""))):
+                    continue
+
+                v_url = e.get("url") or (f"https://www.youtube.com/watch?v={v_id}" if v_id else "")
+                if not v_url.startswith("http"):
+                    v_url = f"https://www.youtube.com/watch?v={v_id}"
+
+                dur_sec = float(e.get("duration") or 0.0)
+                thumb = e.get("thumbnail") or (f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg" if v_id else "")
+                channel = e.get("channel") or e.get("uploader") or info.get("channel") or info.get("uploader") or ""
+
+                results.append({
+                    "id": v_id,
+                    "title": title,
+                    "url": v_url,
+                    "duration": dur_sec,
+                    "duration_str": format_seconds_to_min_sec(dur_sec),
+                    "thumbnail": thumb,
+                    "channel": channel,
+                    "view_count": e.get("view_count") or 0,
+                })
+                if len(results) >= max_results:
+                    break
+    except Exception as exc:
+        sys.stderr.write(f"[Engine] YouTube search error for '{query_or_channel}': {exc}\n")
+
+    return results
+

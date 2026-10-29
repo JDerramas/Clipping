@@ -207,8 +207,8 @@
     filmstripVideoKey: '',
 
     // 8-Engine Viral AI Pro Suite State (100% Editable & Undoable)
-    highlightZoomMode: 'keyword-punch', // 'off' | 'keyword-punch' | 'ken-burns' | 'keyframes'
-    highlightZoomScale: 1.20,
+    highlightZoomMode: 'off', // 'off' (Zero Face Zoom, Steady Framing) | 'keyword-punch' | 'ken-burns' | 'keyframes'
+    highlightZoomScale: 1.0,
     highlightZooms: [], // [{ id, start, duration, scale, label }]
     curationCategoryFilter: 'all', // 'all' | 'hook' | 'money' | 'story' | 'punchy'
     translitMode: 'original', // 'original' | 'taglish' | 'phonetic' | 'tl' | 'hinglish' | 'romaji' | 'es'
@@ -3259,8 +3259,11 @@
 
   // Engine 1: Highlight Zoom Evaluator (Keyword Punch, Ken Burns & Manual Keyframes)
   function getHighlightZoomFactorAtTime(timeSec) {
+    if (state.highlightZoomMode === 'off' || !state.highlightZoomMode || state.disableFaceZoom) {
+      return 1.0;
+    }
     const mode = state.highlightZoomMode || 'off';
-    const maxScale = clamp(Number(state.highlightZoomScale) || 1.20, 1.04, 1.65);
+    const maxScale = clamp(Number(state.highlightZoomScale) || 1.0, 1.0, 1.65);
     let baseFactor = 1.0;
 
     // 1. Check explicit manual Highlight Zoom keyframes first (unless mode === 'off')
@@ -7929,6 +7932,36 @@
     if (jarvisQuickWhopCheckBtn) {
       safeOn(jarvisQuickWhopCheckBtn, 'click', () => {
         appendJarvisChatMessage('AI', 'Kai Cenat $10,000 Whop Challenge Verification:\n- Sourced: Kai Cenat Twitch/YouTube (10.21-10.31)\n- Caption Hashtag: #KaiCenat included\n- Native English Audience (US/UK/CA/AU/NZ): 50%+ verified\n- No Logos, No Hate Farming\n- Payout minimum: 350,000 views across TikTok/Shorts/Reels\nAll systems compliant for payout submission, sir.');
+      });
+    }
+
+    const jarvisQuickYtSearchBtn = document.getElementById('jarvisQuickYtSearchBtn');
+    if (jarvisQuickYtSearchBtn) {
+      safeOn(jarvisQuickYtSearchBtn, 'click', () => {
+        const targetQ = state.activeCampaign?.channel_handle || state.activeCampaign?.search_query || '@theschoolofhardknocks';
+        if (window.jarvis?.performOnlineYouTubeSearch) {
+          window.jarvis.performOnlineYouTubeSearch(targetQ);
+        }
+      });
+    }
+
+    const jarvisQuickPasteBountyBtn = document.getElementById('jarvisQuickPasteBountyBtn');
+    if (jarvisQuickPasteBountyBtn) {
+      safeOn(jarvisQuickPasteBountyBtn, 'click', () => {
+        if (dom.jarvisTextInput) {
+          dom.jarvisTextInput.focus();
+          dom.jarvisTextInput.placeholder = 'Paste your Campaign/Bounty Brief here and hit Enter...';
+          showToast('📋 Paste your Campaign Requirements directly into JARVIS chat input!', '#38bdf8', 4000);
+        }
+      });
+    }
+
+    const jarvisQuickNoZoomBtn = document.getElementById('jarvisQuickNoZoomBtn');
+    if (jarvisQuickNoZoomBtn) {
+      safeOn(jarvisQuickNoZoomBtn, 'click', () => {
+        if (window.WhopStudio?.removeFaceZoom) {
+          window.WhopStudio.removeFaceZoom();
+        }
       });
     }
 
@@ -14006,19 +14039,19 @@
       id: 'reaction',
       name: 'Reaction Style',
       icon: '🎭',
-      badge: 'Split 60/40 • Gasp Zoom',
-      description: 'Top reacted video + bottom facecam with shock punch zoom & vine boom SFX.',
+      badge: 'Split 60/40 • Steady Framing',
+      description: 'Top reacted video + bottom facecam with clean 1.0x steady framing & vine boom SFX.',
       layoutMode: 'split-60-40',
       captionStyle: 'hormozi-pop',
       hookTitleStyle: 'hormozi-tape',
       hookBanner: 'HIS REACTION IS PRICELESS 💀',
-      highlightZoomMode: 'keyword-punch',
-      highlightZoomScale: 1.30,
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
       faceTrackMode: 'speaker-lock',
       brollCutawayMode: 'pip-card',
       sfxSet: ['vine-boom', 'whoosh', 'gasp', 'pop'],
       vfxType: 'impactFlash',
-      defaultPrompt: 'Edit as a high-energy REACTION clip: Keep main reacted content on top, creator facecam on bottom with face tracking. Add dramatic highlight zoom (1.30x) on gasps and punchlines. Sync shock whoosh & vine boom sound effects. Center viral captions.'
+      defaultPrompt: 'Edit as a high-energy REACTION clip: Keep main reacted content on top, creator facecam on bottom with steady framing. Zero camera jump-zoom. Sync shock whoosh & vine boom sound effects. Center viral captions.'
     },
     'gaming': {
       id: 'gaming',
@@ -14030,13 +14063,13 @@
       captionStyle: 'neon-cyber',
       hookTitleStyle: 'neon-glow',
       hookBanner: 'HE PULLED THE IMPOSSIBLE CLUTCH 🔥',
-      highlightZoomMode: 'action-surge',
-      highlightZoomScale: 1.25,
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
       faceTrackMode: 'corner-pip',
       brollCutawayMode: 'pip-card',
       sfxSet: ['hitmarker', 'victory-bell', 'whoosh', 'riser'],
       vfxType: 'speedLines',
-      defaultPrompt: 'Edit as an intense GAMING stream clip: Frame gameplay in center, place streamer facecam in corner with glowing gamer border. Detect clutch peaks with speed lines & impact shake. Sync hitmarker pop and victory bell SFX. Add energetic neon captions.'
+      defaultPrompt: 'Edit as an intense GAMING stream clip: Frame gameplay in center, place streamer facecam in corner with glowing gamer border. Zero camera jump-zoom. Sync hitmarker pop and victory bell SFX. Add energetic neon captions.'
     },
     'top-moments': {
       id: 'top-moments',
@@ -14048,13 +14081,13 @@
       captionStyle: 'hormozi-pop',
       hookTitleStyle: 'hormozi-tape',
       hookBanner: 'TOP 3 WILDEST STREAM MOMENTS 🚨',
-      highlightZoomMode: 'keyword-punch',
-      highlightZoomScale: 1.22,
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
       faceTrackMode: 'speaker-lock',
       brollCutawayMode: 'pip-card',
       sfxSet: ['whoosh', 'ding', 'riser', 'pop'],
       vfxType: 'speedLines',
-      defaultPrompt: 'Edit as a TOP MOMENTS compilation: Extract the top 3 highest retention rewatch moments from the heatmap. Sequence them with #3, #2, #1 ranking stickers, fast transition whooshes, silence jump-cuts, and a top progress countdown bar. Add bold curiosity headline.'
+      defaultPrompt: 'Edit as a TOP MOMENTS compilation: Extract the top 3 highest retention rewatch moments from the heatmap. Sequence them with #3, #2, #1 ranking stickers, fast transition whooshes, silence jump-cuts, and a top progress countdown bar. Zero camera jump-zoom. Add bold curiosity headline.'
     },
     'text-on-screen': {
       id: 'text-on-screen',
@@ -14066,13 +14099,13 @@
       captionStyle: 'hormozi-pop',
       hookTitleStyle: 'hormozi-tape',
       hookBanner: 'WATCH UNTIL THE VERY END 😱',
-      highlightZoomMode: 'keyword-punch',
-      highlightZoomScale: 1.18,
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
       faceTrackMode: 'speaker-lock',
       brollCutawayMode: 'pip-card',
       sfxSet: ['pop', 'whoosh', 'ding'],
       vfxType: 'speedLines',
-      defaultPrompt: 'Edit as a TEXT-ON-SCREEN viral short: Keep vertical 9:16 layout with ambient blur fit. Add prominent top headline banner tape ("STORY TIME..."), bold word-by-word active pop subtitles in middle, and commentary question pills. Emphasize visual readability for viewers watching without audio.'
+      defaultPrompt: 'Edit as a TEXT-ON-SCREEN viral short: Keep vertical 9:16 layout with ambient blur fit. Add prominent top headline banner tape ("STORY TIME..."), bold word-by-word active pop subtitles in middle, and commentary question pills. Zero camera jump-zoom. Emphasize visual readability for viewers watching without audio.'
     },
     'music-edit': {
       id: 'music-edit',
@@ -14085,15 +14118,15 @@
       captionStyle: 'neon-cyber',
       hookTitleStyle: 'neon-glow',
       hookBanner: 'WAIT FOR THE BEAT DROP 🏎️💨',
-      highlightZoomMode: 'action-surge',
-      highlightZoomScale: 1.28,
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
       faceTrackMode: 'speaker-lock',
       brollCutawayMode: 'ambient',
       sfxSet: ['exhaust-pop', 'bass-drop', 'turbo-spool', 'whoosh'],
       vfxType: 'rgbSplit',
       musicPreset: 'phonk-drive',
       musicVolume: 0.45,
-      defaultPrompt: 'Edit as a high-octane CAR + PHONK DRIFT EDIT: Strictly lock video cuts and velocity transitions to 140 BPM phonk beat drops. Trigger chromatic RGB split, impact flash, and audio-reactive 808 bass pump on kick drums. Sync 2-step anti-lag exhaust backfire and turbo spool SFX.'
+      defaultPrompt: 'Edit as a high-octane CAR + PHONK DRIFT EDIT: Strictly lock video cuts and velocity transitions to 140 BPM phonk beat drops. Zero camera jump-zoom. Sync 2-step anti-lag exhaust backfire and turbo spool SFX.'
     }
   };
 
@@ -14252,33 +14285,15 @@
       }
     });
 
-    // 7. Highlight Zoom Keyframes
-    updateTaskChecklistStep('highlight_zoom', {
-      status: 'running',
-      properties: { Mode: arch.highlightZoomMode, Scale: `${arch.highlightZoomScale.toFixed(2)}×` }
-    });
-    await sleep(60);
-    state.highlightZoomMode = arch.highlightZoomMode;
-    state.highlightZoomScale = arch.highlightZoomScale;
-    state.highlightZooms = [
-      {
-        id: `zoom_${arch.id}_${Date.now()}`,
-        start: Number((sStart + 0.6).toFixed(2)),
-        duration: 1.8,
-        scale: arch.highlightZoomScale,
-        label: `${arch.name} Punch ${arch.highlightZoomScale.toFixed(2)}×`,
-        ease: 'spring'
-      }
-    ];
+    // 7. Highlight Zoom Keyframes (Face Zoom Completely Removed)
     updateTaskChecklistStep('highlight_zoom', {
       status: 'done',
-      properties: {
-        Mode: arch.highlightZoomMode,
-        Scale: `${arch.highlightZoomScale.toFixed(2)}×`,
-        Ease: 'Spring Bounce',
-        Keyframes: `${state.highlightZooms.length} zooms`
-      }
+      properties: { Mode: 'OFF (Steady Framing)', Scale: '1.00× (Zero Face Zoom)' }
     });
+    state.highlightZoomMode = 'off';
+    state.highlightZoomScale = 1.0;
+    state.highlightZooms = [];
+    state.disableFaceZoom = true;
 
     // 8. Timed VFX Bursts
     updateTaskChecklistStep('vfx_burst', {
@@ -14388,23 +14403,13 @@
         splitClipAtPlayhead(cutT);
       });
 
-      // Alternating velocity zooms and smooth whip transitions on each beat cut
+      // Clean steady framing without face zoom or camera jumps
       if (Array.isArray(state.sequence.videoClips)) {
-        state.sequence.videoClips.forEach((c, idx) => {
-          c.zoom = idx % 2 === 0 ? 1.0 : 1.15;
-          c.transition = idx % 2 === 0 ? 'whip-pan' : 'cross-zoom';
+        state.sequence.videoClips.forEach((c) => {
+          c.zoom = 1.0;
         });
       }
-
-      // Sync highlight zooms on beat drops
-      state.highlightZooms = cutTimes.map((t, idx) => ({
-        id: `zoom_beat_${idx}_${Date.now()}`,
-        start: t,
-        duration: 0.85,
-        scale: idx % 2 === 0 ? 1.28 : 1.18,
-        label: `Beat Drop Bar #${idx + 1} (1.28x)`,
-        ease: 'spring'
-      }));
+      state.highlightZooms = [];
 
       // Timed VFX bursts on drops
       state.vfxEvents = [
@@ -14634,6 +14639,60 @@
         showToast('Cleared all B-roll clips from timeline', '#f59e0b');
         return true;
       },
+      removeFaceZoom: () => {
+        pushUndoState('Remove Face Zoom');
+        state.disableFaceZoom = true;
+        state.highlightZoomMode = 'off';
+        state.highlightZoomScale = 1.0;
+        state.highlightZooms = [];
+        state.cameraZoom = 1.0;
+        state.faceTrackingEnabled = false;
+        if (Array.isArray(state.sequence?.videoClips)) {
+          state.sequence.videoClips.forEach(c => { c.zoom = 1.0; });
+        }
+        if (dom.highlightZoomModeSelect) dom.highlightZoomModeSelect.value = 'off';
+        if (dom.highlightZoomScaleSlider) dom.highlightZoomScaleSlider.value = '1.0';
+        if (dom.cameraZoomSlider) dom.cameraZoomSlider.value = '1.0';
+        renderTimelineTracks();
+        renderCanvasFrame();
+        showToast('✨ Face Zoom Completely Removed (Steady 1.0x Framing)', '#10b981', 4000);
+        return true;
+      },
+      applyCampaignRules: (camp) => {
+        if (!camp) return false;
+        state.activeCampaign = camp;
+        const maxD = Number(camp.target_duration_max || 60);
+        state.targetDuration = maxD;
+        if (dom.targetDurationSlider) dom.targetDurationSlider.value = maxD;
+        if (dom.targetDurationDisplay) dom.targetDurationDisplay.textContent = `${maxD}s`;
+        state.disableFaceZoom = true;
+        state.highlightZoomMode = 'off';
+        state.highlightZoomScale = 1.0;
+        state.highlightZooms = [];
+        if (Array.isArray(state.sequence?.videoClips)) {
+          state.sequence.videoClips.forEach(c => { c.zoom = 1.0; });
+        }
+        if (camp.channel_handle || camp.credit_rule) {
+          const cred = camp.credit_rule || camp.channel_handle;
+          state.watermarkText = `Credit: ${cred}`;
+          state.watermarkEnabled = true;
+          if (dom.watermarkInput) dom.watermarkInput.value = state.watermarkText;
+          if (dom.watermarkEnabledToggle) dom.watermarkEnabledToggle.checked = true;
+        }
+        if (camp.caption_style) {
+          state.captionStyle = camp.caption_style;
+        }
+        renderTimelineTracks();
+        renderCanvasFrame();
+        const campBadge = document.getElementById('activeCampaignBadge');
+        if (campBadge) {
+          campBadge.innerHTML = `🎯 <b>${escapeHtml(camp.campaign_name || 'Bounty')}</b> • ${camp.target_duration_min || 20}–${maxD}s • Hook sa first 2s • Zero Face Zoom`;
+          campBadge.classList.remove('hidden');
+        }
+        showToast(`📋 Campaign Rules Applied: ${camp.campaign_name} (${maxD}s, Hook 2s, No Zoom)`, '#10b981', 5000);
+        return true;
+      },
+      extractAndAutoEditUrl,
       setBrollCutawayMode: (mode = 'fullscreen') => {
         state.brollCutawayMode = mode;
         (state.brollClips || []).forEach(c => c.mode = mode);

@@ -287,6 +287,63 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
     return moments
 
 
+def parse_campaign_rules_fast(text: str) -> dict:
+    camp = {
+        "campaign_name": "Creator Bounty Campaign",
+        "channel_handle": "",
+        "source_url": "",
+        "target_duration_min": 20,
+        "target_duration_max": 60,
+        "hook_strategy": "Open with best line in first 2 seconds",
+        "clips_criteria": [],
+        "caption_style": "hormozi-pop",
+        "credit_rule": "",
+        "forbidden": [],
+        "search_query": ""
+    }
+    # Channel handle or URL
+    ch_m = re.search(r'(?:source[:\s]+)?(?:https?://)?(?:www\.)?youtube\.com/(@[\w\.\-]+)', text, re.I)
+    if ch_m:
+        camp["channel_handle"] = ch_m.group(1)
+        camp["source_url"] = f"https://www.youtube.com/{ch_m.group(1)}"
+        camp["search_query"] = ch_m.group(1)
+    else:
+        h_m = re.search(r'(@[\w\.\-]+)', text)
+        if h_m:
+            camp["channel_handle"] = h_m.group(1)
+            camp["search_query"] = h_m.group(1)
+
+    dur_m = re.search(r'(\d+)[–\-](\d+)\s*(?:seconds|s|sec)', text, re.I)
+    if dur_m:
+        camp["target_duration_min"] = int(dur_m.group(1))
+        camp["target_duration_max"] = int(dur_m.group(2))
+
+    name_m = re.search(r'(?:from|of)\s+([A-Z][A-Za-z0-9\s]{3,35})\s+(?:videos|channel)', text)
+    if name_m:
+        camp["campaign_name"] = name_m.group(1).strip()
+    elif camp["channel_handle"]:
+        camp["campaign_name"] = camp["channel_handle"].lstrip('@').replace('-', ' ').title()
+
+    cred_m = re.search(r'Credit\s+(?:the\s+channel)?[:\s]*(@[\w\.\-]+)', text, re.I)
+    if cred_m:
+        camp["credit_rule"] = cred_m.group(1).strip()
+    elif camp["channel_handle"]:
+        camp["credit_rule"] = camp["channel_handle"]
+
+    crit = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith(('—', '-', '•', '*')) and len(line) > 3:
+            crit.append(line.lstrip('—-•* ').strip())
+    camp["clips_criteria"] = crit
+
+    for c in crit:
+        if any(w in c.lower() for w in ["do not", "never", "no income", "prohibit"]):
+            camp["forbidden"].append(c)
+
+    return camp
+
+
 CHUNK_SIZE = 1024 * 1024 * 2  # 2MB chunks for video streaming
 
 
@@ -399,6 +456,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         if path in ("/api/download_url", "/api/download-url"):
             self.handle_api_download_url(payload)
+        elif path in ("/api/online_search", "/api/online-search", "/api/youtube_search", "/api/youtube-search"):
+            self.handle_api_online_search(payload)
+        elif path in ("/api/parse_campaign_brief", "/api/parse-campaign-brief"):
+            self.handle_api_parse_campaign_brief(payload)
         elif path in ("/api/auto_edit_all", "/api/auto-edit-all"):
             self.handle_api_auto_edit_all(payload)
         elif path in ("/api/inspect_url", "/api/inspect-url"):
@@ -1295,7 +1356,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "1. Cover Text / Hook Banner: Extract or craft an irresistible, viral hook headline (max 6-8 words, UPPERCASE with 1-2 emojis).\n"
             "2. Audio Strategy: If the brief states 'Keep the sound each video came with' or 'Do not rewrite/swap audio', set keep_original_sound: true, add_bg_music: false, bg_music_volume: 0. "
             "If brief asks for music or TraxNYC hype style, set add_bg_music: true, music_preset: 'neon-runner', bg_music_volume: 22.\n"
-            "3. Pacing & Jump Cuts: Create 3 to 5 dynamic jump cuts covering the video without dead air, with subtle 1.12x zoom on punchy moments.\n"
+            "3. Pacing & Jump Cuts: Create 3 to 5 dynamic jump cuts covering the video without dead air, keeping clean, steady 1.0x framing without face zoom or camera jumps.\n"
             "4. Captions: Style 'hormozi-pop' or 'mrbeast-bold' with auto emojis.\n"
             "5. Overlays: Recommend 1-2 stickers (stonks, breaking-news, money-rain, mind-blown, secret-hack).\n\n"
             "OUTPUT FORMAT: Return ONLY a valid JSON object:\n"
@@ -1314,7 +1375,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             '  },\n'
             '  "jump_cuts": [\n'
             '    {"id": "cut-1", "start": 0.0, "end": 4.5, "zoom": 1.0, "pan_x": 0},\n'
-            '    {"id": "cut-2", "start": 4.8, "end": 10.2, "zoom": 1.12, "pan_x": 0},\n'
+            '    {"id": "cut-2", "start": 4.8, "end": 10.2, "zoom": 1.0, "pan_x": 0},\n'
             '    {"id": "cut-3", "start": 10.5, "end": 18.0, "zoom": 1.0, "pan_x": 0}\n'
             '  ],\n'
             '  "captions": {"style": "hormozi-pop", "auto_emoji": true, "font_size": 72},\n'
@@ -1387,11 +1448,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             step = min(5.0, total_dur / 4)
             fallback_cuts = [
                 {"id": "cut-1", "start": 0.0, "end": round(step, 2), "zoom": 1.0, "pan_x": 0},
-                {"id": "cut-2", "start": round(step + 0.3, 2), "end": round(step * 2 + 0.3, 2), "zoom": 1.12, "pan_x": 0},
+                {"id": "cut-2", "start": round(step + 0.3, 2), "end": round(step * 2 + 0.3, 2), "zoom": 1.0, "pan_x": 0},
                 {"id": "cut-3", "start": round(step * 2 + 0.6, 2), "end": round(min(total_dur, step * 3 + 0.6), 2), "zoom": 1.0, "pan_x": 0},
             ]
             if total_dur > step * 3.8:
-                fallback_cuts.append({"id": "cut-4", "start": round(step * 3 + 0.9, 2), "end": round(min(total_dur, step * 4 + 0.9), 2), "zoom": 1.12, "pan_x": 0})
+                fallback_cuts.append({"id": "cut-4", "start": round(step * 3 + 0.9, 2), "end": round(min(total_dur, step * 4 + 0.9), 2), "zoom": 1.0, "pan_x": 0})
 
             parsed_plan = {
                 "campaign_title": "ROAM Creative Series" if is_roam else ("TraxNYC Diamond Edit" if is_traxnyc else "Client Campaign Edit"),
@@ -1848,6 +1909,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "- 'post_caption': { 'action': 'post_caption', 'campaign': 'kai-cenat', 'platform': 'tiktok' | 'shorts' | 'reels' } "
             "- 'post_timer': { 'action': 'post_timer' } "
             "- 'export': { 'action': 'export' } "
+            "- 'search_youtube': { 'action': 'search_youtube', 'query': '<channel_handle_or_search_phrase>' } -> Searches YouTube online or fetches videos from a channel "
+            "- 'remove_zoom': { 'action': 'remove_zoom' } -> Completely removes face zoom, dynamic punch zoom, and camera scale jumps across all cuts and rendering "
+            "- 'apply_campaign_rules': { 'action': 'apply_campaign_rules', 'campaign': { 'campaign_name': '...', 'channel_handle': '...', 'source_url': '...', 'target_duration_min': 20, 'target_duration_max': 60, 'hook_strategy': '...', 'credit_rule': '...' } } -> Configures editor for client campaign bounty brief "
             "OUTPUT FORMAT: You MUST return a single JSON object: "
             "{\"reply\": \"Your British spoken response here, sir.\", \"actions\": [ ...actions if any, else [] ]} "
             "Do NOT include markdown fences, thoughts, or extra explanations outside JSON."
@@ -1931,6 +1995,41 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         p_lower = prompt.lower()
         if not actions_list:
             import re
+
+            # Campaign Brief / Bounty Requirements pasted by user
+            is_campaign_brief = (
+                any(k in prompt for k in ["WHAT YOU DO", "CLIPS THAT WORK", "KEEP IT HONEST", "Source: youtube.com", "Cut short vertical clips"]) or
+                ("bounty" in p_lower and any(w in p_lower for w in ["requirements", "channel", "guidelines", "rules", "what you do"])) or
+                ("requirements" in p_lower and any(w in p_lower for w in ["bayaran", "payout", "clips that work", "the school of hard knocks"]))
+            )
+            if is_campaign_brief:
+                camp = parse_campaign_rules_fast(prompt)
+                actions_list.append({"action": "apply_campaign_rules", "campaign": camp})
+                search_q = camp.get("channel_handle") or camp.get("search_query") or "@theschoolofhardknocks"
+                actions_list.append({"action": "search_youtube", "query": search_q})
+                reply_text = (
+                    f"Understood, Sir! I have parsed your campaign requirements for {camp['campaign_name']}. "
+                    f"Targeting {camp['target_duration_min']}–{camp['target_duration_max']} second vertical clips with a high-impact hook in the first 2 seconds, dynamic captions, and zero face zoom. "
+                    f"I am searching their YouTube channel online right now for the highest-performing video candidates."
+                )
+
+            # Online YouTube Search
+            elif any(k in p_lower for k in ["search yt", "search sa yt", "search youtube", "mag search sa yt", "mag search sa youtube", "hanap sa yt", "hanap sa youtube", "find videos", "youtube search"]):
+                clean_q = prompt
+                for prefix in ["search yt for", "search sa yt ng", "search sa yt", "search youtube for", "mag search sa yt ng", "mag search sa yt", "mag search sa youtube ng", "mag search sa youtube", "hanap sa yt ng", "hanap sa yt", "hanap sa youtube ng", "hanap sa youtube", "find videos from", "youtube search"]:
+                    if prefix in clean_q.lower():
+                        idx = clean_q.lower().find(prefix)
+                        clean_q = clean_q[idx + len(prefix):].strip(" :\"'")
+                        break
+                clean_q = clean_q.strip(" :\"'") or "@theschoolofhardknocks"
+                actions_list.append({"action": "search_youtube", "query": clean_q})
+                reply_text = f"Searching YouTube online for '{clean_q}', Sir. Let us inspect the candidate videos."
+
+            # Face Zoom Removal (Steady Framing)
+            if any(k in p_lower for k in ["remove face zoom", "remove zoom", "no zoom", "no face zoom", "alisin ang zoom", "alisin face zoom", "tanggalin ang zoom", "tanggalin face zoom", "disable zoom", "steady framing"]):
+                actions_list.append({"action": "remove_zoom"})
+                reply_text = "Face zoom has been completely eliminated across all cuts and playback, Sir. The camera framing will remain clean, stable, and uncropped."
+
             # Auto B-Roll / Stock Video
             if any(k in p_lower for k in ["broll", "b-roll", "b roll", "stock video", "stock footage", "stock clip", "auto broll"]):
                 if any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
@@ -1965,7 +2064,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             if any(k in p_lower for k in ["whop rules", "kai rules", "guidelines", "compliance"]):
                 actions_list.append({"action": "whop_rules_check"})
 
-            if any(k in p_lower for k in ["hatiin", "hati", "putulin", "split", "cut here", "slice", "cut"]):
+            if not is_campaign_brief and (any(k in p_lower for k in ["hatiin", "hati", "putulin", "split", "cut here", "slice"]) or (len(p_lower) < 35 and "cut" in p_lower)):
                 t_match = re.search(r"(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?", p_lower)
                 t_val = float(t_match.group(1)) if t_match else None
                 actions_list.append({"action": "split", "time": t_val})
@@ -2005,7 +2104,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 actions_list.append({"action": "client_prompt_edit", "prompt": prompt})
             if any(k in p_lower for k in ["export", "render", "save video", "i-download"]):
                 actions_list.append({"action": "export"})
-            if any(k in p_lower for k in ["highlight zoom", "auto zoom", "punch zoom", "zoom in"]):
+            if any(k in p_lower for k in ["highlight zoom", "auto zoom", "punch zoom", "zoom in"]) and not any(k in p_lower for k in ["remove", "no", "alisin", "disable", "tanggalin"]):
                 actions_list.append({"action": "highlight_zoom", "mode": "keyword-punch"})
             if any(k in p_lower for k in ["curate", "auto curation", "find best clips", "viral moments"]):
                 actions_list.append({"action": "auto_curate"})
@@ -2039,6 +2138,87 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "reply": reply_text,
             "actions": actions_list,
             "model": "gemini-3.1-flash-lite"
+        })
+
+    def handle_api_online_search(self, payload: dict):
+        query = str(payload.get("query") or payload.get("q") or payload.get("channel") or "").strip()
+        max_results = int(payload.get("max_results") or 6)
+        if not query:
+            self.send_json_response({"error": "Empty query or channel provided"}, status=400)
+            return
+
+        try:
+            results = engine.search_youtube_videos(query, max_results=max_results)
+            self.send_json_response({
+                "success": True,
+                "query": query,
+                "count": len(results),
+                "results": results,
+            })
+        except Exception as exc:
+            self.send_json_response({"success": False, "error": str(exc)}, status=500)
+
+    def handle_api_parse_campaign_brief(self, payload: dict):
+        brief = str(payload.get("brief") or payload.get("text") or payload.get("requirements") or "").strip()
+        if not brief:
+            self.send_json_response({"error": "Empty campaign brief provided"}, status=400)
+            return
+
+        api_key = (payload.get("api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+        parsed_campaign = parse_campaign_rules_fast(brief)
+
+        if api_key:
+            temp_f = engine.TEMP / f"campaign_parse_{int(time.time()*1000)}.json"
+            try:
+                prompt_gemini = (
+                    "You are an expert video campaign auditor for clipping creators. "
+                    "Extract structured rules from this creator campaign bounty brief.\n\n"
+                    f"=== BRIEF ===\n{brief}\n\n"
+                    "Return ONLY valid JSON with keys:\n"
+                    "{\n"
+                    '  "campaign_name": "<Channel or Campaign Name>",\n'
+                    '  "channel_handle": "<@handle if mentioned>",\n'
+                    '  "source_url": "<URL to channel or source if mentioned>",\n'
+                    '  "target_duration_min": 20,\n'
+                    '  "target_duration_max": 60,\n'
+                    '  "hook_strategy": "<hook directive, e.g. Open with best line in first 2 seconds>",\n'
+                    '  "clips_criteria": ["<criterion 1>", "<criterion 2>"],\n'
+                    '  "caption_style": "hormozi-pop",\n'
+                    '  "credit_rule": "<exact credit instruction e.g. @theschoolofhardknocks in caption>",\n'
+                    '  "forbidden": ["<things not to do, e.g. No income promises or get-rich-quick captions>"],\n'
+                    '  "search_query": "<best YouTube search query or channel handle to find matching videos>"\n'
+                    "}"
+                )
+                req_body = {"contents": [{"parts": [{"text": prompt_gemini}]}]}
+                temp_f.write_text(json.dumps(req_body), encoding="utf-8")
+                proc = subprocess.run(
+                    ["curl.exe", "-s", "-X", "POST",
+                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
+                     "-H", "Content-Type: application/json", "-d", f"@{str(temp_f).replace(chr(92), '/')}"],
+                    capture_output=True, text=True, timeout=8
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    res_j = json.loads(proc.stdout)
+                    text_out = res_j.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if "```json" in text_out:
+                        text_out = text_out.split("```json", 1)[1].split("```", 1)[0].strip()
+                    elif "```" in text_out:
+                        text_out = text_out.split("```", 1)[1].split("```", 1)[0].strip()
+                    gemini_camp = json.loads(text_out)
+                    if isinstance(gemini_camp, dict) and gemini_camp.get("campaign_name"):
+                        parsed_campaign.update(gemini_camp)
+            except Exception as e:
+                sys.stderr.write(f"[Server Campaign Parse] Gemini note: {e}\n")
+            finally:
+                if temp_f.exists():
+                    try:
+                        temp_f.unlink()
+                    except Exception:
+                        pass
+
+        self.send_json_response({
+            "success": True,
+            "campaign": parsed_campaign
         })
 
     def handle_api_post_caption(self, payload):

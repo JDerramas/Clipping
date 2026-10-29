@@ -877,6 +877,38 @@
           if (revBtn) { revBtn.click(); return true; }
           break;
         }
+        case 'remove_zoom':
+        case 'disable_face_zoom': {
+          if (studio?.removeFaceZoom) return studio.removeFaceZoom();
+          if (state) {
+            state.disableFaceZoom = true;
+            state.highlightZoomMode = 'off';
+            state.highlightZoomScale = 1.0;
+            state.highlightZooms = [];
+            state.cameraZoom = 1.0;
+            if (Array.isArray(state.sequence?.videoClips)) {
+              state.sequence.videoClips.forEach(c => { c.zoom = 1.0; });
+            }
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'apply_campaign_rules': {
+          const camp = action.campaign;
+          if (studio?.applyCampaignRules) {
+            studio.applyCampaignRules(camp);
+          }
+          this.renderCampaignCardInChat(camp);
+          return true;
+        }
+        case 'search_youtube':
+        case 'online_search': {
+          const q = action.query || action.channel || '@theschoolofhardknocks';
+          this.performOnlineYouTubeSearch(q);
+          return true;
+        }
         case 'search_pixabay': {
           const q = action.query || 'sports car';
           if (window.searchPixabayVideos) {
@@ -1245,7 +1277,26 @@
         localActions.push({ action: 'translate_captions', lang: 'en' });
       }
 
-      if (text.includes('whop rules') || text.includes('kai rules') || text.includes('compliance') || text.includes('requirements') || text.includes('guidelines') || text.includes('payout')) {
+      // Face Zoom Removal (Steady Framing)
+      if (text.includes('remove face zoom') || text.includes('no face zoom') || text.includes('remove zoom') || text.includes('no zoom') || text.includes('alisin ang zoom') || text.includes('alisin face zoom') || text.includes('tanggalin ang zoom') || text.includes('disable zoom') || text.includes('steady framing')) {
+        localActions.push({ action: 'remove_zoom' });
+      }
+
+      // Online YouTube Search
+      if (text.includes('search yt') || text.includes('search sa yt') || text.includes('search youtube') || text.includes('mag search sa yt') || text.includes('mag search sa youtube') || text.includes('hanap sa yt') || text.includes('hanap sa youtube') || text.includes('youtube search')) {
+        let cleanQ = rawText;
+        for (const prefix of ['search yt for', 'search sa yt ng', 'search sa yt', 'search youtube for', 'mag search sa yt ng', 'mag search sa yt', 'mag search sa youtube ng', 'mag search sa youtube', 'hanap sa yt ng', 'hanap sa yt', 'hanap sa youtube ng', 'hanap sa youtube', 'find videos from', 'youtube search']) {
+          if (cleanQ.toLowerCase().includes(prefix)) {
+            const idx = cleanQ.toLowerCase().indexOf(prefix);
+            cleanQ = cleanQ.slice(idx + prefix.length).trim();
+            break;
+          }
+        }
+        cleanQ = cleanQ.replace(/^[:"' ]+|[:"' ]+$/g, '') || '@theschoolofhardknocks';
+        localActions.push({ action: 'search_youtube', query: cleanQ });
+      }
+
+      if (text.includes('whop rules') || text.includes('kai rules') || text.includes('compliance') || (text.includes('requirements') && !text.includes('WHAT YOU DO') && text.length < 60) || text.includes('guidelines') || text.includes('payout')) {
         localActions.push({ action: 'whop_rules_check' });
       }
 
@@ -1261,14 +1312,19 @@
           'auto_broll', 'clear_broll', 'set_broll_mode', 'search_pixabay', 'auto_edit',
           'translate_captions', 'jump_cuts', 'split', 'delete', 'ripple_trim_in', 'ripple_trim_out',
           'play', 'pause', 'seek', 'set_layout', 'set_screen_size', 'aspect_ratio', 'undo', 'redo',
-          'ai_review', 'whop_rules_check', 'set_mode', 'set_clipping_type', 'toggle_captions', 'add_text'
+          'ai_review', 'whop_rules_check', 'set_mode', 'set_clipping_type', 'toggle_captions', 'add_text',
+          'remove_zoom', 'search_youtube'
         ].includes(a.action))
       );
 
       if (isSimpleCommand && localActions.length > 0) {
         let msg = "It is done, sir.";
         const first = localActions[0];
-        if (first.action === 'split') {
+        if (first.action === 'remove_zoom') {
+          msg = "Face zoom has been completely eliminated across all cuts and playback, sir. The camera framing will remain clean, stable, and uncropped.";
+        } else if (first.action === 'search_youtube') {
+          msg = `Searching YouTube online for ${first.query || 'videos'}, sir. Inspecting candidates now.`;
+        } else if (first.action === 'split') {
           msg = first.time ? `Split cut at ${first.time} seconds, sir.` : "Split cut at playhead, sir.";
         } else if (first.action === 'ripple_trim_in') {
           msg = "Ripple trimmed in from playhead, sir.";
@@ -1523,6 +1579,155 @@ JARVIS:`;
       `;
       container.appendChild(bubble);
       container.scrollTop = container.scrollHeight;
+    }
+
+    async performOnlineYouTubeSearch(query) {
+      const container = document.getElementById('jarvisChatMessages');
+      if (!container) return;
+
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = 'jarvis-msg msg-jarvis';
+      loadingBubble.innerHTML = `
+        <div class="msg-author">JARVIS • ONLINE SEARCH</div>
+        <div class="msg-body">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="spinner" style="width:14px; height:14px; border:2px solid #38bdf8; border-top-color:transparent; border-radius:50%; display:inline-block; animation:spin 0.8s linear infinite;"></span>
+            <span>Querying YouTube online for <b>"${this.escapeHtml(query)}"</b>...</span>
+          </div>
+        </div>
+      `;
+      container.appendChild(loadingBubble);
+      container.scrollTop = container.scrollHeight;
+
+      try {
+        const res = await fetch('/api/online_search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, max_results: 6 })
+        });
+        const data = await res.json();
+        if (loadingBubble.parentNode) loadingBubble.remove();
+
+        if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
+          this.addChatMessage('jarvis', `No online videos found for "${query}". You can try searching another channel or topic, sir.`);
+          return;
+        }
+
+        const cardsBubble = document.createElement('div');
+        cardsBubble.className = 'jarvis-msg msg-jarvis jarvis-yt-results';
+        
+        let listHtml = `
+          <div class="msg-author">JARVIS • YOUTUBE SEARCH RESULTS (${data.results.length} VIDEOS)</div>
+          <div style="font-size:12px; color:#94a3b8; margin-bottom:8px;">Found on YouTube for <b>${this.escapeHtml(query)}</b>:</div>
+          <div class="jarvis-yt-cards" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; padding-right:4px;">
+        `;
+
+        data.results.forEach((v) => {
+          listHtml += `
+            <div class="yt-video-card" style="display:flex; gap:10px; background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px; align-items:center;">
+              <div style="position:relative; width:96px; height:54px; flex-shrink:0; background:#000; border-radius:4px; overflow:hidden;">
+                <img src="${this.escapeHtml(v.thumbnail || '')}" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'">
+                <span style="position:absolute; bottom:2px; right:2px; background:rgba(0,0,0,0.8); color:#fff; font-size:10px; padding:1px 4px; border-radius:2px; font-weight:600;">${this.escapeHtml(v.duration_str || '0:00')}</span>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:12px; font-weight:600; color:#f1f5f9; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(v.title)}">${this.escapeHtml(v.title)}</div>
+                <div style="font-size:11px; color:#64748b; margin-top:2px;">${this.escapeHtml(v.channel || '')}</div>
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                  <button type="button" class="jarvis-clip-btn" data-url="${this.escapeHtml(v.url)}" data-title="${this.escapeHtml(v.title)}" style="background:linear-gradient(135deg, #059669, #10b981); color:#fff; border:none; border-radius:4px; font-size:11px; font-weight:600; padding:4px 8px; cursor:pointer;">
+                    ⚡ Auto-Clip (20–60s)
+                  </button>
+                  <button type="button" class="jarvis-load-btn" data-url="${this.escapeHtml(v.url)}" style="background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:4px; font-size:11px; padding:4px 8px; cursor:pointer;">
+                    📥 Load
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        listHtml += `</div>`;
+        cardsBubble.innerHTML = listHtml;
+        container.appendChild(cardsBubble);
+        container.scrollTop = container.scrollHeight;
+
+        // Wire click events
+        cardsBubble.querySelectorAll('.jarvis-clip-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const vUrl = btn.getAttribute('data-url');
+            const vTitle = btn.getAttribute('data-title');
+            this.addChatMessage('user', `Auto-clip this video: ${vTitle}`);
+            this.addChatMessage('jarvis', `Executing 1-Click Auto-Edit for "${vTitle}" matching campaign requirements, Sir!`);
+            this.speak(`Executing auto-edit for this video, Sir.`);
+            const studio = window.WhopStudio;
+            if (studio?.extractAndAutoEditUrl) {
+              studio.extractAndAutoEditUrl(vUrl);
+            } else {
+              const urlInp = document.getElementById('streamUrlInput');
+              const extBtn = document.getElementById('extractUrlBtn');
+              if (urlInp) urlInp.value = vUrl;
+              if (extBtn) extBtn.click();
+            }
+          });
+        });
+
+        cardsBubble.querySelectorAll('.jarvis-load-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const vUrl = btn.getAttribute('data-url');
+            const urlInp = document.getElementById('streamUrlInput');
+            if (urlInp) urlInp.value = vUrl;
+            const extBtn = document.getElementById('extractUrlBtn');
+            if (extBtn) extBtn.click();
+            this.addChatMessage('user', `Load video: ${vUrl}`);
+          });
+        });
+
+      } catch (err) {
+        if (loadingBubble.parentNode) loadingBubble.remove();
+        this.addChatMessage('jarvis', `An error occurred while querying YouTube online: ${err.message}`);
+      }
+    }
+
+    renderCampaignCardInChat(camp) {
+      const container = document.getElementById('jarvisChatMessages');
+      if (!container || !camp) return;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'jarvis-msg msg-jarvis jarvis-campaign-card';
+      
+      const criteriaList = Array.isArray(camp.clips_criteria) && camp.clips_criteria.length > 0
+        ? camp.clips_criteria.slice(0, 4).map(c => `<li>• ${this.escapeHtml(c)}</li>`).join('')
+        : '<li>• Millionaire interview highlights / net worth</li>';
+
+      bubble.innerHTML = `
+        <div class="msg-author">JARVIS • CAMPAIGN BOUNTY ACTIVATED 🎯</div>
+        <div style="background:#090d16; border:1px solid #059669; border-radius:8px; padding:10px; margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:6px; margin-bottom:8px;">
+            <span style="color:#10b981; font-weight:700; font-size:13px;">${this.escapeHtml(camp.campaign_name || 'Creator Bounty')}</span>
+            <span style="background:#064e3b; color:#34d399; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">BOUNTY ACTIVE</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; color:#cbd5e1; margin-bottom:8px;">
+            <div>⏱️ <b>Duration:</b> ${camp.target_duration_min || 20}–${camp.target_duration_max || 60}s</div>
+            <div>⚡ <b>Hook:</b> Best line in first 2s</div>
+            <div>🚫 <b>Face Zoom:</b> OFF (Steady 1.0x)</div>
+            <div>🏷️ <b>Credit:</b> ${this.escapeHtml(camp.credit_rule || camp.channel_handle || 'Required')}</div>
+          </div>
+          <div style="font-size:11px; color:#94a3b8; margin-bottom:4px;"><b>CLIPS THAT WORK:</b></div>
+          <ul style="margin:0 0 8px 0; padding-left:14px; font-size:11px; color:#cbd5e1; line-height:1.4;">
+            ${criteriaList}
+          </ul>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button type="button" class="jarvis-search-source-btn" style="background:#0284c7; color:#fff; border:none; border-radius:4px; font-size:11px; font-weight:600; padding:4px 10px; cursor:pointer;">
+              🔍 Search Channel Videos (${this.escapeHtml(camp.channel_handle || 'Source')})
+            </button>
+          </div>
+        </div>
+      `;
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+
+      bubble.querySelector('.jarvis-search-source-btn')?.addEventListener('click', () => {
+        this.performOnlineYouTubeSearch(camp.channel_handle || camp.search_query || '@theschoolofhardknocks');
+      });
     }
 
     escapeHtml(str) {
