@@ -1890,7 +1890,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "- 'set_mode': { 'action': 'set_mode', 'mode': 'universal' | 'kai-cenat' } -> Switches editor mode "
             "- 'set_layout': { 'action': 'set_layout', 'mode': 'full-main' | 'split-60-40' | 'split-50-50' | 'ambient-blur' | 'pip-facecam' } "
             "- 'set_caption_style': { 'action': 'set_caption_style', 'style': 'hormozi-pop' | 'mrbeast-bold' | 'neon-cyber' | 'gold-accent' } "
-            "- 'toggle_captions': { 'action': 'toggle_captions', 'enabled': <true|false> } "
+            "- 'toggle_captions': { 'action': 'toggle_captions', 'enabled': <true|false> } -> Enables or disables dynamic captions on canvas "
+            "- 'toggle_broll': { 'action': 'toggle_broll', 'enabled': <true|false> } -> Enables or disables stock B-roll cutaway overlays and split viewports "
+            "- 'toggle_master_video': { 'action': 'toggle_master_video', 'enabled': <true|false> } -> Enables or disables master video layer on canvas (black background when disabled) "
+            "- 'toggle_voice_audio': { 'action': 'toggle_voice_audio', 'enabled': <true|false> } -> Mutes or unmutes main speaker voice track "
             "- 'ai_review': { 'action': 'ai_review' } -> Evaluates viral candidate clips & retention scores "
             "- 'whop_rules_check': { 'action': 'whop_rules_check' } -> Verifies campaign requirements "
             "- 'split': { 'action': 'split', 'time': <seconds_float or null> } "
@@ -2030,15 +2033,49 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 actions_list.append({"action": "remove_zoom"})
                 reply_text = "Face zoom has been completely eliminated across all cuts and playback, Sir. The camera framing will remain clean, stable, and uncropped."
 
-            # Auto B-Roll / Stock Video
+            # Track Enable / Disable Toggles (Captions, B-Roll, Master Video, Voice Audio)
+            # 1. Captions
+            if any(k in p_lower for k in ["caption", "subtitles", "subtitle"]):
+                if any(k in p_lower for k in ["off", "disable", "patayin", "tanggalin", "alisin", "hide", "itago"]):
+                    actions_list.append({"action": "toggle_captions", "enabled": False})
+                    reply_text = "Dynamic karaoke captions have been disabled, Sir. Subtitles on canvas are now hidden."
+                elif any(k in p_lower for k in ["on", "enable", "buhayin", "pakita", "show", "ibalik"]):
+                    actions_list.append({"action": "toggle_captions", "enabled": True})
+                    reply_text = "Dynamic karaoke captions are enabled, Sir. Word-level animated subtitles will now display on canvas."
+
+            # 2. Auto B-Roll / Stock Video
             if any(k in p_lower for k in ["broll", "b-roll", "b roll", "stock video", "stock footage", "stock clip", "auto broll"]):
-                if any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
+                if any(k in p_lower for k in ["off", "disable", "patayin", "hide", "itago"]):
+                    actions_list.append({"action": "toggle_broll", "enabled": False})
+                    reply_text = "Pixabay B-Roll cutaways and overlays have been turned off, Sir."
+                elif any(k in p_lower for k in ["on", "enable", "buhayin", "pakita", "show", "ibalik"]):
+                    actions_list.append({"action": "toggle_broll", "enabled": True})
+                    reply_text = "Pixabay B-Roll cutaways are now enabled, Sir."
+                elif any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
                     actions_list.append({"action": "clear_broll"})
                 elif any(k in p_lower for k in ["search", "hanap", "maghanap"]):
                     q_m = re.search(r"(?:search|hanap|maghanap|kuha)\s*(?:ng|for|of)?\s*(?:broll|b-roll|stock video)?\s*[:\"]?(.+?)[\"]?$", prompt, re.I)
                     actions_list.append({"action": "search_pixabay", "query": q_m.group(1).strip() if q_m else "sports car"})
-                else:
+                elif "auto" in p_lower or "fetch" in p_lower:
                     actions_list.append({"action": "auto_broll"})
+
+            # 3. Master Video
+            if any(k in p_lower for k in ["master video", "main video", "video layer"]) or (("video" in p_lower or "camera" in p_lower) and not any(k in p_lower for k in ["audio", "boses", "broll", "b-roll", "yt", "youtube", "stock"])):
+                if any(k in p_lower for k in ["off", "disable", "patayin", "hide", "itago", "alisin", "tanggalin"]):
+                    actions_list.append({"action": "toggle_master_video", "enabled": False})
+                    reply_text = "Master video layer has been hidden, Sir. The canvas will render with a clean dark background."
+                elif any(k in p_lower for k in ["on", "enable", "buhayin", "pakita", "show", "ibalik", "buksan"]):
+                    actions_list.append({"action": "toggle_master_video", "enabled": True})
+                    reply_text = "Master video layer is now visible and active on canvas, Sir."
+
+            # 4. Voice Audio
+            if any(k in p_lower for k in ["voice", "boses", "audio", "tunog"]):
+                if any(k in p_lower for k in ["off", "mute", "disable", "patayin", "tahimik", "pipi"]):
+                    actions_list.append({"action": "toggle_voice_audio", "enabled": False})
+                    reply_text = "Main voice track has been muted, Sir."
+                elif any(k in p_lower for k in ["on", "unmute", "enable", "buhayin", "ibalik", "marinig", "palakasin"]):
+                    actions_list.append({"action": "toggle_voice_audio", "enabled": True})
+                    reply_text = "Main voice track has been unmuted, Sir."
 
             # Preview Screen Sizing
             if any(k in p_lower for k in ["small screen", "make the screen small", "make video small", "liitan", "compact screen", "make it small"]):

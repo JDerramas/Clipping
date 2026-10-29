@@ -197,8 +197,12 @@
     canvasDragStart: null,
     timelineBlockDrag: null,
     lastImageBounds: null,
-    trackVisibility: { main: true, captions: true, text: true, overlays: true, broll: true },
+    trackVisibility: { main: true, video: true, captions: true, text: true, overlays: true, broll: true },
     trackLocks: { video: false, captions: false, text: false, overlays: false, audio: false },
+    captionsEnabled: true,
+    brollEnabled: true,
+    masterVideoEnabled: true,
+    voiceAudioEnabled: true,
     mainAudioMuted: false,
     bgSoundMuted: true,
     undoStack: [],
@@ -382,6 +386,15 @@
     dom.trackToggleCaptions = document.getElementById('trackToggleCaptions');
     dom.trackToggleOverlays = document.getElementById('trackToggleOverlays');
     dom.trackToggleBroll = document.getElementById('trackToggleBroll');
+    dom.trackToggleMainVideo = document.getElementById('trackToggleMainVideo');
+    dom.toggleCaptionsQuickBtn = document.getElementById('toggleCaptionsQuickBtn');
+    dom.toggleBrollQuickBtn = document.getElementById('toggleBrollQuickBtn');
+    dom.toggleMasterVideoQuickBtn = document.getElementById('toggleMasterVideoQuickBtn');
+    dom.toggleVoiceAudioQuickBtn = document.getElementById('toggleVoiceAudioQuickBtn');
+    dom.jarvisQuickToggleCaptions = document.getElementById('jarvisQuickToggleCaptions');
+    dom.jarvisQuickToggleBroll = document.getElementById('jarvisQuickToggleBroll');
+    dom.jarvisQuickToggleVideo = document.getElementById('jarvisQuickToggleVideo');
+    dom.jarvisQuickToggleAudio = document.getElementById('jarvisQuickToggleAudio');
 
     dom.imageOverlayToggle = document.getElementById('imageOverlayToggle');
     dom.overlayImagePreview = document.getElementById('overlayImagePreview');
@@ -3538,7 +3551,7 @@
 
   // Engine 8: Smart AI Context B-Roll Cutaway Renderer (AutoBroll Remotion / Canvas Pipeline)
   function drawContextBrollCutawaysOnCanvas(ctx, W, H, mainRect, timeSec) {
-    if (state.trackVisibility?.broll === false && state.trackVisibility?.overlays === false) return;
+    if (state.trackVisibility?.broll === false || state.brollEnabled === false) return;
     if (!Array.isArray(state.brollClips) || state.brollClips.length === 0) return;
     if (!window.WhopBrollEngine || typeof window.WhopBrollEngine.renderContextBrollCutaway !== 'function') return;
 
@@ -3658,7 +3671,7 @@
 
     const hardEffects = getHardEditEffectsAtTime(state.currentTime, state.trimStart, voiceLevel);
 
-    if (state.trackVisibility?.main === false) {
+    if (state.trackVisibility?.main === false || state.trackVisibility?.video === false || state.masterVideoEnabled === false) {
       ctx.fillStyle = '#05050a';
       ctx.fillRect(0, 0, W, H);
     } else if (state.layoutMode === 'ambient-blur') {
@@ -3733,7 +3746,7 @@
       drawContextBrollCutawaysOnCanvas(ctx, W, H, mainRect, state.currentTime);
 
       // 2. Render Optional Satisfying B-Roll Viewport (only in split modes)
-      if (brollRect && state.trackVisibility?.broll !== false) {
+      if (brollRect && state.trackVisibility?.broll !== false && state.brollEnabled !== false) {
         renderBrollViewport(ctx, brollRect, state.currentTime);
       }
 
@@ -3882,6 +3895,14 @@
   }
 
   function renderMainViewport(ctx, rect, timeSec, voiceLevel, extraZoom = 1.0, glitchOffset = 0) {
+    if (state.trackVisibility?.video === false || state.trackVisibility?.main === false || state.masterVideoEnabled === false) {
+      ctx.save();
+      ctx.fillStyle = '#05050a';
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      ctx.restore();
+      return;
+    }
+
     let framingOffset = 0;
     if (state.framingPreset === 'left') framingOffset = -22;
     else if (state.framingPreset === 'right') framingOffset = 22;
@@ -5231,6 +5252,7 @@
   }
 
   function drawKaraokeCaptionsOnCanvas(ctx, W, H, timeSec) {
+    if (!state.captionsEnabled || state.trackVisibility?.captions === false) return;
     const clip = getActiveClip();
     if (!window.WhopAudioEngine) return;
 
@@ -5610,11 +5632,11 @@
   function renderTimelineTracks() {
     if (dom.videoTrackLane) {
       dom.videoTrackLane.classList.toggle('track-locked', !!state.trackLocks?.video);
-      dom.videoTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.main === false);
+      dom.videoTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.main === false || state.trackVisibility?.video === false || state.masterVideoEnabled === false);
     }
     if (dom.captionTrackLane) {
       dom.captionTrackLane.classList.toggle('track-locked', !!state.trackLocks?.captions);
-      dom.captionTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.captions === false);
+      dom.captionTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.captions === false || state.captionsEnabled === false);
     }
     if (dom.textTrackLane) {
       dom.textTrackLane.classList.toggle('track-locked', !!state.trackLocks?.text);
@@ -5622,10 +5644,15 @@
     }
     if (dom.overlayTrackLane) {
       dom.overlayTrackLane.classList.toggle('track-locked', !!state.trackLocks?.overlays);
-      dom.overlayTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.overlays === false);
+      dom.overlayTrackLane.classList.toggle('track-hidden-layer', state.trackVisibility?.overlays === false || state.trackVisibility?.broll === false || state.brollEnabled === false);
     }
     if (dom.audioTrackLane) {
       dom.audioTrackLane.classList.toggle('track-locked', !!state.trackLocks?.audio);
+      dom.audioTrackLane.classList.toggle('track-hidden-layer', !!state.sequence?.mainAudioMuted || !!state.mainAudioMuted);
+    }
+
+    if (typeof syncTrackToggleButtonsUI === 'function') {
+      syncTrackToggleButtonsUI();
     }
 
     renderVideoCutsTrack();
@@ -7788,6 +7815,11 @@
   let rippleTrimOut;
   let deleteSelectedCapCutItem;
   let updateAiKeyHeaderBadge;
+  let toggleCaptions;
+  let toggleBroll;
+  let toggleMasterVideo;
+  let toggleVoiceAudio;
+  let syncTrackToggleButtonsUI;
 
   function bindEvents() {
     const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
@@ -9745,43 +9777,154 @@
       });
     }
 
-    // Left Track Action Toggles (Mute / Show / Hide)
-    if (dom.trackToggleMainAudio) {
-      safeOn(dom.trackToggleMainAudio, 'click', () => {
-        state.sequence.mainAudioMuted = !state.sequence.mainAudioMuted;
-        state.mainAudioMuted = state.sequence.mainAudioMuted;
-        if (dom.mainVideoEl) dom.mainVideoEl.muted = state.sequence.mainAudioMuted;
-        dom.trackToggleMainAudio.textContent = state.sequence.mainAudioMuted ? '🔇' : '🔊';
-        dom.trackToggleMainAudio.classList.toggle('muted', state.sequence.mainAudioMuted);
-        renderTimelineTracks();
-        showToast(state.sequence.mainAudioMuted ? '🔇 Main Voice Track Muted' : '🔊 Main Voice Track Unmuted');
-      });
-    }
-    if (dom.trackToggleCaptions) {
-      safeOn(dom.trackToggleCaptions, 'click', () => {
-        state.trackVisibility.captions = !state.trackVisibility.captions;
-        state.captionsEnabled = state.trackVisibility.captions;
-        dom.trackToggleCaptions.classList.toggle('muted', !state.trackVisibility.captions);
-        renderTimelineTracks();
-        showToast(state.trackVisibility.captions ? '👁️ Karaoke Captions Shown' : '🙈 Karaoke Captions Hidden');
-      });
-    }
-    if (dom.trackToggleOverlays) {
-      safeOn(dom.trackToggleOverlays, 'click', () => {
-        state.trackVisibility.overlays = !state.trackVisibility.overlays;
-        dom.trackToggleOverlays.classList.toggle('muted', !state.trackVisibility.overlays);
-        renderTimelineTracks();
-        showToast(state.trackVisibility.overlays ? '👁️ Overlays & Topic Image Shown' : '🙈 Overlays & Topic Image Hidden');
-      });
-    }
-    if (dom.trackToggleBroll) {
-      safeOn(dom.trackToggleBroll, 'click', () => {
-        state.trackVisibility.broll = !state.trackVisibility.broll;
-        dom.trackToggleBroll.classList.toggle('muted', !state.trackVisibility.broll);
-        renderTimelineTracks();
-        showToast(state.trackVisibility.broll ? '👁️ B-Roll Track Shown' : '🙈 B-Roll Track Hidden');
-      });
-    }
+    // =====================================================================
+    // UNIFIED TRACK ON/OFF & MUTE TOGGLE CONTROLS (Captions, B-Roll, Video, Voice)
+    // =====================================================================
+    syncTrackToggleButtonsUI = function syncTrackToggleButtonsUI() {
+      // 1. Captions
+      const capOn = state.captionsEnabled !== false && state.trackVisibility?.captions !== false;
+      if (dom.trackToggleCaptions) {
+        dom.trackToggleCaptions.textContent = capOn ? 'ON' : 'OFF';
+        dom.trackToggleCaptions.classList.toggle('active', capOn);
+        dom.trackToggleCaptions.classList.toggle('disabled', !capOn);
+        dom.trackToggleCaptions.classList.toggle('muted', !capOn);
+      }
+      if (dom.toggleCaptionsQuickBtn) {
+        dom.toggleCaptionsQuickBtn.textContent = `💬 Captions: ${capOn ? 'ON' : 'OFF'}`;
+        dom.toggleCaptionsQuickBtn.classList.toggle('active', capOn);
+        dom.toggleCaptionsQuickBtn.classList.toggle('disabled', !capOn);
+      }
+      if (dom.jarvisQuickToggleCaptions) {
+        dom.jarvisQuickToggleCaptions.textContent = `💬 Captions: ${capOn ? 'ON' : 'OFF'}`;
+      }
+
+      // 2. B-Roll
+      const brollOn = state.brollEnabled !== false && state.trackVisibility?.broll !== false;
+      if (dom.trackToggleBroll) {
+        dom.trackToggleBroll.textContent = brollOn ? 'ON' : 'OFF';
+        dom.trackToggleBroll.classList.toggle('active', brollOn);
+        dom.trackToggleBroll.classList.toggle('disabled', !brollOn);
+        dom.trackToggleBroll.classList.toggle('muted', !brollOn);
+      }
+      if (dom.toggleBrollQuickBtn) {
+        dom.toggleBrollQuickBtn.textContent = `🎬 B-Roll: ${brollOn ? 'ON' : 'OFF'}`;
+        dom.toggleBrollQuickBtn.classList.toggle('active', brollOn);
+        dom.toggleBrollQuickBtn.classList.toggle('disabled', !brollOn);
+      }
+      if (dom.jarvisQuickToggleBroll) {
+        dom.jarvisQuickToggleBroll.textContent = `🎬 B-Roll: ${brollOn ? 'ON' : 'OFF'}`;
+      }
+
+      // 3. Master Video
+      const vidOn = state.masterVideoEnabled !== false && state.trackVisibility?.video !== false && state.trackVisibility?.main !== false;
+      if (dom.trackToggleMainVideo) {
+        dom.trackToggleMainVideo.textContent = vidOn ? 'ON' : 'OFF';
+        dom.trackToggleMainVideo.classList.toggle('active', vidOn);
+        dom.trackToggleMainVideo.classList.toggle('disabled', !vidOn);
+        dom.trackToggleMainVideo.classList.toggle('muted', !vidOn);
+      }
+      if (dom.toggleMasterVideoQuickBtn) {
+        dom.toggleMasterVideoQuickBtn.textContent = `📹 Video: ${vidOn ? 'ON' : 'OFF'}`;
+        dom.toggleMasterVideoQuickBtn.classList.toggle('active', vidOn);
+        dom.toggleMasterVideoQuickBtn.classList.toggle('disabled', !vidOn);
+      }
+      if (dom.jarvisQuickToggleVideo) {
+        dom.jarvisQuickToggleVideo.textContent = `📹 Video: ${vidOn ? 'ON' : 'OFF'}`;
+      }
+
+      // 4. Voice Audio
+      const audioOn = !state.sequence?.mainAudioMuted && !state.mainAudioMuted;
+      if (dom.trackToggleMainAudio) {
+        dom.trackToggleMainAudio.textContent = audioOn ? 'ON' : 'MUTED';
+        dom.trackToggleMainAudio.classList.toggle('active', audioOn);
+        dom.trackToggleMainAudio.classList.toggle('disabled', !audioOn);
+        dom.trackToggleMainAudio.classList.toggle('muted', !audioOn);
+      }
+      if (dom.toggleVoiceAudioQuickBtn) {
+        dom.toggleVoiceAudioQuickBtn.textContent = `🎙️ Voice: ${audioOn ? 'ON' : 'OFF'}`;
+        dom.toggleVoiceAudioQuickBtn.classList.toggle('active', audioOn);
+        dom.toggleVoiceAudioQuickBtn.classList.toggle('disabled', !audioOn);
+      }
+      if (dom.jarvisQuickToggleAudio) {
+        dom.jarvisQuickToggleAudio.textContent = `🎙️ Voice: ${audioOn ? 'ON' : 'OFF'}`;
+      }
+    };
+
+    toggleCaptions = function toggleCaptions(explicitState = null) {
+      const cur = state.captionsEnabled !== false && state.trackVisibility?.captions !== false;
+      const target = typeof explicitState === 'boolean' ? explicitState : !cur;
+      state.captionsEnabled = target;
+      if (!state.trackVisibility) state.trackVisibility = {};
+      state.trackVisibility.captions = target;
+      syncTrackToggleButtonsUI();
+      renderTimelineTracks();
+      renderCanvasFrame();
+      showToast(target ? '💬 Dynamic Captions Enabled (ON)' : '🙈 Dynamic Captions Disabled (OFF)');
+      return target;
+    };
+
+    toggleBroll = function toggleBroll(explicitState = null) {
+      const cur = state.brollEnabled !== false && state.trackVisibility?.broll !== false;
+      const target = typeof explicitState === 'boolean' ? explicitState : !cur;
+      state.brollEnabled = target;
+      if (!state.trackVisibility) state.trackVisibility = {};
+      state.trackVisibility.broll = target;
+      state.trackVisibility.overlays = target;
+      syncTrackToggleButtonsUI();
+      renderTimelineTracks();
+      renderCanvasFrame();
+      showToast(target ? '🎬 Pixabay B-Roll Cutaways Enabled (ON)' : '🙈 Pixabay B-Roll Cutaways Disabled (OFF)');
+      return target;
+    };
+
+    toggleMasterVideo = function toggleMasterVideo(explicitState = null) {
+      const cur = state.masterVideoEnabled !== false && state.trackVisibility?.video !== false && state.trackVisibility?.main !== false;
+      const target = typeof explicitState === 'boolean' ? explicitState : !cur;
+      state.masterVideoEnabled = target;
+      if (!state.trackVisibility) state.trackVisibility = {};
+      state.trackVisibility.video = target;
+      state.trackVisibility.main = target;
+      syncTrackToggleButtonsUI();
+      renderTimelineTracks();
+      renderCanvasFrame();
+      showToast(target ? '📹 Master Video Layer Enabled (ON)' : '🙈 Master Video Layer Hidden (OFF - Black Background)');
+      return target;
+    };
+
+    toggleVoiceAudio = function toggleVoiceAudio(explicitState = null) {
+      const curAudioOn = !state.sequence?.mainAudioMuted && !state.mainAudioMuted;
+      const targetAudioOn = typeof explicitState === 'boolean' ? explicitState : !curAudioOn;
+      const targetMuted = !targetAudioOn;
+      if (!state.sequence) state.sequence = {};
+      state.sequence.mainAudioMuted = targetMuted;
+      state.mainAudioMuted = targetMuted;
+      state.voiceAudioEnabled = targetAudioOn;
+      if (dom.mainVideoEl) {
+        dom.mainVideoEl.muted = targetMuted;
+        dom.mainVideoEl.volume = targetMuted ? 0 : clamp(Number(state.sequence?.mainAudioVolume ?? 1.0), 0, 1);
+      }
+      syncTrackToggleButtonsUI();
+      renderTimelineTracks();
+      showToast(targetAudioOn ? '🔊 Voice Audio Track Unmuted (ON)' : '🔇 Voice Audio Track Muted (OFF)');
+      return targetAudioOn;
+    };
+
+    // Attach click listeners to all toggle buttons across UI
+    if (dom.trackToggleCaptions) safeOn(dom.trackToggleCaptions, 'click', () => toggleCaptions());
+    if (dom.toggleCaptionsQuickBtn) safeOn(dom.toggleCaptionsQuickBtn, 'click', () => toggleCaptions());
+    if (dom.jarvisQuickToggleCaptions) safeOn(dom.jarvisQuickToggleCaptions, 'click', () => toggleCaptions());
+
+    if (dom.trackToggleBroll) safeOn(dom.trackToggleBroll, 'click', () => toggleBroll());
+    if (dom.toggleBrollQuickBtn) safeOn(dom.toggleBrollQuickBtn, 'click', () => toggleBroll());
+    if (dom.jarvisQuickToggleBroll) safeOn(dom.jarvisQuickToggleBroll, 'click', () => toggleBroll());
+
+    if (dom.trackToggleMainVideo) safeOn(dom.trackToggleMainVideo, 'click', () => toggleMasterVideo());
+    if (dom.toggleMasterVideoQuickBtn) safeOn(dom.toggleMasterVideoQuickBtn, 'click', () => toggleMasterVideo());
+    if (dom.jarvisQuickToggleVideo) safeOn(dom.jarvisQuickToggleVideo, 'click', () => toggleMasterVideo());
+
+    if (dom.trackToggleMainAudio) safeOn(dom.trackToggleMainAudio, 'click', () => toggleVoiceAudio());
+    if (dom.toggleVoiceAudioQuickBtn) safeOn(dom.toggleVoiceAudioQuickBtn, 'click', () => toggleVoiceAudio());
+    if (dom.jarvisQuickToggleAudio) safeOn(dom.jarvisQuickToggleAudio, 'click', () => toggleVoiceAudio());
 
     // =====================================================================
     // UNIVERSAL CAPCUT × OPENCUT-CLASSIC DIRECT CANVAS HIT-TESTING & GIZMOS
@@ -11371,16 +11514,7 @@
       });
     }
 
-    // Track Visibility & Lock Toggles across all 5 Tracks
-    if (dom.trackToggleMainVideo) {
-      safeOn(dom.trackToggleMainVideo, 'click', () => {
-        state.trackVisibility.video = state.trackVisibility.video === false;
-        dom.trackToggleMainVideo.classList.toggle('muted', !state.trackVisibility.video);
-        renderTimelineTracks();
-        renderCanvasFrame();
-        showToast(state.trackVisibility.video ? '👁️ Video Track Shown' : '🙈 Video Track Hidden');
-      });
-    }
+    // Track Visibility & Lock Toggles
     if (dom.trackToggleText) {
       safeOn(dom.trackToggleText, 'click', () => {
         state.trackVisibility.text = state.trackVisibility.text === false;
@@ -14547,6 +14681,11 @@
     window.WhopStudio = {
       state,
       dom,
+      toggleCaptions,
+      toggleBroll,
+      toggleMasterVideo,
+      toggleVoiceAudio,
+      syncTrackToggleButtonsUI,
       runMasterOneClickAutoEdit,
       translateCaptionsWithGemini,
       autoFetchPixabayBrollWithGemini,

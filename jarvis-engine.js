@@ -863,10 +863,61 @@
           break;
         }
         case 'toggle_captions': {
-          if (state) {
-            state.captionsEnabled = typeof action.enabled === 'boolean' ? action.enabled : !state.captionsEnabled;
+          const enabled = typeof action.enabled === 'boolean' ? action.enabled : null;
+          if (studio?.toggleCaptions) {
+            return studio.toggleCaptions(enabled);
+          } else if (state) {
+            state.captionsEnabled = enabled !== null ? enabled : !state.captionsEnabled;
+            if (!state.trackVisibility) state.trackVisibility = {};
+            state.trackVisibility.captions = state.captionsEnabled;
             if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
             if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'toggle_broll': {
+          const enabled = typeof action.enabled === 'boolean' ? action.enabled : null;
+          if (studio?.toggleBroll) {
+            return studio.toggleBroll(enabled);
+          } else if (state) {
+            state.brollEnabled = enabled !== null ? enabled : !state.brollEnabled;
+            if (!state.trackVisibility) state.trackVisibility = {};
+            state.trackVisibility.broll = state.brollEnabled;
+            state.trackVisibility.overlays = state.brollEnabled;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'toggle_master_video': {
+          const enabled = typeof action.enabled === 'boolean' ? action.enabled : null;
+          if (studio?.toggleMasterVideo) {
+            return studio.toggleMasterVideo(enabled);
+          } else if (state) {
+            state.masterVideoEnabled = enabled !== null ? enabled : !state.masterVideoEnabled;
+            if (!state.trackVisibility) state.trackVisibility = {};
+            state.trackVisibility.video = state.masterVideoEnabled;
+            state.trackVisibility.main = state.masterVideoEnabled;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+            if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+            return true;
+          }
+          break;
+        }
+        case 'toggle_voice_audio': {
+          const enabled = typeof action.enabled === 'boolean' ? action.enabled : null;
+          if (studio?.toggleVoiceAudio) {
+            return studio.toggleVoiceAudio(enabled);
+          } else if (state) {
+            const isMuted = enabled !== null ? !enabled : !state.sequence?.mainAudioMuted;
+            if (!state.sequence) state.sequence = {};
+            state.sequence.mainAudioMuted = isMuted;
+            state.mainAudioMuted = isMuted;
+            const v = document.getElementById('mainVideo');
+            if (v) v.muted = isMuted;
+            if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
             return true;
           }
           break;
@@ -1126,6 +1177,51 @@
         localActions.push({ action: 'set_mode', mode: 'universal' });
       }
 
+      // Track On/Off Toggles (Captions, B-Roll, Master Video, Voice Audio)
+      // 1. Captions On / Off
+      if (text.includes('caption') || text.includes('subtitles') || text.includes('subtitle')) {
+        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('tanggalin') || text.includes('alisin') || text.includes('hide') || text.includes('itago')) {
+          localActions.push({ action: 'toggle_captions', enabled: false });
+        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik')) {
+          localActions.push({ action: 'toggle_captions', enabled: true });
+        } else if (text === 'toggle caption' || text === 'toggle captions') {
+          localActions.push({ action: 'toggle_captions' });
+        }
+      }
+
+      // 2. B-Roll On / Off
+      if (text.includes('broll') || text.includes('b-roll') || text.includes('stock video')) {
+        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('hide') || text.includes('itago')) {
+          localActions.push({ action: 'toggle_broll', enabled: false });
+        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik')) {
+          localActions.push({ action: 'toggle_broll', enabled: true });
+        } else if (text === 'toggle broll' || text === 'toggle b-roll') {
+          localActions.push({ action: 'toggle_broll' });
+        }
+      }
+
+      // 3. Master Video On / Off
+      if (text.includes('master video') || text.includes('main video') || text.includes('video layer') || ((text.includes('video') || text.includes('camera')) && !text.includes('audio') && !text.includes('boses') && !text.includes('broll') && !text.includes('b-roll') && !text.includes('yt') && !text.includes('youtube'))) {
+        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('hide') || text.includes('itago') || text.includes('alisin ang video') || text.includes('tanggalin ang video')) {
+          localActions.push({ action: 'toggle_master_video', enabled: false });
+        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik ang video') || text.includes('buksan ang video')) {
+          localActions.push({ action: 'toggle_master_video', enabled: true });
+        } else if (text === 'toggle video' || text === 'toggle master video') {
+          localActions.push({ action: 'toggle_master_video' });
+        }
+      }
+
+      // 4. Voice Audio On / Off (Mute / Unmute)
+      if (text.includes('voice') || text.includes('boses') || text.includes('audio') || text.includes('tunog')) {
+        if (text.includes('off') || text.includes('mute') || text.includes('disable') || text.includes('patayin') || text.includes('tahimik') || text.includes('pipi') || text.includes('alisin ang boses') || text.includes('tanggalin ang boses')) {
+          localActions.push({ action: 'toggle_voice_audio', enabled: false });
+        } else if (text.includes('on') || text.includes('unmute') || text.includes('enable') || text.includes('buhayin') || text.includes('ibalik') || text.includes('marinig') || text.includes('palakasin')) {
+          localActions.push({ action: 'toggle_voice_audio', enabled: true });
+        } else if (text === 'toggle audio' || text === 'toggle voice') {
+          localActions.push({ action: 'toggle_voice_audio' });
+        }
+      }
+
       // Split / Cut check
       if (text.includes('hatiin') || text.includes('hati') || text.includes('putulin') || text.includes('split') || text.includes('cut here') || text.includes('slice')) {
         const timeMatch = text.match(/(?:sa|at|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|second|segundo)?/i);
@@ -1134,7 +1230,7 @@
       }
 
       // Delete cut / segment check
-      if (!localActions.some((a) => a.action === 'set_watermark') && (text.includes('tanggalin') || text.includes('burahin') || text.includes('alisin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut'))) {
+      if (!localActions.some((a) => ['set_watermark', 'toggle_captions', 'toggle_broll', 'toggle_master_video', 'toggle_voice_audio'].includes(a.action)) && (text.includes('tanggalin') || text.includes('burahin') || text.includes('alisin') || text.includes('bura') || text.includes('delete') || text.includes('remove clip') || text.includes('remove cut'))) {
         localActions.push({ action: 'delete' });
       }
 

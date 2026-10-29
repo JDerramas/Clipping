@@ -742,6 +742,10 @@
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickAutoEditBtn">⚡ 1-Click Auto-Edit</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickYtSearchBtn">🔍 Search YouTube</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickPasteBountyBtn">📋 Paste Campaign Bounty</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickToggleCaptions">💬 Captions: ON</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickToggleBroll">🎬 B-Roll: ON</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickToggleVideo">📹 Video: ON</button>
+          <button type="button" class="jarvis-quick-pill" id="jarvisQuickToggleAudio">🎙️ Voice: ON</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickNoZoomBtn">🚫 Remove Face Zoom</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickTranslateBtn">🌐 Translate to English</button>
           <button type="button" class="jarvis-quick-pill" id="jarvisQuickBrollBtn">🎬 Auto-Fetch B-Roll</button>
@@ -806,6 +810,14 @@
         <button type="button" id="capcutDeleteBtn" class="toolbar-btn toolbar-btn-danger" title="Delete Selected Clip (Del)">
           <span>🗑️ Delete</span>
         </button>
+
+        <!-- Quick Track Enable/Disable Toggles Cluster -->
+        <div class="timeline-quick-toggles" title="Enable or Disable Tracks">
+          <button type="button" id="toggleCaptionsQuickBtn" class="toolbar-toggle-btn active" title="Toggle Captions On/Off">💬 Captions: ON</button>
+          <button type="button" id="toggleBrollQuickBtn" class="toolbar-toggle-btn active" title="Toggle Pixabay B-Roll On/Off">🎬 B-Roll: ON</button>
+          <button type="button" id="toggleMasterVideoQuickBtn" class="toolbar-toggle-btn active" title="Toggle Master Video Layer On/Off">📹 Video: ON</button>
+          <button type="button" id="toggleVoiceAudioQuickBtn" class="toolbar-toggle-btn active" title="Toggle Voice Audio / Mute">🎙️ Voice: ON</button>
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -831,15 +843,19 @@
       <div class="track-headers">
         <div class="track-header-item track-h-captions">
           <span class="track-name">💬 Captions</span>
+          <button type="button" id="trackToggleCaptions" class="track-hdr-toggle active" title="Toggle Captions Track">ON</button>
         </div>
         <div class="track-header-item track-h-overlays">
-          <span class="track-name">🎬 Pixabay B-Roll</span>
+          <span class="track-name">🎬 B-Roll</span>
+          <button type="button" id="trackToggleBroll" class="track-hdr-toggle active" title="Toggle B-Roll Cutaways Track">ON</button>
         </div>
         <div class="track-header-item track-h-video">
           <span class="track-name">📹 Master Video</span>
+          <button type="button" id="trackToggleMainVideo" class="track-hdr-toggle active" title="Toggle Master Video Layer">ON</button>
         </div>
         <div class="track-header-item track-h-audio">
           <span class="track-name">🎵 Voice Audio</span>
+          <button type="button" id="trackToggleMainAudio" class="track-hdr-toggle active" title="Toggle Voice Audio Track / Mute">ON</button>
         </div>
       </div>
 
