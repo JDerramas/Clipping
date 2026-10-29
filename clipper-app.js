@@ -7882,12 +7882,8 @@
   }
 
   async function autoFetchPixabayBrollWithGemini(userInitiated = false, suppressAnnouncement = false) {
-    const masterWords = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0)
-      ? state.analysis.transcript
-      : (Array.isArray(state.words) && state.words.length > 0 ? state.words : []);
-    const clipWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : (state.words || []));
-    const rawWords = (masterWords.length >= clipWords.length) ? masterWords : clipWords;
-    const words = Array.isArray(rawWords) ? rawWords.filter(w => w && !w.deleted) : [];
+    const clipWords = (typeof getActiveTranscriptWords === 'function' ? getActiveTranscriptWords() : []);
+    const words = Array.isArray(clipWords) ? clipWords.filter(w => w && !w.deleted) : [];
     if (!words || words.length === 0) {
       const noWordsMsg = "I cannot detect a speech transcript to match B-roll against, sir. Please load video audio or speech first.";
       showToast('⚠️ No speech transcript found. Upload video or wait for speech transcription!', '#ef4444');
@@ -12846,18 +12842,23 @@
 
   function getActiveTranscriptWords() {
     const clip = getActiveClip();
-    if (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0) {
-      if (!clip || !clip.transcript || clip.transcript.length === 0 || clip.id === 'clip-viral-0' || clip.id === 'clip-fallback' || (state.trimStart === 0 && state.trimEnd >= state.streamDuration * 0.85)) {
-        return state.analysis.transcript;
-      }
-    }
     if (clip && Array.isArray(clip.transcript) && clip.transcript.length > 0) {
       return clip.transcript;
     }
-    if (state.analysis && Array.isArray(state.analysis.transcript)) {
-      return state.analysis.transcript;
+    const masterWords = (state.analysis && Array.isArray(state.analysis.transcript) && state.analysis.transcript.length > 0)
+      ? state.analysis.transcript
+      : (Array.isArray(state.words) ? state.words : []);
+    
+    // If timeline has active trim bounds, filter master transcript strictly to this clip's dialogue window!
+    const sStart = (typeof state.trimStart === 'number') ? state.trimStart : 0;
+    const sEnd = (typeof state.trimEnd === 'number' && state.trimEnd > sStart) ? state.trimEnd : 0;
+    if (sEnd > sStart && masterWords.length > 0) {
+      const clipWords = masterWords.filter(w => w && !w.deleted && (w.end >= sStart - 0.4) && (w.start <= sEnd + 0.4));
+      if (clipWords.length > 0) {
+        return clipWords;
+      }
     }
-    return state.words || [];
+    return masterWords;
   }
 
   function syncViralSuiteControlsUI() {

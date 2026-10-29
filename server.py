@@ -3232,6 +3232,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "Analyze the spoken dialogue and select 3 to 6 key visual moments where stock B-roll cutaways directly elevate viewer retention and illustrate what the speakers are talking about.\n\n"
                 "MANDATORY RULES:\n"
                 "1. TOPIC-SPECIFIC CONTEXT ACCURACY:\n"
+                "   - FAITH, GOD, JESUS, PRAYER & SPIRITUALITY:\n"
+                "     * If dialogue discusses God, Jesus, Christ, Lord, Savior, faith, pray, praying, prayer, church, Bible, scripture, spirit, soul, blessed, salvation, worship, or grace:\n"
+                "       Queries MUST be reverent, inspirational, and spiritual: e.g. 'prayer hands faith', 'church stained glass', 'sunlight clouds sky', 'open bible cross light', 'cross christian light'.\n"
+                "       CRITICAL: NEVER output money, cash, vaults, or sports cars when the speaker says 'rich in spirit', 'wealth and christianity', or speaks of God/Jesus!\n"
                 "   - FOOD & EATING: If dialogue mentions food (e.g. 'chicken', 'chicken nuggets', 'fried chicken', 'jollibee', \"mickey d's\", 'mcdonalds', 'sauce', 'barbecue', 'cheese'):\n"
                 "     * Queries MUST be concrete prepared food: e.g. 'crispy fried chicken meal', 'fast food chicken nuggets', 'fried chicken', 'french fries burger fast food'.\n"
                 "     * NEVER query live animals, birds, farms, or roosters when food/dining is discussed!\n"
@@ -3240,6 +3244,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "     * For example:\n"
                 "       - Cue 1: startIdx for Philippines, query: 'philippines flag', reason: 'Philippines flag for comparison'\n"
                 "       - Cue 2: startIdx for USA/U.S., query: 'american flag', reason: 'USA flag for comparison'\n"
+                "   - BUSINESS, WEALTH NUMBERS & REAL ESTATE: If dialogue specifically states cash earnings, business revenue, net worth numbers: 'stacks of cash', 'modern skyscraper office', 'luxury mansion'.\n"
                 "2. DURATION & SPACING:\n"
                 "   - Each cutaway should last ~1.5 to 3.5 seconds (word index range).\n"
                 "   - Space cues out naturally across the transcript (every 8-15 seconds).\n"
@@ -3297,22 +3302,30 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         if not cues_plan:
             # Fallback heuristic: search for concrete keywords in transcript
             kw_hits = []
+            faith_cues = ["prayer hands faith", "church stained glass", "sunlight clouds sky", "open bible cross light", "cross christian light"]
             for i, w in enumerate(words):
                 txt = str(w.get("origWord") or w.get("word", "")).lower()
-                if "philippines" in txt:
-                    kw_hits.append((i, "philippines flag", "fullscreen"))
-                elif any(k in txt for k in ("u .s.", "u.s.", "usa", "america")):
-                    kw_hits.append((i, "american flag", "fullscreen"))
+                # 1. Faith / God / Jesus / Prayer (MUST check before generic money to prevent "rich in spirit" -> cash!)
+                if any(k in txt for k in ("god", "jesus", "christ", "lord", "savior", "faith", "pray", "praying", "prayer", "church", "bible", "scripture", "spirit", "spiritual", "blessed", "blessing", "heaven", "miracle", "worship", "grace", "soul")):
+                    q_faith = faith_cues[len(kw_hits) % len(faith_cues)]
+                    kw_hits.append((i, q_faith, "fullscreen"))
+                # 2. Food
                 elif any(k in txt for k in ("nugget", "nuggets")):
                     kw_hits.append((i, "fast food chicken nuggets", "fullscreen"))
                 elif any(k in txt for k in ("chicken", "jollibee", "jolly", "mickey")):
                     kw_hits.append((i, "crispy fried chicken", "fullscreen"))
                 elif any(k in txt for k in ("cheese", "nacho")):
                     kw_hits.append((i, "melted nacho cheese", "fullscreen"))
+                # 3. Flags / Locations
+                elif "philippines" in txt:
+                    kw_hits.append((i, "philippines flag", "fullscreen"))
+                elif any(k in txt for k in ("u .s.", "u.s.", "usa", "america")):
+                    kw_hits.append((i, "american flag", "fullscreen"))
+                # 4. Wealth / Cash (only if not about spirit/God)
+                elif any(k in txt for k in ("money", "cash", "dollar", "thousand", "revenue", "milyon")) and not any(f in txt for f in ("spirit", "soul", "god")):
+                    kw_hits.append((i, "stacks of cash", "fullscreen"))
                 elif any(k in txt for k in ("vault", "safe", "lock", "bank")):
                     kw_hits.append((i, "heavy steel vault", "fullscreen"))
-                elif any(k in txt for k in ("money", "cash", "dollar", "thousand", "rich", "paid", "milyon")):
-                    kw_hits.append((i, "stacks of cash", "fullscreen"))
                 elif any(k in txt for k in ("car", "drift", "speed", "drive", "race")):
                     kw_hits.append((i, "sports car drift", "fullscreen"))
                 elif any(k in txt for k in ("reaction", "shock", "crowd", "people", "scream")):
@@ -3327,10 +3340,18 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         cues_plan.append({"startIdx": idx, "endIdx": end_i, "query": q, "mode": m, "reason": f"Matches keyword in speech: {q}"})
 
         if not cues_plan:
-            cues_plan = [
-                {"start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "query": "heavy steel vault", "mode": "fullscreen", "reason": "Intro hook visual"},
-                {"start_sec": min(14.0, total_duration * 0.50), "duration": 2.2, "query": "stacks of cash", "mode": "fullscreen", "reason": "Core topic visual"}
-            ]
+            # Check whole text for faith context before blind default
+            all_txt = " ".join(str(w.get("origWord") or w.get("word", "")).lower() for w in words)
+            if any(k in all_txt for k in ("god", "jesus", "christ", "lord", "savior", "faith", "pray", "prayer", "church", "bible", "spirit", "soul")):
+                cues_plan = [
+                    {"start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "query": "prayer hands faith", "mode": "fullscreen", "reason": "Spiritual faith theme visual"},
+                    {"start_sec": min(14.0, total_duration * 0.50), "duration": 2.2, "query": "sunlight clouds sky", "mode": "fullscreen", "reason": "Uplifting spiritual background"}
+                ]
+            else:
+                cues_plan = [
+                    {"start_sec": min(3.0, total_duration * 0.15), "duration": 2.5, "query": "heavy steel vault", "mode": "fullscreen", "reason": "Intro hook visual"},
+                    {"start_sec": min(14.0, total_duration * 0.50), "duration": 2.2, "query": "stacks of cash", "mode": "fullscreen", "reason": "Core topic visual"}
+                ]
 
         dest_dir = engine.UPLOADS
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -3362,6 +3383,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             elif "american" in q.lower() or "usa" in q.lower():
                 queries_to_try.extend(["american flag", "usa flag waving", "united states flag"])
 
+            is_faith_query = any(k in q.lower() for k in ("god", "jesus", "christ", "prayer", "pray", "faith", "church", "bible", "cross", "spirit", "spiritual", "worship", "soul"))
+            if is_faith_query:
+                queries_to_try.extend(["prayer hands faith", "church stained glass", "sunlight clouds sky", "open bible cross", "cross christian"])
+
             if len(words_in_q) > 2:
                 queries_to_try.append(" ".join(words_in_q[:2]))
 
@@ -3381,6 +3406,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                             filtered = []
                             for h in raw_hits:
                                 tags = (h.get("tags") or "").lower()
+                                if is_faith_query:
+                                    # Never allow dollar bills, coins, vaults, gambling, or race cars for spiritual faith queries!
+                                    if any(bad in tags for bad in ("money", "dollar", "cash", "currency", "bank", "vault", "casino", "gambling", "race", "drift", "speed")):
+                                        continue
                                 if is_food_query:
                                     # STRICT RULE: Reject live animals, birds, roosters, hens, farms!
                                     if any(bad in tags for bad in ("rooster", "hen", "bird", "farm", "animal", "poultry", "wildlife", "zoo", "pet", "feather", "chick")):
@@ -3402,11 +3431,22 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             unsplash_key = load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
             matched_unsplash = False
 
-            # Prioritize Unsplash 4K photography for food items, flags, or when Pixabay has no suitable video
-            if is_food_query or is_flag_query or not hits:
+            # Prioritize Unsplash 4K photography for food items, flags, faith themes, or when Pixabay has no suitable video
+            if is_food_query or is_flag_query or is_faith_query or not hits:
                 try:
                     u_search_term = q
-                    if "nugget" in q.lower():
+                    if is_faith_query:
+                        if any(k in q.lower() for k in ("pray", "prayer", "hands")):
+                            u_search_term = "prayer hands"
+                        elif any(k in q.lower() for k in ("church", "stained glass", "cathedral")):
+                            u_search_term = "church stained glass"
+                        elif any(k in q.lower() for k in ("bible", "scripture")):
+                            u_search_term = "open bible"
+                        elif any(k in q.lower() for k in ("cross", "jesus", "christ")):
+                            u_search_term = "church cross sunset"
+                        else:
+                            u_search_term = "sunlight clouds sky"
+                    elif "nugget" in q.lower():
                         u_search_term = "chicken nuggets"
                     elif "chicken" in q.lower() and "fried" not in q.lower():
                         u_search_term = "crispy fried chicken"

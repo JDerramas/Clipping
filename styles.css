@@ -3922,11 +3922,30 @@ input[type="range"] {
 
 .active-campaign-banner {
   white-space: nowrap !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 260px;
-  flex-shrink: 0;
-  max-height: 28px;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 170px !important;
+  height: 26px !important;
+  max-height: 26px !important;
+  line-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#toggleFaceZoomLockBtn {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 130px !important;
+  height: 26px !important;
+  max-height: 26px !important;
+  line-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .pill-dot {
@@ -3938,9 +3957,9 @@ input[type="range"] {
 }
 
 .btn-opencut-auto {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
   background: linear-gradient(135deg, #4f46e5 0%, #00f2fe 100%);
   color: #07070e;
   border: none;
@@ -3951,9 +3970,22 @@ input[type="range"] {
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(0, 242, 254, 0.3);
   white-space: nowrap !important;
-  flex-shrink: 0;
-  max-height: 28px;
+  flex-shrink: 0 !important;
+  height: 28px !important;
+  max-height: 28px !important;
   transition: all 0.15s ease;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 1366px) {
+  #activeCampaignBadge {
+    display: none !important;
+  }
+}
+@media (max-width: 1200px) {
+  #toggleFaceZoomLockBtn {
+    display: none !important;
+  }
 }
 
 .btn-opencut-auto:hover {
