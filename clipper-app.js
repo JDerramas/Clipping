@@ -2669,146 +2669,249 @@
       }
     });
 
-    // Wayin Multi-Clip Studio Gallery Event Listeners
-    const toggleWayinMomentsBtn = document.getElementById('toggleWayinMomentsBtn');
-    if (toggleWayinMomentsBtn) {
-      safeOn(toggleWayinMomentsBtn, 'click', () => {
-        const v = document.getElementById('wayinStudioView');
-        if (v && !v.classList.contains('hidden')) {
-          closeWayinView();
-        } else {
-          openWayinView();
-        }
-      });
-    }
-
-    const closeWayinViewBtn = document.getElementById('closeWayinViewBtn');
-    if (closeWayinViewBtn) {
-      safeOn(closeWayinViewBtn, 'click', closeWayinView);
-    }
-
-    const wayinSortSelect = document.getElementById('wayinSortSelect');
-    if (wayinSortSelect) {
-      safeOn(wayinSortSelect, 'change', (e) => {
-        state.wayinSort = e.target.value;
-        renderWayinMomentsGrid();
-      });
-    }
-
-    const wayinCategoryChipsRow = document.getElementById('wayinCategoryChipsRow');
-    if (wayinCategoryChipsRow) {
-      const chips = wayinCategoryChipsRow.querySelectorAll('.wayin-cat-chip');
-      chips.forEach((chip) => {
-        safeOn(chip, 'click', () => {
-          chips.forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          state.wayinCategoryFilter = chip.dataset.cat || 'all';
-          renderWayinMomentsGrid();
-        });
-      });
-    }
-
-    const tabAll = document.getElementById('wayinTabAllMoments');
-    const tabViral = document.getElementById('wayinTabViralMoments');
-    const tabFind = document.getElementById('wayinTabFindMoments');
-    [tabAll, tabViral, tabFind].forEach(t => {
-      if (t) {
-        safeOn(t, 'click', () => {
-          [tabAll, tabViral, tabFind].forEach(x => x?.classList.remove('active'));
-          t.classList.add('active');
-          renderWayinMomentsGrid();
-        });
-      }
-    });
-
-    const wayinSelectAllCb = document.getElementById('wayinSelectAllCheckbox');
-    if (wayinSelectAllCb) {
-      safeOn(wayinSelectAllCb, 'change', (e) => {
-        const checked = e.target.checked;
-        document.querySelectorAll('.wayin-card-cb').forEach(cb => {
-          cb.checked = checked;
-        });
-        const sCountEl = document.getElementById('wayinSelectedCountText');
-        if (sCountEl) {
-          const count = checked ? (state.analysis?.viralMoments?.length || 0) : 0;
-          sCountEl.textContent = String(count);
-        }
-      });
-    }
-
-    const wayinBulkDlBtn = document.getElementById('wayinBulkDownloadBtn');
-    if (wayinBulkDlBtn) {
-      safeOn(wayinBulkDlBtn, 'click', async () => {
-        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
-          showToast('No moments available to download yet.', '#ef4444', 3000);
-          return;
-        }
-        const checkedIdxs = [];
-        document.querySelectorAll('.wayin-card').forEach((card) => {
-          const cb = card.querySelector('.wayin-card-cb');
-          if (cb && cb.checked) {
-            const idx = parseInt(card.dataset.idx, 10);
-            if (!isNaN(idx)) checkedIdxs.push(idx);
-          }
-        });
-        const selectedClips = checkedIdxs.length > 0
-          ? checkedIdxs.map(i => state.analysis.viralMoments[i]).filter(Boolean)
-          : state.analysis.viralMoments;
-
-        showToast(`⬇️ Bulk Downloading ${selectedClips.length} clips in background...`, '#10b981', 5000);
-        try {
-          const res = await fetch('/api/download_multiple_clips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: state.originalUrl,
-              clips: selectedClips,
-              limit: selectedClips.length
-            })
-          });
-          const data = await res.json();
-          if (data.success && Array.isArray(data.clips)) {
-            data.clips.forEach(dlClip => {
-              const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
-              if (match) match.filename = dlClip.filename;
-              const a = document.createElement('a');
-              a.href = `/uploads/${dlClip.filename}`;
-              a.download = dlClip.filename;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            });
-            renderWayinMomentsGrid();
-            showToast(`✅ Successfully downloaded ${data.clips.length} clips!`, '#10b981', 4000);
-          } else {
-            showToast(`Download notice: ${data.error || 'Server processing'}`, '#38bdf8', 3500);
-          }
-        } catch (err) {
-          showToast(`Bulk download error: ${err.message}`, '#ef4444', 4000);
-        }
-      });
-    }
-
-    const wayinBulkEditBtn = document.getElementById('wayinBulkEditBtn');
-    if (wayinBulkEditBtn) {
-      safeOn(wayinBulkEditBtn, 'click', () => {
-        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
-          showToast('No moments available to edit.', '#ef4444', 3000);
-          return;
-        }
-        const firstClip = state.analysis.viralMoments[0];
-        loadMomentIntoTimeline(firstClip, 0, true);
-        showToast(`⚡ Loaded "${firstClip.title}" into Studio with 1-Click Auto-Edit!`, '#10b981', 4000);
-      });
-    }
-
     // Also sync Wayin Multiclip Studio Gallery Grid
     if (typeof renderWayinMomentsGrid === 'function') {
       renderWayinMomentsGrid();
     }
   }
 
-  function renderTranscriptCloud() {
+  // =========================================================================
+  // WAYIN VIDEO MULTI-CLIP STUDIO GALLERY ENGINE (20 MOMENTS IN 1 YT VIDEO)
+  // =========================================================================
+  function openWayinView() {
+    const v = document.getElementById('wayinStudioView');
+    if (v) {
+      renderWayinMomentsGrid();
+      v.classList.remove('hidden');
+    }
+  }
+
+  function closeWayinView() {
+    const v = document.getElementById('wayinStudioView');
+    if (v) v.classList.add('hidden');
+  }
+
+  function loadMomentIntoTimeline(targetClip, originalIdx, isAutoEdit = true) {
+    state.activeClipIndex = originalIdx;
+    state.disableFaceZoom = true;
+    state.videoFitMode = 'fit';
+    state.wholeScreenFit = true;
+    state.highlightZoomMode = 'off';
+    state.cameraZoom = 1.0;
+    state.cameraPanX = 0;
+    state.cameraPanY = 0;
+    state.faceTrackingEnabled = false;
+    state.layoutMode = 'ambient-blur';
+
+    // If slice is already on disk, load directly
+    if (targetClip.filename) {
+      state.customMainFileName = targetClip.filename;
+      state.useCustomMainVideo = true;
+      if (dom.mainVideoEl) {
+        dom.mainVideoEl.src = `/uploads/${targetClip.filename}`;
+        dom.mainVideoEl.load();
+      }
+      state.trimStart = 0;
+      state.trimEnd = targetClip.end - targetClip.start;
+      state.streamDuration = targetClip.end - targetClip.start;
+      state.currentTime = 0;
+      selectViralMoment(originalIdx, !isAutoEdit);
+      if (isAutoEdit) runOneClickAutoEdit(originalIdx);
+      closeWayinView();
+      showToast(`🎬 Loaded clip "${targetClip.title}" into Timeline Studio!`, '#10b981', 3500);
+      return;
+    }
+
+    const currentDur = dom.mainVideoEl?.duration || 0;
+    if (state.originalUrl && targetClip.start !== undefined && (targetClip.start > currentDur || targetClip.end > currentDur)) {
+      showToast(`⚡ Slicing clip "${targetClip.title}" (${formatTimecode(targetClip.start)} - ${formatTimecode(targetClip.end)})...`, '#38bdf8', 3500);
+      fetch('/api/download_url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: state.originalUrl,
+          clip_start: targetClip.start,
+          clip_end: targetClip.end,
+          language: 'en'
+        })
+      }).then(r => r.json()).then(dl => {
+        if (dl.success) {
+          targetClip.filename = dl.filename;
+          state.customMainFileName = dl.filename;
+          state.useCustomMainVideo = true;
+          if (dom.mainVideoEl) {
+            dom.mainVideoEl.src = `/uploads/${dl.filename}`;
+            dom.mainVideoEl.load();
+          }
+          state.trimStart = 0;
+          state.trimEnd = targetClip.end - targetClip.start;
+          state.streamDuration = targetClip.end - targetClip.start;
+          state.currentTime = 0;
+          if (isAutoEdit) runOneClickAutoEdit(originalIdx);
+          showToast(`🎬 Loaded clip "${targetClip.title}" into Timeline Studio!`, '#10b981', 3500);
+        }
+      });
+      closeWayinView();
+      return;
+    }
+
+    selectViralMoment(originalIdx, !isAutoEdit);
+    if (isAutoEdit) runOneClickAutoEdit(originalIdx);
+    closeWayinView();
+  }
+
+  function renderWayinMomentsGrid() {
+    if (!state.analysis || !Array.isArray(state.analysis.viralMoments)) return;
+    const rawMoments = state.analysis.viralMoments;
+    const grid = document.getElementById('wayinCardsGrid');
+    if (!grid) return;
+
+    // Update Header and Badges
+    const totalCount = rawMoments.length;
+    const hTitle = document.getElementById('wayinHeaderVideoTitle');
+    if (hTitle && state.videoTitle) hTitle.textContent = state.videoTitle;
+    const tCountEl = document.getElementById('wayinTotalClipsCount');
+    if (tCountEl) tCountEl.textContent = String(totalCount);
+    const vCountEl = document.getElementById('wayinViralClipsCount');
+    if (vCountEl) vCountEl.textContent = String(totalCount);
+    const sCountEl = document.getElementById('wayinSelectedCountText');
+    if (sCountEl) sCountEl.textContent = String(totalCount);
+    const badgeCount = document.getElementById('wayinCountBadge');
+    if (badgeCount) badgeCount.textContent = String(totalCount);
+
+    // Filter by category
+    const cat = state.wayinCategoryFilter || 'all';
+    let moments = rawMoments.filter(m => {
+      if (cat === 'all') return true;
+      if (cat === 'networth') return m.category === 'networth' || /(million|billion|\$|net worth|assets|worth)/i.test(`${m.title} ${m.hook_quote || ''}`);
+      if (cat === 'living') return m.category === 'living' || /(living|what do you do|job|career|business)/i.test(`${m.title} ${m.hook_quote || ''}`);
+      if (cat === 'advice') return m.category === 'advice' || /(advice|lesson|rule|mistake|younger|secret)/i.test(`${m.title} ${m.hook_quote || ''}`);
+      if (cat === 'surprise') return m.category === 'surprise' || /(unexpected|shock|crazy|serious|wait)/i.test(`${m.title} ${m.hook_quote || ''}`);
+      return true;
+    });
+
+    if (moments.length === 0) moments = rawMoments;
+
+    // Sort
+    const sort = state.wayinSort || 'score';
+    if (sort === 'time') {
+      moments.sort((a, b) => (a.start || 0) - (b.start || 0));
+    } else if (sort === 'duration') {
+      moments.sort((a, b) => ((b.end - b.start) || 0) - ((a.end - a.start) || 0));
+    } else {
+      moments.sort((a, b) => (b.score || 0) - (a.score || 0));
+    }
+
+    grid.innerHTML = '';
+
+    moments.forEach((m) => {
+      const origIdx = rawMoments.indexOf(m);
+      const card = document.createElement('div');
+      card.className = `wayin-card ${origIdx === state.activeClipIndex ? 'active' : ''}`;
+      card.dataset.clipId = m.id || `clip-${origIdx}`;
+      card.dataset.idx = String(origIdx);
+
+      const scoreClass = (m.score || 90) >= 90 ? 'score-high' : 'score-mid';
+      const cleanHook = m.hook_quote ? `"${m.hook_quote}"` : `"${m.title}"`;
+      const durStr = `${formatTimecode(m.start)} / ${formatTimecode(m.end)}`;
+
+      card.innerHTML = `
+        <div class="wayin-card-header">
+          <input type="checkbox" class="wayin-card-cb" checked title="Select clip for bulk action" />
+          <h4 class="wayin-card-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h4>
+          <span class="wayin-card-dur">${durStr}</span>
+        </div>
+
+        <div class="wayin-card-preview" data-action="preview" title="Click to open & edit in Studio">
+          <video class="wayin-card-video" preload="metadata" playsinline muted poster="${state.videoThumbnail || ''}">
+            <source src="${m.filename ? ('/uploads/' + m.filename) : (dom.mainVideoEl?.src || '')}" type="video/mp4" />
+          </video>
+          <div class="wayin-play-overlay">
+            <div class="wayin-play-btn">▶</div>
+          </div>
+          <div class="wayin-card-subtitle-overlay">${escapeHtml(cleanHook)}</div>
+        </div>
+
+        <div class="wayin-card-meta">
+          <div class="wayin-score-badge ${scoreClass}">${m.score || 95} / 100</div>
+          <div class="wayin-card-actions">
+            <button type="button" class="wayin-action-btn btn-auto-edit" data-action="auto" title="1-Click Viral Edit with Steady Fit & Captions">
+              ⚡ <span>Edit</span>
+            </button>
+            <button type="button" class="wayin-action-btn" data-action="download" title="Download this .MP4 clip">
+              ⬇️
+            </button>
+            <button type="button" class="wayin-action-btn btn-del" data-action="delete" title="Delete this clip candidate">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <div class="wayin-card-summary" title="${escapeHtml(m.reason || m.aiCritique || '')}">
+          ${escapeHtml(m.reason || m.aiCritique || 'High-retention millionaire interview clip opening in the first 2 seconds.')}
+        </div>
+      `;
+
+      card.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('[data-action="delete"]');
+        if (delBtn) {
+          e.stopPropagation();
+          const targetTitle = m.title || `Clip #${origIdx + 1}`;
+          state.analysis.viralMoments = state.analysis.viralMoments.filter((_, i) => i !== origIdx);
+          renderWayinMomentsGrid();
+          renderViralMomentsList();
+          showToast(`🗑️ Deleted "${targetTitle}" (${state.analysis.viralMoments.length} clips remaining)`, '#f43f5e', 3000);
+          return;
+        }
+
+        const dlBtn = e.target.closest('[data-action="download"]');
+        if (dlBtn) {
+          e.stopPropagation();
+          if (m.filename) {
+            const a = document.createElement('a');
+            a.href = `/uploads/${m.filename}`;
+            a.download = m.filename;
+            a.click();
+            showToast(`⬇️ Downloading "${m.title}"...`, '#10b981', 3000);
+          } else if (state.originalUrl) {
+            showToast(`⚡ Slicing & downloading "${m.title}"...`, '#38bdf8', 4000);
+            fetch('/api/download_url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: state.originalUrl,
+                clip_start: m.start,
+                clip_end: m.end,
+                title: m.title
+              })
+            }).then(r => r.json()).then(dl => {
+              if (dl.success) {
+                m.filename = dl.filename;
+                const a = document.createElement('a');
+                a.href = `/uploads/${dl.filename}`;
+                a.download = dl.filename;
+                a.click();
+                showToast(`⬇️ Download ready: "${m.title}"`, '#10b981', 3000);
+              }
+            });
+          }
+          return;
+        }
+
+        const autoBtn = e.target.closest('[data-action="auto"]');
+        const prevArea = e.target.closest('.wayin-card-preview');
+
+        if (autoBtn || prevArea) {
+          e.stopPropagation();
+          loadMomentIntoTimeline(m, origIdx, !!autoBtn);
+        }
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+    function renderTranscriptCloud() {
     const clip = getActiveClip();
     if (!dom.transcriptWordCloud) return;
     dom.transcriptWordCloud.innerHTML = '';
@@ -12159,6 +12262,139 @@
     safeOn(dom.autoSyncSfxBtn, 'click', () => autoSyncTimelineSfx());
     safeOn(dom.timelineAddSfxBtn, 'click', () => addSfxEventAtTime('whoosh', state.currentTime, true));
     safeOn(dom.trackAddSfxBtn, 'click', () => addSfxEventAtTime('pop', state.currentTime, true));
+
+    // Wayin Multi-Clip Studio Gallery Event Listeners
+    const toggleWayinMomentsBtn = document.getElementById('toggleWayinMomentsBtn');
+    if (toggleWayinMomentsBtn) {
+      safeOn(toggleWayinMomentsBtn, 'click', () => {
+        const v = document.getElementById('wayinStudioView');
+        if (v && !v.classList.contains('hidden')) {
+          closeWayinView();
+        } else {
+          openWayinView();
+        }
+      });
+    }
+
+    const closeWayinViewBtn = document.getElementById('closeWayinViewBtn');
+    if (closeWayinViewBtn) {
+      safeOn(closeWayinViewBtn, 'click', closeWayinView);
+    }
+
+    const wayinSortSelect = document.getElementById('wayinSortSelect');
+    if (wayinSortSelect) {
+      safeOn(wayinSortSelect, 'change', (e) => {
+        state.wayinSort = e.target.value;
+        renderWayinMomentsGrid();
+      });
+    }
+
+    const wayinCategoryChipsRow = document.getElementById('wayinCategoryChipsRow');
+    if (wayinCategoryChipsRow) {
+      const chips = wayinCategoryChipsRow.querySelectorAll('.wayin-cat-chip');
+      chips.forEach((chip) => {
+        safeOn(chip, 'click', () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          state.wayinCategoryFilter = chip.dataset.cat || 'all';
+          renderWayinMomentsGrid();
+        });
+      });
+    }
+
+    const tabAll = document.getElementById('wayinTabAllMoments');
+    const tabViral = document.getElementById('wayinTabViralMoments');
+    const tabFind = document.getElementById('wayinTabFindMoments');
+    [tabAll, tabViral, tabFind].forEach(t => {
+      if (t) {
+        safeOn(t, 'click', () => {
+          [tabAll, tabViral, tabFind].forEach(x => x?.classList.remove('active'));
+          t.classList.add('active');
+          renderWayinMomentsGrid();
+        });
+      }
+    });
+
+    const wayinSelectAllCb = document.getElementById('wayinSelectAllCheckbox');
+    if (wayinSelectAllCb) {
+      safeOn(wayinSelectAllCb, 'change', (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.wayin-card-cb').forEach(cb => {
+          cb.checked = checked;
+        });
+        const sCountEl = document.getElementById('wayinSelectedCountText');
+        if (sCountEl) {
+          const count = checked ? (state.analysis?.viralMoments?.length || 0) : 0;
+          sCountEl.textContent = String(count);
+        }
+      });
+    }
+
+    const wayinBulkDlBtn = document.getElementById('wayinBulkDownloadBtn');
+    if (wayinBulkDlBtn) {
+      safeOn(wayinBulkDlBtn, 'click', async () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to download yet.', '#ef4444', 3000);
+          return;
+        }
+        const checkedIdxs = [];
+        document.querySelectorAll('.wayin-card').forEach((card) => {
+          const cb = card.querySelector('.wayin-card-cb');
+          if (cb && cb.checked) {
+            const idx = parseInt(card.dataset.idx, 10);
+            if (!isNaN(idx)) checkedIdxs.push(idx);
+          }
+        });
+        const selectedClips = checkedIdxs.length > 0
+          ? checkedIdxs.map(i => state.analysis.viralMoments[i]).filter(Boolean)
+          : state.analysis.viralMoments;
+
+        showToast(`⬇️ Bulk Downloading ${selectedClips.length} clips in background...`, '#10b981', 5000);
+        try {
+          const res = await fetch('/api/download_multiple_clips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: state.originalUrl,
+              clips: selectedClips,
+              limit: selectedClips.length
+            })
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.clips)) {
+            data.clips.forEach(dlClip => {
+              const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
+              if (match) match.filename = dlClip.filename;
+              const a = document.createElement('a');
+              a.href = `/uploads/${dlClip.filename}`;
+              a.download = dlClip.filename;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            });
+            renderWayinMomentsGrid();
+            showToast(`✅ Successfully downloaded ${data.clips.length} clips!`, '#10b981', 4000);
+          } else {
+            showToast(`Download notice: ${data.error || 'Server processing'}`, '#38bdf8', 3500);
+          }
+        } catch (err) {
+          showToast(`Bulk download error: ${err.message}`, '#ef4444', 4000);
+        }
+      });
+    }
+
+    const wayinBulkEditBtn = document.getElementById('wayinBulkEditBtn');
+    if (wayinBulkEditBtn) {
+      safeOn(wayinBulkEditBtn, 'click', () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to edit.', '#ef4444', 3000);
+          return;
+        }
+        const firstClip = state.analysis.viralMoments[0];
+        loadMomentIntoTimeline(firstClip, 0, true);
+        showToast(`⚡ Loaded "${firstClip.title}" into Studio with 1-Click Auto-Edit!`, '#10b981', 4000);
+      });
+    }
   }
 
   function handleLocalMainVideoFile(file) {
@@ -13734,147 +13970,9 @@
         state.postCaptionKey = null;
       }
     });
-
-    // Wayin Multi-Clip Studio Gallery Event Listeners
-    const toggleWayinMomentsBtn = document.getElementById('toggleWayinMomentsBtn');
-    if (toggleWayinMomentsBtn) {
-      safeOn(toggleWayinMomentsBtn, 'click', () => {
-        const v = document.getElementById('wayinStudioView');
-        if (v && !v.classList.contains('hidden')) {
-          closeWayinView();
-        } else {
-          openWayinView();
-        }
-      });
-    }
-
-    const closeWayinViewBtn = document.getElementById('closeWayinViewBtn');
-    if (closeWayinViewBtn) {
-      safeOn(closeWayinViewBtn, 'click', closeWayinView);
-    }
-
-    const wayinSortSelect = document.getElementById('wayinSortSelect');
-    if (wayinSortSelect) {
-      safeOn(wayinSortSelect, 'change', (e) => {
-        state.wayinSort = e.target.value;
-        renderWayinMomentsGrid();
-      });
-    }
-
-    const wayinCategoryChipsRow = document.getElementById('wayinCategoryChipsRow');
-    if (wayinCategoryChipsRow) {
-      const chips = wayinCategoryChipsRow.querySelectorAll('.wayin-cat-chip');
-      chips.forEach((chip) => {
-        safeOn(chip, 'click', () => {
-          chips.forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          state.wayinCategoryFilter = chip.dataset.cat || 'all';
-          renderWayinMomentsGrid();
-        });
-      });
-    }
-
-    const tabAll = document.getElementById('wayinTabAllMoments');
-    const tabViral = document.getElementById('wayinTabViralMoments');
-    const tabFind = document.getElementById('wayinTabFindMoments');
-    [tabAll, tabViral, tabFind].forEach(t => {
-      if (t) {
-        safeOn(t, 'click', () => {
-          [tabAll, tabViral, tabFind].forEach(x => x?.classList.remove('active'));
-          t.classList.add('active');
-          renderWayinMomentsGrid();
-        });
-      }
-    });
-
-    const wayinSelectAllCb = document.getElementById('wayinSelectAllCheckbox');
-    if (wayinSelectAllCb) {
-      safeOn(wayinSelectAllCb, 'change', (e) => {
-        const checked = e.target.checked;
-        document.querySelectorAll('.wayin-card-cb').forEach(cb => {
-          cb.checked = checked;
-        });
-        const sCountEl = document.getElementById('wayinSelectedCountText');
-        if (sCountEl) {
-          const count = checked ? (state.analysis?.viralMoments?.length || 0) : 0;
-          sCountEl.textContent = String(count);
-        }
-      });
-    }
-
-    const wayinBulkDlBtn = document.getElementById('wayinBulkDownloadBtn');
-    if (wayinBulkDlBtn) {
-      safeOn(wayinBulkDlBtn, 'click', async () => {
-        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
-          showToast('No moments available to download yet.', '#ef4444', 3000);
-          return;
-        }
-        const checkedIdxs = [];
-        document.querySelectorAll('.wayin-card').forEach((card) => {
-          const cb = card.querySelector('.wayin-card-cb');
-          if (cb && cb.checked) {
-            const idx = parseInt(card.dataset.idx, 10);
-            if (!isNaN(idx)) checkedIdxs.push(idx);
-          }
-        });
-        const selectedClips = checkedIdxs.length > 0
-          ? checkedIdxs.map(i => state.analysis.viralMoments[i]).filter(Boolean)
-          : state.analysis.viralMoments;
-
-        showToast(`⬇️ Bulk Downloading ${selectedClips.length} clips in background...`, '#10b981', 5000);
-        try {
-          const res = await fetch('/api/download_multiple_clips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: state.originalUrl,
-              clips: selectedClips,
-              limit: selectedClips.length
-            })
-          });
-          const data = await res.json();
-          if (data.success && Array.isArray(data.clips)) {
-            data.clips.forEach(dlClip => {
-              const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
-              if (match) match.filename = dlClip.filename;
-              const a = document.createElement('a');
-              a.href = `/uploads/${dlClip.filename}`;
-              a.download = dlClip.filename;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            });
-            renderWayinMomentsGrid();
-            showToast(`✅ Successfully downloaded ${data.clips.length} clips!`, '#10b981', 4000);
-          } else {
-            showToast(`Download notice: ${data.error || 'Server processing'}`, '#38bdf8', 3500);
-          }
-        } catch (err) {
-          showToast(`Bulk download error: ${err.message}`, '#ef4444', 4000);
-        }
-      });
-    }
-
-    const wayinBulkEditBtn = document.getElementById('wayinBulkEditBtn');
-    if (wayinBulkEditBtn) {
-      safeOn(wayinBulkEditBtn, 'click', () => {
-        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
-          showToast('No moments available to edit.', '#ef4444', 3000);
-          return;
-        }
-        const firstClip = state.analysis.viralMoments[0];
-        loadMomentIntoTimeline(firstClip, 0, true);
-        showToast(`⚡ Loaded "${firstClip.title}" into Studio with 1-Click Auto-Edit!`, '#10b981', 4000);
-      });
-    }
-
-    // Also sync Wayin Multiclip Studio Gallery Grid
-    if (typeof renderWayinMomentsGrid === 'function') {
-      renderWayinMomentsGrid();
-    }
   }
 
-  // Called when the Export modal opens: regenerate only if the clip/campaign changed
+    // Called when the Export modal opens: regenerate only if the clip/campaign changed
   function autoGeneratePostCaptionIfStale() {
     if (!dom.postCaptionTextarea) return;
     if (state.postCaptionUserEdited && dom.postCaptionTextarea.value.trim()) {
