@@ -7773,8 +7773,16 @@
       await autoFetchPixabayBrollWithGemini(false, true);
     }
 
-    // Step 4: Ensure 9:16 layout
-    state.layoutMode = 'full-main';
+    // Step 4: Ensure 9:16 layout with 1.0x wide steady framing (Zero Face Zoom, both speakers 100% visible)
+    state.layoutMode = 'ambient-blur';
+    state.videoFitMode = 'fit';
+    state.disableFaceZoom = true;
+    state.wholeScreenFit = true;
+    state.highlightZoomMode = 'off';
+    state.cameraZoom = 1.0;
+    state.cameraPanX = 0;
+    state.cameraPanY = 0;
+    state.faceTrackingEnabled = false;
     state.captionsEnabled = true;
 
     renderTimelineTracks();

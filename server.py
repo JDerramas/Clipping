@@ -1206,8 +1206,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     "videoClips": video_clips,
                 },
                 "reframe": reframe_res,
-                "layoutMode": "split-60-40",
+                "layoutMode": "ambient-blur",
+                "videoFitMode": "fit",
+                "disableFaceZoom": True,
+                "highlightZoomMode": "off",
+                "wholeScreenFit": True,
+                "cameraZoom": 1.0,
                 "captionStyle": "Hormozi Pop",
+                "channelCredit": "@theschoolofhardknocks",
                 "jumpCutsApplied": len(keep_ranges) > 1,
             }
 

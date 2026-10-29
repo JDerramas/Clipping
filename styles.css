@@ -3953,7 +3953,6 @@ input[type="range"] {
   white-space: nowrap !important;
   flex-shrink: 0;
   max-height: 28px;
-}
   transition: all 0.15s ease;
 }
 
@@ -7682,7 +7681,12 @@ input[type="range"] {
   font-weight: 500;
 }
 
-.jarvis-quick-pills {
+.jarvis-quick-pills,
+.jarvis-quick-pill,
+.jarvis-quick-actions,
+.jarvis-action-chips,
+#jarvisQuickPills,
+#jarvisQuickActions {
   display: none !important;
   height: 0 !important;
   max-height: 0 !important;
@@ -7692,10 +7696,6 @@ input[type="range"] {
   overflow: hidden !important;
   visibility: hidden !important;
   pointer-events: none !important;
-}
-
-.jarvis-quick-pill {
-  display: none !important;
 }
 
 .jarvis-input-bar {
