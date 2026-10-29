@@ -930,16 +930,25 @@
         }
         case 'remove_zoom':
         case 'disable_face_zoom': {
-          if (studio?.removeFaceZoom) return studio.removeFaceZoom();
+          if (studio?.removeFaceZoom) {
+            studio.removeFaceZoom();
+            return true;
+          }
           if (state) {
             state.disableFaceZoom = true;
+            state.videoFitMode = 'fit';
+            state.wholeScreenFit = true;
+            state.faceTrackingEnabled = false;
             state.highlightZoomMode = 'off';
             state.highlightZoomScale = 1.0;
             state.highlightZooms = [];
             state.cameraZoom = 1.0;
+            state.cameraPanX = 0;
+            state.cameraPanY = 0;
             if (Array.isArray(state.sequence?.videoClips)) {
-              state.sequence.videoClips.forEach(c => { c.zoom = 1.0; });
+              state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
             }
+            if (studio?.syncContextualInspector) studio.syncContextualInspector();
             if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
             if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
             return true;
@@ -1373,8 +1382,15 @@
         localActions.push({ action: 'translate_captions', lang: 'en' });
       }
 
-      // Face Zoom Removal (Steady Framing)
-      if (text.includes('remove face zoom') || text.includes('no face zoom') || text.includes('remove zoom') || text.includes('no zoom') || text.includes('alisin ang zoom') || text.includes('alisin face zoom') || text.includes('tanggalin ang zoom') || text.includes('disable zoom') || text.includes('steady framing')) {
+      // Face Zoom Removal (Steady Framing & Dual-Speaker Visibility)
+      if (
+        text.includes('remove face zoom') || text.includes('zoom face') || text.includes('face zoom') ||
+        text.includes('remove zoom') || text.includes('no face zoom') || text.includes('no zoom') ||
+        text.includes('alisin ang zoom') || text.includes('alisin face zoom') || text.includes('tanggalin ang zoom') ||
+        text.includes('disable zoom') || text.includes('steady framing') || text.includes('di nmn na remove') ||
+        text.includes('wala nang zoom') || text.includes('unzoomed') || text.includes('fit all people') ||
+        text.includes('wide framing')
+      ) {
         localActions.push({ action: 'remove_zoom' });
       }
 

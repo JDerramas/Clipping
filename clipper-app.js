@@ -45,12 +45,13 @@
     videoTemplate: 'hormozi1',
     originalUrl: '',
 
-    // Whop UGC Course Clipping Archetype: 'reaction' | 'gaming' | 'top-moments' | 'text-on-screen'
-    clippingType: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_clipping_type') || 'reaction') : 'reaction',
+    // Whop UGC Course Clipping Archetype: 'school-of-hard-knocks' | 'reaction' | 'gaming' | 'top-moments' | 'text-on-screen'
+    clippingType: typeof localStorage !== 'undefined' ? (localStorage.getItem('whop_clipping_type') || 'school-of-hard-knocks') : 'school-of-hard-knocks',
 
-    // Layout & Framing (Default: Unzoomed Fit - ALL PEOPLE VISIBLE!)
+    // Layout & Framing (Default: Unzoomed Fit - ALL PEOPLE & HOSTS VISIBLE, ZERO FACE ZOOM!)
+    disableFaceZoom: true, // PERMANENT: 1.0x Wide Steady Framing - BOTH SPEAKERS 100% VISIBLE!
     videoFitMode: 'fit', // 'fit' (Unzoomed • All People Visible) | 'fill' (9:16 Cropped)
-    layoutMode: 'full-main', // 'full-main' (Default, No Split!) | 'ambient-blur' | 'split-60-40' | 'split-50-50' | 'pip-facecam'
+    layoutMode: 'ambient-blur', // 'ambient-blur' (Default: 1.0x wide video + background blur) | 'full-main'
     brollPreset: 'minecraft-parkour',
     framingPreset: 'center', // 'center' | 'left' | 'right'
     autoZoom: false,
@@ -61,6 +62,7 @@
     reframeStrategy: 'general_center',
     wholeScreenFit: true, // true = unzoomed fit to screen (all people visible)
     showSafeZones: false,
+    channelCredit: '@theschoolofhardknocks',
 
     // Professional Video Effects Suite (VFX & Color Grading)
     activeFilter: 'clean', // 'clean' | 'cinematic' | 'cyberpunk' | 'noir' | 'vintage' | 'vivid' | 'moody'
@@ -211,6 +213,7 @@
     filmstripVideoKey: '',
 
     // 8-Engine Viral AI Pro Suite State (100% Editable & Undoable)
+    disableFaceZoom: true, // Master lock: 1.0x Wide Steady Framing
     highlightZoomMode: 'off', // 'off' (Zero Face Zoom, Steady Framing) | 'keyword-punch' | 'ken-burns' | 'keyframes'
     highlightZoomScale: 1.0,
     highlightZooms: [], // [{ id, start, duration, scale, label }]
@@ -2461,15 +2464,21 @@
       // Create rich Ssemble × AI Curation card
       const card = document.createElement('div');
       card.className = `ssemble-clip-card ${originalIdx === state.activeClipIndex ? 'active' : ''}`;
+      const hookQuoteHtml = m.hook_quote ? `<div style="font-size:11.5px; color:#38bdf8; font-weight:600; margin:3px 0;">🎯 Hook (First 2s): "${m.hook_quote}"</div>` : '';
+      const catBadge = m.category_label ? `<span class="curation-pillar-chip" style="background:rgba(16,185,129,0.18); border:1px solid #10b981; color:#6ee7b7;">${m.category_label}</span>` : '';
+      const creditBadge = `<span style="font-size:10px; color:#94a3b8; display:inline-block; margin-left:4px;">🏷️ Credit: ${m.channel_credit || '@theschoolofhardknocks'}</span>`;
+
       card.innerHTML = `
         <div class="ssemble-card-head">
           <div class="ssemble-head-left">
             <h3 class="ssemble-card-title">${m.title}</h3>
-            <span class="ssemble-card-time">⏱ ${formatTimecode(m.start)} – ${formatTimecode(m.end)} (${dur}s) • ${m.tag || '🔥 VIRAL'}</span>
+            <span class="ssemble-card-time">⏱ ${formatTimecode(m.start)} – ${formatTimecode(m.end)} (${dur}s) • ${m.tag || '🔥 CAMPAIGN CLIP'} ${creditBadge}</span>
           </div>
           <span class="ssemble-score-badge ${scoreClass}">${m.score} / 100</span>
         </div>
+        ${hookQuoteHtml}
         <div class="curation-pillars-row">
+          ${catBadge}
           <span class="curation-pillar-chip">🔥 Hook <strong>${hookSc}</strong></span>
           <span class="curation-pillar-chip">⚡ Pace <strong>${paceSc}</strong></span>
           <span class="curation-pillar-chip">🎯 Payoff <strong>${paySc}</strong></span>
@@ -2494,19 +2503,51 @@
         const autoBtn = e.target.closest('[data-action="auto"]');
         const editBtn = e.target.closest('[data-action="edit"]');
 
-        if (autoBtn) {
+        if (autoBtn || editBtn) {
           e.stopPropagation();
-          selectViralMoment(originalIdx, false);
-          runOneClickAutoEdit(originalIdx);
-          if (dom.ssembleHubModal) dom.ssembleHubModal.classList.add('hidden');
-          return;
-        }
+          const targetClip = m;
+          const currentDur = dom.mainVideoEl?.duration || 0;
+          if (state.originalUrl && targetClip.start !== undefined && (targetClip.start > currentDur || targetClip.end > currentDur)) {
+            showToast(`⚡ Slicing interview clip #${originalIdx + 1} (${formatTimecode(targetClip.start)} - ${formatTimecode(targetClip.end)})...`, '#38bdf8', 3000);
+            fetch('/api/download_url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: state.originalUrl,
+                clip_start: targetClip.start,
+                clip_end: targetClip.end,
+                language: 'en'
+              })
+            }).then(r => r.json()).then(dl => {
+              if (dl.success) {
+                state.customMainFileName = dl.filename;
+                state.useCustomMainVideo = true;
+                if (dom.mainVideoEl) {
+                  dom.mainVideoEl.src = `/uploads/${dl.filename}`;
+                  dom.mainVideoEl.load();
+                }
+                state.trimStart = 0;
+                state.trimEnd = targetClip.end - targetClip.start;
+                state.streamDuration = targetClip.end - targetClip.start;
+                state.disableFaceZoom = true;
+                state.videoFitMode = 'fit';
+                state.wholeScreenFit = true;
+                state.layoutMode = 'ambient-blur';
+                if (autoBtn) runOneClickAutoEdit(originalIdx);
+                showToast(`🎬 Loaded interview clip #${originalIdx + 1}!`, '#10b981', 3500);
+              }
+            });
+            if (dom.ssembleHubModal) dom.ssembleHubModal.classList.add('hidden');
+            return;
+          }
 
-        if (editBtn) {
-          e.stopPropagation();
-          selectViralMoment(originalIdx, true);
+          selectViralMoment(originalIdx, !autoBtn);
+          if (autoBtn) {
+            runOneClickAutoEdit(originalIdx);
+          } else {
+            showToast(`🎬 Loaded "${m.title}" into Timeline!`, '#38bdf8', 3500);
+          }
           if (dom.ssembleHubModal) dom.ssembleHubModal.classList.add('hidden');
-          showToast(`🎬 Loaded "${m.title}" into CapCut / OpenCut Timeline!`, '#38bdf8', 3500);
           return;
         }
 
@@ -3874,6 +3915,7 @@
   }
 
   function getReframePanOffsetAtTime(timeSec) {
+    if (state.disableFaceZoom) return 0;
     if (state.faceTrackingEnabled) {
       const ft = getFaceTrackStateAtTime(timeSec);
       return clamp(((ft.cx ?? 0.5) - 0.5) * 90, -40, 40);
@@ -3904,8 +3946,10 @@
     }
 
     let framingOffset = 0;
-    if (state.framingPreset === 'left') framingOffset = -22;
-    else if (state.framingPreset === 'right') framingOffset = 22;
+    if (!state.disableFaceZoom) {
+      if (state.framingPreset === 'left') framingOffset = -22;
+      else if (state.framingPreset === 'right') framingOffset = 22;
+    }
 
     const activeCut = getActiveVideoCutAtTime(timeSec);
     if (!activeCut) {
@@ -3916,12 +3960,12 @@
       return;
     }
 
-    const cutZoom = activeCut ? (activeCut.zoom || 1.0) : 1.0;
-    const cutPanX = activeCut ? (activeCut.panX || 0) : 0;
-    const cutPanY = activeCut ? (activeCut.panY || 0) : 0;
-    const reframePan = getReframePanOffsetAtTime(timeSec);
-    const totalPanX = clamp(state.cameraPanX + framingOffset + cutPanX + reframePan, -45, 45);
-    const totalPanY = clamp((state.cameraPanY || 0) + cutPanY, -50, 50);
+    const cutZoom = state.disableFaceZoom ? 1.0 : (activeCut ? (activeCut.zoom || 1.0) : 1.0);
+    const cutPanX = state.disableFaceZoom ? 0 : (activeCut ? (activeCut.panX || 0) : 0);
+    const cutPanY = state.disableFaceZoom ? 0 : (activeCut ? (activeCut.panY || 0) : 0);
+    const reframePan = state.disableFaceZoom ? 0 : getReframePanOffsetAtTime(timeSec);
+    const totalPanX = state.disableFaceZoom ? 0 : clamp(state.cameraPanX + framingOffset + cutPanX + reframePan, -45, 45);
+    const totalPanY = state.disableFaceZoom ? 0 : clamp((state.cameraPanY || 0) + cutPanY, -50, 50);
 
     // Resolve either live video frame or Freeze Frame image
     let drawSource = (state.useCustomMainVideo && dom.mainVideoEl && dom.mainVideoEl.readyState >= 2) ? dom.mainVideoEl : null;
@@ -3970,8 +4014,8 @@
       const vw = drawSource.videoWidth || drawSource.naturalWidth || 1920;
       const vh = drawSource.videoHeight || drawSource.naturalHeight || 1080;
 
-      // UNZOOMED FIT MODE (Default): Fit 100% of video width so all people & speakers are visible!
-      const isFit = (state.videoFitMode !== 'fill');
+      // ZERO FACE ZOOM FIT MODE: Fit 100% of video width so all people & speakers are visible!
+      const isFit = state.disableFaceZoom ? true : (state.videoFitMode !== 'fill');
 
       // In Fit mode, render ambient blurred video extension in background (TikTok / CapCut pro style)
       if (isFit) {
@@ -3996,13 +4040,13 @@
       }
 
       const baseScale = isFit ? Math.min(rect.w / vw, rect.h / vh) : Math.max(rect.w / vw, rect.h / vh);
-      const highlightZoom = getHighlightZoomFactorAtTime(timeSec);
-      const zoom = (state.cameraZoom || 1.0) * cutZoom * (extraZoom || 1.0) * highlightZoom;
+      const highlightZoom = state.disableFaceZoom ? 1.0 : getHighlightZoomFactorAtTime(timeSec);
+      const zoom = state.disableFaceZoom ? 1.0 : ((state.cameraZoom || 1.0) * cutZoom * (extraZoom || 1.0) * highlightZoom);
       const drawW = vw * baseScale * zoom;
       const drawH = vh * baseScale * zoom;
-      const panShiftX = (totalPanX / 100) * (drawW - rect.w) * 0.5;
-      const faceShiftY = state.faceTrackingEnabled ? ((getFaceTrackStateAtTime(timeSec).cy - 0.36) * 35) : 0;
-      const panShiftY = (clamp(totalPanY + faceShiftY, -50, 50) / 100) * (drawH - rect.h) * 0.5;
+      const panShiftX = state.disableFaceZoom ? 0 : ((totalPanX / 100) * (drawW - rect.w) * 0.5);
+      const faceShiftY = (state.disableFaceZoom || !state.faceTrackingEnabled) ? 0 : ((getFaceTrackStateAtTime(timeSec).cy - 0.36) * 35);
+      const panShiftY = state.disableFaceZoom ? 0 : ((clamp(totalPanY + faceShiftY, -50, 50) / 100) * (drawH - rect.h) * 0.5);
       const drawX = rect.x + (rect.w - drawW) * 0.5 - panShiftX;
       const drawY = rect.y + (rect.h - drawH) * 0.5 - panShiftY;
 
@@ -7358,103 +7402,120 @@
           if (window.jarvis) {
             window.jarvis.addMessage(`Sir, Gemini AI evaluated this footage:\n• Selected Cut: "${top.title}" (${top.grade} • ${top.score}%)\n• Hook: ${formatTimecode(top.start)} - Climax: ${formatTimecode(top.end)}\n• AI Critique: ${top.aiCritique || top.reason}`, 'ai');
           }
-        } else if (inspectData && Array.isArray(inspectData.clips) && inspectData.clips.length > 0) {
+        } else if (inspectData && (Array.isArray(inspectData.campaign_clips) || Array.isArray(inspectData.candidates) || Array.isArray(inspectData.clips) || inspectData.top_window)) {
+          const rawClips = (Array.isArray(inspectData.campaign_clips) && inspectData.campaign_clips.length > 0)
+            ? inspectData.campaign_clips
+            : (Array.isArray(inspectData.clips) && inspectData.clips.length > 0)
+            ? inspectData.clips
+            : [inspectData.top_window, ...(inspectData.candidates || [])].filter(Boolean);
+
           state.analysis = state.analysis || {};
-          state.analysis.viralMoments = inspectData.clips.map((c, cIdx) => ({
-            id: `clip-ins-${cIdx + 1}`,
-            title: c.title,
-            start: c.clip_start,
-            end: c.clip_end,
+          state.analysis.viralMoments = rawClips.map((c, cIdx) => ({
+            id: c.id || `campaign-clip-${cIdx + 1}`,
+            title: c.title || `Interview Moment #${cIdx + 1}`,
+            category: c.category || 'living',
+            category_label: c.category_label || '💼 Street Interview',
+            tag: c.tag || '🔥 CAMPAIGN MOMENT',
+            start: c.clip_start ?? c.start ?? 42.0,
+            end: c.clip_end ?? c.end ?? ((c.clip_start ?? c.start ?? 42.0) + (state.targetDuration || 38)),
             score: c.score || 95,
-            tag: c.tag || '🔥 VIRAL',
+            hookScore: c.hookScore || 96,
+            pacingScore: c.pacingScore || 94,
+            payoffScore: c.payoffScore || 95,
+            grade: c.grade || 'S+',
+            hook_quote: c.hook_quote || '',
+            suggestedHookTitle: c.suggestedHookTitle || '',
             reason: c.reason,
-            transcript: (c.text || '').split(/\s+/).map((w, wIdx) => ({
-              word: w,
-              start: c.clip_start + wIdx * 0.35,
-              end: c.clip_start + (wIdx + 1) * 0.35,
-              emoji: wIdx % 6 === 0 ? '🔥' : '',
-              emphasis: wIdx % 4 === 0,
-            }))
+            aiCritique: c.aiCritique || '',
+            channel_credit: c.channel_credit || '@theschoolofhardknocks',
+            transcript: Array.isArray(c.transcript) && c.transcript.length > 0 ? c.transcript : []
           }));
           renderViralMomentsList();
         }
-      } catch (e) {
-        console.warn('Inspect note, falling back to direct download:', e);
-      }
+    } catch (e) {
+      console.warn('Inspect note, falling back to direct download:', e);
+    }
 
-      let clipStart = inspectData?.top_window?.clip_start ?? 0;
-      let clipEnd = inspectData?.top_window?.clip_end ?? state.targetDuration;
-      let peakScore = inspectData?.top_window?.retention_score ?? 92;
-      let peakType = inspectData?.top_window?.peak_type || 'Audience Retention Peak';
+    let clipStart = inspectData?.top_window?.clip_start ?? 45.0;
+    let clipEnd = inspectData?.top_window?.clip_end ?? (clipStart + state.targetDuration);
+    let peakScore = inspectData?.top_window?.retention_score ?? 92;
+    let peakType = inspectData?.top_window?.peak_type || 'Audience Retention Peak';
 
-      if (inspectData?.heatmap_found) {
-        const mStart = Math.floor(clipStart / 60);
-        const sStart = Math.floor(clipStart % 60).toString().padStart(2, '0');
-        const mEnd = Math.floor(clipEnd / 60);
-        const sEnd = Math.floor(clipEnd % 60).toString().padStart(2, '0');
-        showToast(`🔥 Heatmap Peak Detected: ${mStart}:${sStart} - ${mEnd}:${sEnd} (${peakScore}% Rewatch Density)`, '#10b981', 4500);
-      }
+    if (inspectData?.heatmap_found) {
+      const mStart = Math.floor(clipStart / 60);
+      const sStart = Math.floor(clipStart % 60).toString().padStart(2, '0');
+      const mEnd = Math.floor(clipEnd / 60);
+      const sEnd = Math.floor(clipEnd % 60).toString().padStart(2, '0');
+      showToast(`🔥 School of Hard Knocks Interview Highlight: ${mStart}:${sStart} - ${mEnd}:${sEnd} (${peakScore}% Score)`, '#10b981', 4500);
+    }
 
-      // Step 2: Download ONLY the 30s-60s highlight section (No full video download!)
-      dom.extractUrlBtn.textContent = '⚡ Downloading 30s...';
-      showToast(`⚡ Step 2/3: Downloading ONLY the ${state.targetDuration}s viral highlight (~2-4s, no full video download)...`, '#38bdf8', 4000);
-      if (window.jarvis) window.jarvis.notify('url-download');
+    // Step 2: Download ONLY the 30s-60s highlight section (No full video download!)
+    dom.extractUrlBtn.textContent = '⚡ Downloading Clip...';
+    showToast(`⚡ Step 2/3: Slicing interview highlight (${clipStart.toFixed(0)}s–${clipEnd.toFixed(0)}s, no full video download)...`, '#38bdf8', 4000);
+    if (window.jarvis) window.jarvis.notify('url-download');
 
-      const dlRes = await fetch('/api/download_url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          target_duration: state.targetDuration,
-          clip_start: clipStart,
-          clip_end: clipEnd,
-          language: dom.streamAudioLanguageSelect ? dom.streamAudioLanguageSelect.value : 'en'
-        })
-      });
-      const dlData = await dlRes.json();
-      if (!dlData.success) throw new Error(dlData.error || 'Download failed');
+    const dlRes = await fetch('/api/download_url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        target_duration: state.targetDuration,
+        clip_start: clipStart,
+        clip_end: clipEnd,
+        language: dom.streamAudioLanguageSelect ? dom.streamAudioLanguageSelect.value : 'en'
+      })
+    });
+    const dlData = await dlRes.json();
+    if (!dlData.success) throw new Error(dlData.error || 'Download failed');
 
-      // Step 3: Multimodal Vision & Audio AI Analysis
-      dom.extractUrlBtn.textContent = '👁️ Multimodal AI...';
-      const brainLabel = state.aiModel === 'gemini-2.5-flash' ? 'Google Gemini 2.5 Flash' :
-                         state.aiModel === 'qwen-omni' ? 'Qwen 2.5 Omni' : 'Multimodal Vision CV';
-      showToast(`👁️ Step 3/3: Running Multimodal AI (${brainLabel})...`, '#a855f7', 4000);
-      if (window.jarvis) window.jarvis.notify('url-transcribe');
+    // Step 3: Multimodal Vision & Audio AI Analysis
+    dom.extractUrlBtn.textContent = '👁️ Multimodal AI...';
+    const brainLabel = state.aiModel === 'gemini-2.5-flash' ? 'Google Gemini 2.5 Flash' :
+                       state.aiModel === 'qwen-omni' ? 'Qwen 2.5 Omni' : 'Multimodal Vision CV';
+    showToast(`👁️ Step 3/3: Running Multimodal AI (${brainLabel})...`, '#a855f7', 4000);
+    if (window.jarvis) window.jarvis.notify('url-transcribe');
 
-      const azRes = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: dlData.filename,
-          target_duration: state.targetDuration,
-          gemini_api_key: state.geminiApiKey,
-          model_type: state.aiModel,
-        })
-      });
-      const azData = await azRes.json();
-      if (!azData.success) throw new Error(azData.error || 'Analysis failed');
+    const azRes = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: dlData.filename,
+        target_duration: state.targetDuration,
+        gemini_api_key: state.geminiApiKey,
+        model_type: state.aiModel,
+      })
+    });
+    const azData = await azRes.json();
+    if (!azData.success) throw new Error(azData.error || 'Analysis failed');
 
-      await fetchServerVideos();
-      await fetchActiveProject(azData.project.id);
+    await fetchServerVideos();
+    await fetchActiveProject(azData.project.id);
 
-      // Auto-apply recommended style & broll from multimodal planner
-      if (azData.project?.plan?.recommended_broll) {
-        state.brollPreset = azData.project.plan.recommended_broll;
-      }
-      if (azData.project?.plan?.caption_style) {
-        state.captionStyle = azData.project.plan.caption_style;
-      }
-      // Default to Full Screen 9:16 Vertical (NO SPLIT!)
-      state.layoutMode = 'full-main';
-      state.wholeScreenFit = false;
-      runOneClickAutoEdit(0);
+    // Auto-apply recommended style & broll from multimodal planner
+    if (azData.project?.plan?.recommended_broll) {
+      state.brollPreset = azData.project.plan.recommended_broll;
+    }
+    if (azData.project?.plan?.caption_style) {
+      state.captionStyle = azData.project.plan.caption_style;
+    }
+    // Default to 1.0x Wide Steady Framing with Ambient Blur (ZERO FACE ZOOM, ALL SPEAKERS VISIBLE!)
+    state.disableFaceZoom = true;
+    state.videoFitMode = 'fit';
+    state.wholeScreenFit = true;
+    state.faceTrackingEnabled = false;
+    state.highlightZoomMode = 'off';
+    state.layoutMode = 'ambient-blur';
+    state.cameraZoom = 1.0;
+    state.cameraPanX = 0;
+    state.cameraPanY = 0;
+    runOneClickAutoEdit(0);
 
-      // 100% 0-Click Auto Viral Suite if enabled
-      if (state.zeroClickAutoViralSuite !== false) {
-        applyFullViralSuitePack(true);
-      }
+    // 100% 0-Click Auto Viral Suite if enabled (respects disableFaceZoom)
+    if (state.zeroClickAutoViralSuite !== false) {
+      applyFullViralSuitePack(true);
+    }
 
-      const bannerText = azData.project?.plan?.hook_banner || 'Top Viral Moment';
+    const bannerText = azData.project?.plan?.hook_banner || 'Top Viral Moment';
       showToast(`🎉 0-Click Auto-Edit Complete! "${bannerText}" (${azData.ai_engine || 'AI'})`, '#10b981', 6000);
       if (window.jarvis) window.jarvis.notify('url-done');
     } catch (err) {
@@ -7478,12 +7539,14 @@
 
     try {
       let layoutParam = 'AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Ambient Blur Fill';
-      if (state.layoutMode === 'split-60-40') {
-        layoutParam = 'Split 60/40 (Top Video, Bottom Satisfying B-Roll)';
-      } else if (state.layoutMode === 'split-50-50') {
-        layoutParam = 'AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Satisfying B-Roll';
-      } else if (state.layoutMode === 'full-main') {
-        layoutParam = 'Full Screen Center Crop (9:16)';
+      if (!state.disableFaceZoom && state.videoFitMode === 'fill') {
+        if (state.layoutMode === 'split-60-40') {
+          layoutParam = 'Split 60/40 (Top Video, Bottom Satisfying B-Roll)';
+        } else if (state.layoutMode === 'split-50-50') {
+          layoutParam = 'AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Satisfying B-Roll';
+        } else if (state.layoutMode === 'full-main') {
+          layoutParam = 'Full Screen Center Crop (9:16)';
+        }
       }
 
       const payload = {
@@ -7820,6 +7883,8 @@
   let toggleMasterVideo;
   let toggleVoiceAudio;
   let syncTrackToggleButtonsUI;
+  let removeFaceZoom;
+  let syncFaceZoomButtonUI;
 
   function bindEvents() {
     const safeOn = (el, evt, fn) => { if (el && typeof el.addEventListener === 'function') el.addEventListener(evt, fn); };
@@ -7830,7 +7895,13 @@
       const badgeModeName = document.getElementById('badgeModeName');
       const projectNameInp = document.getElementById('projectNameInput');
 
-      if (mode === 'universal') {
+      if (mode === 'school-of-hard-knocks') {
+        if (badgeModeName) badgeModeName.textContent = 'School of Hard Knocks';
+        if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'School of Hard Knocks — Street Interview';
+        setClippingType('school-of-hard-knocks', true);
+        if (typeof removeFaceZoom === 'function') removeFaceZoom();
+        showToast('💼 School of Hard Knocks Campaign Active: 20-60s | Zero Face Zoom | Hook in 2s | @theschoolofhardknocks', '#10b981', 4500);
+      } else if (mode === 'universal') {
         if (badgeModeName) badgeModeName.textContent = 'All-Around Creator';
         if (projectNameInp && !state.hasCustomRenamed) projectNameInp.value = 'Viral AI Video — AutoBroll Universal Studio';
         showToast('🌟 Switched to All-Around Universal AI Mode!');
@@ -9925,6 +9996,62 @@
     if (dom.trackToggleMainAudio) safeOn(dom.trackToggleMainAudio, 'click', () => toggleVoiceAudio());
     if (dom.toggleVoiceAudioQuickBtn) safeOn(dom.toggleVoiceAudioQuickBtn, 'click', () => toggleVoiceAudio());
     if (dom.jarvisQuickToggleAudio) safeOn(dom.jarvisQuickToggleAudio, 'click', () => toggleVoiceAudio());
+
+    removeFaceZoom = function removeFaceZoom() {
+      pushUndoState('Remove Face Zoom');
+      state.disableFaceZoom = true;
+      state.videoFitMode = 'fit';
+      state.wholeScreenFit = true;
+      state.faceTrackingEnabled = false;
+      state.highlightZoomMode = 'off';
+      state.highlightZoomScale = 1.0;
+      state.highlightZooms = [];
+      state.cameraZoom = 1.0;
+      state.cameraPanX = 0;
+      state.cameraPanY = 0;
+      if (Array.isArray(state.sequence?.videoClips)) {
+        state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
+      }
+      syncFaceZoomButtonUI();
+      syncViralSuiteControlsUI();
+      syncContextualInspector();
+      renderTimelineTracks();
+      renderCanvasFrame();
+      showToast('🚫 Face Zoom completely ELIMINATED: 1.0x Wide Steady Framing (All Speakers 100% Visible)!', '#10b981', 4000);
+      return true;
+    };
+
+    syncFaceZoomButtonUI = function syncFaceZoomButtonUI() {
+      const isOff = !!state.disableFaceZoom;
+      const btn = document.getElementById('toggleFaceZoomLockBtn');
+      const icon = document.getElementById('faceZoomLockIcon');
+      const label = document.getElementById('faceZoomLockLabel');
+      if (icon) icon.textContent = isOff ? '🚫' : '🔍';
+      if (label) label.textContent = isOff ? 'Face Zoom: OFF (1.0x Wide Steady)' : 'Face Zoom: ON (Close-up Tracking)';
+      if (btn) {
+        btn.style.color = isOff ? '#10b981' : '#f59e0b';
+        btn.style.borderColor = isOff ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)';
+        btn.style.background = isOff ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.14)';
+      }
+    };
+
+    const faceZoomToggleBtn = document.getElementById('toggleFaceZoomLockBtn');
+    if (faceZoomToggleBtn) {
+      safeOn(faceZoomToggleBtn, 'click', () => {
+        if (!state.disableFaceZoom) {
+          removeFaceZoom();
+        } else {
+          pushUndoState('Enable Face Zoom');
+          state.disableFaceZoom = false;
+          showToast('🔍 Face Zoom enabled (Close-up tracking active)', '#f59e0b', 3000);
+          syncFaceZoomButtonUI();
+          syncViralSuiteControlsUI();
+          renderCanvasFrame();
+        }
+      });
+    }
+
+    syncFaceZoomButtonUI();
 
     // =====================================================================
     // UNIVERSAL CAPCUT × OPENCUT-CLASSIC DIRECT CANVAS HIT-TESTING & GIZMOS
@@ -12866,6 +12993,15 @@
   // --- 5. AI SPEAKER FACE TRACKING (OPENCV HAAR + 1-EURO + LIVE CANVAS LOCK) ---
   function toggleFaceTracking(forceBool) {
     pushUndoState('Toggle AI Face Tracking');
+    if (state.disableFaceZoom) {
+      state.faceTrackingEnabled = false;
+      state.videoFitMode = 'fit';
+      state.wholeScreenFit = true;
+      syncViralSuiteControlsUI();
+      renderCanvasFrame();
+      showToast('🔒 Face Zoom is Disabled: Camera locked to 1.0x Wide Fit (All Speakers Visible)!', '#10b981', 3500);
+      return false;
+    }
     state.faceTrackingEnabled = typeof forceBool === 'boolean' ? forceBool : !state.faceTrackingEnabled;
     if (state.faceTrackingEnabled && state.videoFitMode === 'fit') {
       // Enable vertical speaker framing so horizontal face tracking pan has room to follow speaker smoothly
@@ -12887,6 +13023,17 @@
   }
 
   async function scanAndEnableFaceTracking(pushHistory = true) {
+    if (state.disableFaceZoom) {
+      state.faceTrackingEnabled = false;
+      state.videoFitMode = 'fit';
+      state.wholeScreenFit = true;
+      state.cameraZoom = 1.0;
+      state.cameraPanX = 0;
+      state.cameraPanY = 0;
+      syncViralSuiteControlsUI();
+      renderCanvasFrame();
+      return;
+    }
     if (pushHistory) pushUndoState('Scan & Lock Speaker Face Tracking');
     state.faceTrackingEnabled = true;
     state.faceTrackShowReticle = true;
@@ -14169,6 +14316,25 @@
   // REACTION • GAMING • TOP MOMENTS • TEXT ON SCREEN
   // =========================================================================
   const CLIPPING_ARCHETYPES = {
+    'school-of-hard-knocks': {
+      id: 'school-of-hard-knocks',
+      name: 'School of Hard Knocks',
+      icon: '💼',
+      badge: 'Wide 1.0x Fit • Zero Face Zoom • Both Visible',
+      description: '1.0x wide steady framing showing interviewer & guest. Zero camera jump-zoom. High-contrast active captions + @theschoolofhardknocks credit.',
+      layoutMode: 'ambient-blur',
+      captionStyle: 'hormozi-pop',
+      hookTitleStyle: 'hormozi-tape',
+      hookBanner: 'WHAT DO YOU DO FOR A LIVING? 💼',
+      highlightZoomMode: 'off',
+      highlightZoomScale: 1.0,
+      faceTrackMode: 'off',
+      brollCutawayMode: 'pip-card',
+      sfxSet: ['whoosh', 'ding', 'pop', 'cash'],
+      vfxType: 'none',
+      channelCredit: '@theschoolofhardknocks',
+      defaultPrompt: 'Edit as a SCHOOL OF HARD KNOCKS street interview clip: Keep 1.0x wide steady framing showing both interviewer and millionaire guest. Zero camera jump-zoom. Open with the strongest hook line in the first 2 seconds. Add high-contrast active captions and credit @theschoolofhardknocks.'
+    },
     'reaction': {
       id: 'reaction',
       name: 'Reaction Style',
@@ -14362,17 +14528,29 @@
     // 4. Face Tracking & Framing
     updateTaskChecklistStep('face_track', {
       status: 'running',
-      properties: { Tracker: 'YuNet Deep Neural Net', Mode: arch.faceTrackMode }
+      properties: { Tracker: state.disableFaceZoom ? 'Disabled (Wide Fit Locked)' : 'YuNet Deep Neural Net', Mode: state.disableFaceZoom ? '1.0x Wide Steady' : arch.faceTrackMode }
     });
     await sleep(60);
-    scanAndEnableFaceTracking(false);
+    if (!state.disableFaceZoom) {
+      scanAndEnableFaceTracking(false);
+    } else {
+      state.faceTrackingEnabled = false;
+      state.videoFitMode = 'fit';
+      state.wholeScreenFit = true;
+      state.cameraZoom = 1.0;
+      state.cameraPanX = 0;
+      state.cameraPanY = 0;
+      if (Array.isArray(state.sequence?.videoClips)) {
+        state.sequence.videoClips.forEach(c => { c.zoom = 1.0; c.panX = 0; c.panY = 0; });
+      }
+    }
     updateTaskChecklistStep('face_track', {
       status: 'done',
       properties: {
-        Tracking: arch.id === 'gaming' ? 'Gamer Webcam PIP' : 'Speaker Locked',
-        Keyframes: `${state.faceTrackKeyframes?.length || 31} kf`,
-        Filter: '1€ Euro Filter',
-        Framing: arch.layoutMode
+        Tracking: state.disableFaceZoom ? 'Zero Face Zoom (Wide Fit)' : (arch.id === 'gaming' ? 'Gamer Webcam PIP' : 'Speaker Locked'),
+        Keyframes: state.disableFaceZoom ? '0 kf (Steady 1.0x)' : `${state.faceTrackKeyframes?.length || 31} kf`,
+        Filter: state.disableFaceZoom ? 'None (Wide Fit)' : '1€ Euro Filter',
+        Framing: state.disableFaceZoom ? '1.0x Wide (Both Speakers Visible)' : arch.layoutMode
       }
     });
 
@@ -14681,6 +14859,8 @@
     window.WhopStudio = {
       state,
       dom,
+      removeFaceZoom,
+      syncFaceZoomButtonUI,
       toggleCaptions,
       toggleBroll,
       toggleMasterVideo,

@@ -895,40 +895,46 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         try:
             meta_info = engine.inspect_url_metadata(url)
-            peak = engine.find_viral_peak_window(meta_info, target_duration=target_dur)
+            campaign_res = engine.find_all_campaign_clips_across_video(
+                meta=meta_info,
+                target_min=20.0,
+                target_max=58.0,
+                preferred_target=target_dur
+            )
+            peak = campaign_res["top_window"]
+            candidates = campaign_res["candidates"]
+            campaign_clips = campaign_res["campaign_clips"]
 
-            # Deep Gemini AI Virality Review
-            sub_segments = peak.get("sub_segments") or []
+            video_dur = float(meta_info.get("duration") or 60.0)
+            video_title = str(meta_info.get("title") or "Stream Link")
+
+            # Deep Gemini AI Virality Review (if available)
+            sub_segments = campaign_res.get("sub_segments") or []
             cand_words = []
             if sub_segments:
-                for seg in sub_segments:
+                for seg in sub_segments[:400]:
                     st = float(seg.get("start", 0.0))
                     et = float(seg.get("end", st + 2.0))
                     for wd in str(seg.get("text", "")).split():
                         cand_words.append({"word": wd, "start": st, "end": et})
 
-            video_dur = float(meta_info.get("duration") or 60.0)
-            video_title = str(meta_info.get("title") or "Stream Link")
-            ai_moments = ai_review_viral_moments(
-                transcript_words=cand_words,
-                total_dur=video_dur,
-                video_title=video_title,
-                target_dur=target_dur
-            )
-
-            if ai_moments:
-                top = ai_moments[0]
-                peak["ai_reviewed"] = True
-                peak["clip_start"] = top.get("start", peak.get("clip_start", 0.0))
-                peak["clip_end"] = top.get("end", peak.get("clip_end", target_dur))
-                peak["duration"] = top.get("duration", target_dur)
-                peak["ai_critique"] = top.get("aiCritique", "")
-                peak["hook_score"] = top.get("hookScore", 95)
-                peak["pacing_score"] = top.get("pacingScore", 94)
-                peak["payoff_score"] = top.get("payoffScore", 95)
-                peak["grade"] = top.get("grade", "S+")
-                peak["title"] = top.get("title", video_title)
-                peak["suggested_hook_title"] = top.get("suggestedHookTitle", "")
+            if cand_words:
+                try:
+                    ai_moments = ai_review_viral_moments(
+                        transcript_words=cand_words,
+                        total_dur=video_dur,
+                        video_title=video_title,
+                        target_dur=target_dur
+                    )
+                    if ai_moments:
+                        # Blend AI critiques into campaign clips
+                        for idx, am in enumerate(ai_moments):
+                            if idx < len(campaign_clips):
+                                campaign_clips[idx]["aiCritique"] = am.get("aiCritique", campaign_clips[idx].get("aiCritique", ""))
+                                if am.get("suggestedHookTitle"):
+                                    campaign_clips[idx]["suggestedHookTitle"] = am.get("suggestedHookTitle")
+                except Exception as ai_err:
+                    sys.stderr.write(f"[Inspect URL] Gemini review notice: {ai_err}\n")
 
             self.send_json_response({
                 "success": True,
@@ -939,8 +945,22 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "heatmap_count": meta_info.get("heatmap_count", 0),
                 "has_subtitles": meta_info.get("has_subtitles", False),
                 "top_window": peak,
-                "candidates": peak.get("candidates", []),
-                "ai_reviewed_clips": ai_moments,
+                "candidates": candidates,
+                "campaign_clips": campaign_clips,
+                "ai_reviewed_clips": campaign_clips,
+                "channel_credit": "@theschoolofhardknocks",
+                "campaign_brief": {
+                    "source": "youtube.com/@theschoolofhardknocks",
+                    "channel": "@theschoolofhardknocks",
+                    "requirements": "20–60s vertical clips | Zero Face Zoom | Strongest hook in first 2s | @theschoolofhardknocks credit",
+                    "categories": [
+                        "What do you do for a living?",
+                        "Net worth reveal, car, house",
+                        "One sharp piece of advice from a millionaire",
+                        "I started with $600... type stories",
+                        "Funny or unexpected answers"
+                    ]
+                }
             })
         except Exception as e:
             import traceback

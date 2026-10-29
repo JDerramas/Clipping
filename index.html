@@ -71,17 +71,23 @@
       <div class="campaign-pill" title="Editing Preset & Archetype">
         <span class="pill-dot"></span>
         <select id="campaignSelect" class="campaign-select" aria-label="Format Selector">
-          <option value="universal" data-handle="@AutoBroll • Universal" selected>🌟 All-Around AI Studio (Universal)</option>
+          <option value="school-of-hard-knocks" data-handle="@theschoolofhardknocks" selected>💼 School of Hard Knocks (Zero Face Zoom • 20-60s)</option>
+          <option value="universal" data-handle="@AutoBroll • Universal">🌟 All-Around AI Studio (Universal)</option>
+          <option value="podcast" data-handle="@PodcastClips • Shorts">🎙️ Podcast & Street Interviews</option>
           <option value="car-phonk" data-handle="@DriftVibes • Phonk">🏎️ Car Phonk / Drift Edit (140 BPM)</option>
-          <option value="podcast" data-handle="@PodcastClips • Shorts">🎙️ Podcast & Interview Highlights</option>
           <option value="gaming" data-handle="@GamerDaily • Gaming">🎮 Gaming & Reaction Clips</option>
           <option value="tiktok-viral" data-cpm="2.50" data-handle="@KaiCenatClips • 9:16">🏆 Whop Campaign ($10k Kai Cenat Challenge)</option>
         </select>
       </div>
 
-      <div id="activeCampaignBadge" class="active-campaign-banner hidden" style="display:inline-flex; align-items:center; background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,78,59,0.3)); border:1px solid #10b981; border-radius:18px; padding:3px 10px; font-size:11px; color:#6ee7b7; gap:6px; cursor:pointer;" title="Active Campaign Bounty Rules">
-        🎯 <b>Campaign Bounty</b> • 20–60s • Zero Face Zoom
+      <div id="activeCampaignBadge" class="active-campaign-banner" style="display:inline-flex; align-items:center; background:linear-gradient(135deg, rgba(16,185,129,0.18), rgba(6,78,59,0.35)); border:1px solid #10b981; border-radius:18px; padding:3px 12px; font-size:11px; color:#6ee7b7; gap:6px; cursor:pointer;" title="School of Hard Knocks Campaign Brief: 20-60s vertical clips, Zero Face Zoom, Hook in first 2s, @theschoolofhardknocks credit">
+        🎯 <b>Campaign: Hard Knocks</b> • 20–60s • Zero Face Zoom
       </div>
+
+      <button type="button" id="toggleFaceZoomLockBtn" class="nav-btn nav-btn-ghost" title="Toggle Face Zoom: Keep wide 1.0x framing with both people visible or enable close-up face crop" style="border:1px solid rgba(16,185,129,0.4); color:#10b981; font-weight:600; font-size:11px; padding:4px 10px; border-radius:16px; background:rgba(16,185,129,0.1); display:inline-flex; align-items:center; gap:6px;">
+        <span id="faceZoomLockIcon">🚫</span>
+        <span id="faceZoomLockLabel">Face Zoom: OFF (1.0x Wide)</span>
+      </button>
 
       <button id="oneClickAutoEditBtn" class="btn-opencut-auto" title="1-Click AI Auto-Edit: Highlight Selection, Pauses Cut, US/UK Translation & Pixabay Stock B-Roll">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -942,9 +948,9 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="broll-engine.js"></script>
-  <script src="audio-engine.js"></script>
-  <script src="jarvis-engine.js"></script>
-  <script src="clipper-app.js"></script>
+  <script src="broll-engine.js?v=20261029"></script>
+  <script src="audio-engine.js?v=20261029"></script>
+  <script src="jarvis-engine.js?v=20261029"></script>
+  <script src="clipper-app.js?v=20261029"></script>
 </body>
 </html>
