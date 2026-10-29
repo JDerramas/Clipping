@@ -2336,9 +2336,12 @@
       if (dom.hookBannerTextInput) dom.hookBannerTextInput.value = state.hookText;
     }
 
-    // Mark post caption stale; it regenerates (transcript-aware) when Export opens
+    // Mark post caption stale and immediately auto-generate video/transcript-aware caption
     state.postCaptionKey = null;
     state.postCaptionUserEdited = false;
+    setTimeout(() => {
+      generatePostCaption({ useAi: true, silent: true }).catch(() => {});
+    }, 250);
 
     if (state.useCustomMainVideo && dom.mainVideoEl) {
       if (Math.abs(dom.mainVideoEl.currentTime - state.currentTime) > 0.05) {
@@ -11313,7 +11316,10 @@
       btn.addEventListener('click', () => {
         const tab = btn.dataset.railTab;
         activateRailTab(tab);
-        if (tab === 'text') setInspectorMode('text');
+        if (tab === 'schedule') {
+          autoGeneratePostCaptionIfStale();
+        }
+        else if (tab === 'text') setInspectorMode('text');
         else if (tab === 'captions') setInspectorMode('caption');
         else if (tab === 'overlays') setInspectorMode('overlay');
         else if (tab === 'audio') setInspectorMode('audio');
@@ -13573,7 +13579,10 @@
     [/\bfortnite\b/i, '#Fortnite'], [/\bgta\b/i, '#GTA'], [/\bminecraft\b/i, '#Minecraft'],
     [/\b2k\b/i, '#NBA2K'], [/\bsubathon\b/i, '#Subathon'], [/\bmafiathon\b/i, '#Mafiathon'],
     [/\bfootball|nfl\b/i, '#NFL'], [/\bnba|basketball\b/i, '#NBA'], [/\bhalloween\b/i, '#Halloween'],
-    [/\bmillion|dollar|wealth|net\s*worth|money\b/i, '#Millionaire'], [/\bbusiness|entrepreneur\b/i, '#Business']
+    [/\bmillion|dollar|wealth|net\s*worth|money\b/i, '#Millionaire'], [/\bbusiness|entrepreneur\b/i, '#Business'],
+    [/\bgod|jesus|christ|faith|prayer|pray|church|bible|spirit\b/i, '#Faith'],
+    [/\bgod|jesus|christ\b/i, '#GodFirst'],
+    [/\badvice|lesson|rule|mentor\b/i, '#MoneyAdvice']
   ];
 
   // Words that frame the creator negatively / hate-farm (campaign rejection risk)
@@ -13701,22 +13710,67 @@
 
   function buildOfflinePostVariants(ctx) {
     const { campaign, tokens, text, required, platformKey } = ctx;
-    const type = detectPostMomentType(text);
     const quote = extractPostQuote(tokens);
-    const name = campaign.creator || 'Bro';
-    const nick = campaign.short || 'bro';
-    const T = {
-      funny: [`${name} had chat in tears with this one 😭`, `${nick} could NOT keep a straight face 😂`, `Nobody makes a stream funnier than ${nick} 😭💀`],
-      reaction: [`${name}'s reaction to this is priceless 😳`, `${nick} was not ready for this one 😭`, `The way ${nick} reacted though 💀`],
-      gaming: [`${name} went crazy on this one 🎮🔥`, `${nick} really pulled this off live on stream 😤`, `Chat could not believe what ${nick} just did 🎮`],
-      moment: [`One of ${name}'s most iconic stream moments 🔥`, `This ${nick} moment lives rent-free in my head 😭`, `Chat went crazy after this ${nick} moment 🔥`]
-    }[type];
-    const hooks = quote ? [`${nick} really said "${quote}" 😭`, T[0], T[1]] : T;
-    const ctas = [
-      campaign.short ? `Follow for daily ${campaign.short} clips 🔔` : 'Follow for more clips like this 🔔',
-      'Would you have reacted the same way? 👇',
-      'Rate this moment 1–10 👇'
-    ];
+    const textLower = (text || '').toLowerCase();
+    const titleLower = `${state.videoTitle || ''} ${state.activeCampaign?.campaign_name || ''}`.toLowerCase();
+    const isHardKnocks = ctx.campaignKey === 'hard-knocks' || /hard\s*knock|millionaire|rich|business|wealth|entrepreneur|money|started with|net worth/i.test(`${titleLower} ${textLower}`);
+    const isFaith = /god|jesus|christ|faith|prayer|pray|church|bible|spirit/i.test(`${titleLower} ${textLower}`);
+    const isKai = ctx.campaignKey === 'kai-cenat' || /kai\s*cenat|twitch|streamer|stream/i.test(titleLower);
+
+    let hooks = [];
+    let ctas = [];
+
+    if (isHardKnocks) {
+      if (isFaith) {
+        hooks = [
+          'The moment he stopped planning and started trusting God 🙏✨',
+          'He explains why being rich in spirit matters more than money ✝️',
+          'This perspective on faith and wealth will change how you think 💡'
+        ];
+        ctas = [
+          'Drop a 🙏 if this blessed you today!',
+          'Credit: @theschoolofhardknocks in caption 🔔',
+          'Save this message for when you need motivation 📌'
+        ];
+      } else {
+        hooks = [
+          'When asked how he made his millions... his answer stunned everyone 🤯💰',
+          'The net worth reveal that nobody saw coming 💸',
+          'One sharp piece of advice from a self-made millionaire that changes everything 💡',
+          quote ? `"${quote}" — The millionaire secret you need to hear 📈` : 'He started with $600 and built a massive empire 🚀'
+        ];
+        ctas = [
+          'What would you do with your first million? 👇',
+          'Credit: @theschoolofhardknocks in caption 🔔',
+          'Save this for your business journey 📌'
+        ];
+      }
+    } else if (isKai) {
+      const name = campaign.creator || 'Kai Cenat';
+      const nick = campaign.short || 'Kai';
+      hooks = quote ? [`${nick} really said "${quote}" 😭`, `${name}'s reaction is priceless 😳`, `${nick} could NOT keep a straight face 😂`] : [
+        `${name}'s reaction to this is priceless 😳`,
+        `${nick} could NOT keep a straight face 😂`,
+        `One of ${name}'s most viral stream moments 🔥`
+      ];
+      ctas = [
+        `Follow for daily ${nick} clips 🔔`,
+        'Would you have reacted the same way? 👇',
+        'Rate this moment 1–10 👇'
+      ];
+    } else {
+      hooks = [
+        quote ? `"${quote}" — The answer that surprised everyone 🤯` : 'Wait till you hear his answer at the end 🤯👇',
+        'The most important lesson you need to hear today 💡',
+        'Nobody expected this response 😳'
+      ];
+      ctas = [
+        'Would you agree with this? Let us know below 👇',
+        'Save this video for later 📌',
+        'Follow for more real interviews 🔔'
+      ];
+    }
+
     return hooks.map((hook, i) => ({
       hook: hook.charAt(0).toUpperCase() + hook.slice(1),
       cta: ctas[i % ctas.length],
@@ -13890,8 +13944,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: state.geminiApiKey || '',
+          nvidia_api_key: state.nvidiaApiKey || '',
           campaign: campaignKey,
           creator: campaign.creator,
+          title: state.clipTitle || state.videoTitle || '',
           platform: POST_PLATFORM_SPECS[platformKey].label,
           archetype: state.clippingType || '',
           transcript: text.slice(0, 2500),
@@ -15096,6 +15152,9 @@
             if (typeof updateAiKeyHeaderBadge === 'function') updateAiKeyHeaderBadge();
           }
           if (window.jarvis) window.jarvis.setGoogleKey(keys.gemini_api_key);
+        }
+        if (keys && keys.nvidia_api_key) {
+          state.nvidiaApiKey = keys.nvidia_api_key;
         }
         if (keys && keys.elevenlabs_api_key && window.jarvis) {
           window.jarvis.setElevenKey(keys.elevenlabs_api_key);

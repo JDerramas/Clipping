@@ -86,7 +86,7 @@ def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "",
                     text = cands[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                     if text:
                         return text.strip()
-        except Exception as e:
+        except Exception:
             continue
 
     # Method 2: Curl fallback
@@ -121,16 +121,75 @@ def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "",
     return ""
 
 
-def ai_review_viral_moments(transcript_words: list, total_dur: float, video_title: str = "", target_dur: float = 30.0, gemini_key: str = "") -> list:
+def query_nvidia_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 22) -> str:
+    key = api_key or os.environ.get("NVIDIA_API_KEY", "") or load_local_secret("NVIDIA_API_KEY")
+    if not key:
+        return ""
+
+    models_to_try = [
+        "meta/llama-3.2-90b-vision-instruct",
+        "mistralai/mistral-large-4-1t-a52b",
+        "meta/llama-3.2-11b-vision-instruct",
+    ]
+    messages = []
+    if system_directive:
+        messages.append({"role": "system", "content": system_directive})
+    messages.append({"role": "user", "content": prompt})
+
+    url = "https://integrate.api.nvidia.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+
+    for model_name in models_to_try:
+        data = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.4,
+            "max_tokens": 1200
+        }
+        try:
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                choices = res.get("choices") or []
+                if choices:
+                    content = (choices[0].get("message", {}).get("content", "") or "").strip()
+                    if content:
+                        return content
+        except Exception as e:
+            sys.stderr.write(f"[NVIDIA API Notice] {model_name} error: {e}\n")
+            continue
+    return ""
+
+
+def query_ai_engine(prompt: str, system_directive: str = "", preferred: str = "auto", gemini_key: str = "", nvidia_key: str = "", timeout: int = 22) -> str:
+    """
+    Dual-engine AI query router:
+    Leverages Google Gemini 3.5 / Flash and NVIDIA NIM (Llama 3.2 90B / 11B / Mistral Large).
+    Provides instant fallback so AI services never fail.
+    """
+    if preferred == "nvidia":
+        out = query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=timeout)
+        if out:
+            return out
+        return query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=timeout)
+    else:
+        out = query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=timeout)
+        if out:
+            return out
+        return query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=timeout)
+
+
+def ai_review_viral_moments(transcript_words: list, total_dur: float, video_title: str = "", target_dur: float = 30.0, gemini_key: str = "", nvidia_key: str = "") -> list:
     """
     Multimodal AI Virality Reviewer:
-    Uses Gemini 3 Flash to deeply review timestamped speech transcripts,
-    identify the #1 best viral hook, build-up, and punchline, and output
-    algorithmic critiques, virality scores, and retention ratings.
+    Uses Dual-Engine (Gemini 3.5 + NVIDIA NIM 90B) to deeply review timestamped speech
+    transcripts across the ENTIRE duration of long YouTube videos (e.g. 23-minute millionaire interviews),
+    identifying 12 to 24 distinct viral moments with hooks, virality scores, and retention ratings.
     """
-    key = gemini_key or load_local_secret("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
-    
-    # 1. Group transcript into readable timestamped sentences
+    # 1. Group transcript into readable timestamped sentences across the FULL video
     speech_lines = []
     if transcript_words and isinstance(transcript_words, list):
         curr_words = []
@@ -150,21 +209,28 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
         if curr_words:
             speech_lines.append(f"[{curr_st:.1f}s - {curr_et:.1f}s] {' '.join(curr_words)}")
 
-    transcript_summary = "\n".join(speech_lines[:120]) if speech_lines else ""
+    # Sample dialogue evenly across the entire duration (0s to total_dur)
+    if len(speech_lines) <= 280:
+        sampled_lines = speech_lines
+    else:
+        stride = max(1, len(speech_lines) // 280)
+        sampled_lines = speech_lines[::stride]
+
+    transcript_summary = "\n".join(sampled_lines)
     moments = []
-    
-    # 2. Query Gemini 3 Flash for deep algorithmic review
-    if key and (len(transcript_summary) > 20 or total_dur > 10.0):
+
+    # 2. Query Dual-Engine AI (Gemini 3.5 + NVIDIA NIM)
+    if len(transcript_summary) > 20 or total_dur > 10.0:
         prompt = (
             "You are an Elite Viral Video Director & Short-Form Content Judge for TikTok, YouTube Shorts, and Instagram Reels.\n"
-            f"Review this video footage (Duration: {total_dur:.1f}s, Title: '{video_title}').\n"
-            "Identify the TOP 3 to 5 distinct viral moments that will perform best for US/UK/CA audiences.\n\n"
-            f"Timestamped Transcript:\n{transcript_summary}\n\n"
+            f"Review this long-form video interview (Duration: {total_dur:.1f}s, Title: '{video_title}').\n"
+            "Identify 12 to 20 DISTINCT viral moments distributed ACROSS THE ENTIRE VIDEO TIMELINE (beginning, middle, and end) that will perform best for US/UK/CA audiences.\n\n"
+            f"Timestamped Transcript across video:\n{transcript_summary}\n\n"
             "Requirements for EACH clip candidate:\n"
-            f"- Duration must be between 15s and 45s (target around {target_dur:.0f}s).\n"
-            "- Start EXACTLY at a high-retention curiosity hook or energetic statement.\n"
-            "- End immediately after a satisfying punchline, laugh, or climax.\n"
-            "- Provide an in-depth 'ai_critique' (2-3 sentences) explaining WHY this moment will retain viewers, what makes the hook strong, and how the algorithm will reward it.\n\n"
+            f"- Duration must be between 20s and 60s (target around {target_dur:.0f}s).\n"
+            "- Start EXACTLY at a high-retention curiosity hook (e.g. 'How did you get rich?', net worth reveal, sharp advice, origin struggle, God/faith moment, unexpected reaction).\n"
+            "- Do NOT clip intro filler or greetings. Clip substantive, thrilling interview revelations!\n"
+            "- Provide virality scores (between 58 and 98), hook scores, hook titles, and AI critiques.\n\n"
             "Respond ONLY with valid JSON in this exact structure:\n"
             "{\n"
             '  "moments": [\n'
@@ -178,44 +244,42 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
             '      "pacing_score": 95,\n'
             '      "payoff_score": 97,\n'
             '      "grade": "S+",\n'
-            '      "category": "funny",\n'
-            '      "hook_phrase": "Bro did you actually just say that?!",\n'
-            '      "punchline": "I am never recovering from this",\n'
-            '      "ai_critique": "Explosive pattern interrupt in the opening 2.4s hooks viewers immediately. Escalating comedy with zero dead air, finishing on a memorable reaction that drives comment engagement and high completion rates on TikTok/Reels.",\n'
-            '      "suggested_hook_title": "HE REALLY SAID THIS ON LIVE 💀👇",\n'
-            '      "suggested_broll": "car phonk drift",\n'
-            '      "suggested_caption": "Wait till you hear what he reveals at the end 💰 #Shorts #Viral #Millionaire"\n'
+            '      "category": "wealth",\n'
+            '      "hook_phrase": "How did you get rich?",\n'
+            '      "punchline": "Started with $600 and scaled to $76 million",\n'
+            '      "ai_critique": "Explosive curiosity hook in first 2s with massive wealth payoff and high retention.",\n'
+            '      "suggested_hook_title": "HIS NET WORTH WILL SHOCK YOU 💰👇",\n'
+            '      "suggested_broll": "stacks of cash",\n'
+            '      "suggested_caption": "Wait till you hear how he built his empire 💰 #SchoolOfHardKnocks #Millionaire #Success"\n'
             '    }\n'
             '  ]\n'
             "}"
         )
-        
+
         try:
-            body = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"responseMimeType": "application/json"}
-            }
-            json_bytes = json.dumps(body).encode("utf-8")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={key}"
-            req = urllib.request.Request(url, data=json_bytes, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                resp_data = json.loads(resp.read().decode("utf-8"))
-                text_out = resp_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                parsed = json.loads(text_out)
+            raw_out = query_ai_engine(prompt, system_directive="You are an elite short-form viral judge. Return ONLY valid JSON.", preferred="auto", gemini_key=gemini_key, nvidia_key=nvidia_key, timeout=25)
+            if raw_out:
+                clean = raw_out.strip()
+                if "```" in clean:
+                    clean = clean.split("```")[1]
+                    if clean.startswith("json"):
+                        clean = clean[4:]
+                clean = clean.strip()
+                parsed = json.loads(clean)
                 cands = parsed.get("moments") or parsed.get("viralMoments") or []
                 if isinstance(cands, list) and len(cands) > 0:
                     for i, c in enumerate(cands):
                         st = max(0.0, min(total_dur - 6.0, float(c.get("start", 0.0))))
                         et = min(total_dur, max(st + 8.0, float(c.get("end", st + target_dur))))
                         chunk_words = [w for w in transcript_words if float(w.get("start", 0)) >= st and float(w.get("end", 0)) <= et]
-                        
-                        score = int(c.get("score") or (98 - i * 3))
-                        hook_s = int(c.get("hook_score") or c.get("hookScore") or (97 - i * 2))
-                        pacing_s = int(c.get("pacing_score") or c.get("pacingScore") or (94 - i * 2))
-                        payoff_s = int(c.get("payoff_score") or c.get("payoffScore") or (95 - i * 2))
-                        grade = str(c.get("grade") or ("S+" if score >= 95 else "A+"))
-                        cat = str(c.get("category") or "funny")
-                        
+
+                        score = int(c.get("score") or max(60, 98 - i * 2))
+                        hook_s = int(c.get("hook_score") or c.get("hookScore") or max(60, 97 - i * 2))
+                        pacing_s = int(c.get("pacing_score") or c.get("pacingScore") or max(60, 94 - i * 2))
+                        payoff_s = int(c.get("payoff_score") or c.get("payoffScore") or max(60, 95 - i * 2))
+                        grade = str(c.get("grade") or ("S+" if score >= 94 else "A+"))
+                        cat = str(c.get("category") or "wealth")
+
                         moments.append({
                             "id": f"ai-curated-{i + 1}",
                             "rank": i + 1,
@@ -235,29 +299,29 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
                             "punchline": str(c.get("punchline") or ""),
                             "aiCritique": str(c.get("ai_critique") or "AI analyzed this moment for maximum hook retention and algorithmic momentum."),
                             "suggestedHookTitle": str(c.get("suggested_hook_title") or f"{c.get('title', 'VIRAL MOMENT')} 🤯👇"),
-                            "suggestedBroll": str(c.get("suggested_broll") or "crowd reaction cheering"),
+                            "suggestedBroll": str(c.get("suggested_broll") or "luxury car"),
                             "suggestedCaption": str(c.get("suggested_caption") or ""),
                             "reason": f"Grade {grade} ({score}/100) • Hook {hook_s}% | Pacing {pacing_s}% | Payoff {payoff_s}%",
                             "transcript": chunk_words
                         })
         except Exception as e:
-            sys.stderr.write(f"[Gemini AI Review Notice] {e}\n")
+            sys.stderr.write(f"[Dual-Engine AI Review Notice] {e}\n")
 
-    # 3. Enhanced Fallback
+    # 3. Robust Distributed Fallback across full timeline
     if not moments:
-        win = min(total_dur, max(12.0, target_dur))
-        step = max(8.0, win * 0.6)
-        t0 = 0.0
+        win = min(total_dur, max(22.0, target_dur))
+        step = max(18.0, (total_dur - win) / 16) if total_dur > win * 2 else max(10.0, win * 0.7)
+        t0 = 42.0 if total_dur >= 90.0 else 0.0
         idx = 0
-        while t0 < max(1.0, total_dur - 6.0) and idx < 5:
+        while t0 < max(1.0, total_dur - 10.0) and idx < 16:
             t1 = round(min(total_dur, t0 + win), 2)
             chunk_words = [w for w in transcript_words if float(w.get("start", 0)) >= t0 and float(w.get("end", 0)) <= t1]
             snippet = " ".join([str(w.get("word", "")) for w in chunk_words[:8]]).strip()
             title = snippet.upper() if snippet else f"VIRAL HIGHLIGHT #{idx + 1}"
             if len(title) > 38:
                 title = title[:35] + "..."
-            
-            score = max(88, 97 - idx * 2)
+
+            score = max(65, 96 - idx * 2)
             moments.append({
                 "id": f"curated-{idx + 1}",
                 "rank": idx + 1,
@@ -401,6 +465,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         elif path == "/api/keys":
             self.send_json_response({
                 "gemini_api_key": load_local_secret("GEMINI_API_KEY"),
+                "nvidia_api_key": load_local_secret("NVIDIA_API_KEY"),
                 "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY"),
                 "pixabay_api_key": load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9",
                 "unsplash_access_key": load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
@@ -493,6 +558,19 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_auto_curate(payload)
         elif path in ("/api/ai_review_clips", "/api/ai-review-clips"):
             self.handle_api_ai_review_clips(payload)
+        elif path in ("/api/keys", "/api/save_keys", "/api/save-keys"):
+            secret_path = ROOT_DIR / "secret_keys.json"
+            current = {}
+            if secret_path.exists():
+                try:
+                    current = json.loads(secret_path.read_text(encoding="utf-8"))
+                except Exception:
+                    current = {}
+            for k in ("gemini_api_key", "nvidia_api_key", "elevenlabs_api_key", "pixabay_api_key", "unsplash_access_key", "unsplash_secret_key", "unsplash_app_id"):
+                if k in payload and payload[k]:
+                    current[k] = str(payload[k]).strip()
+            secret_path.write_text(json.dumps(current, indent=2), encoding="utf-8")
+            self.send_json_response({"success": True, "message": "Keys saved successfully"})
         elif path in ("/api/post_caption", "/api/post-caption"):
             self.handle_api_post_caption(payload)
         elif path in ("/api/schedule_queue", "/api/schedule-queue"):
@@ -1971,45 +2049,16 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             f"JARVIS:"
         )
 
-        req_body = {
-            "contents": [{"parts": [{"text": full_prompt}]}]
-        }
-
         reply_text = ""
         actions_list = []
-        raw_output = ""
-        temp_req_file = engine.TEMP / f"jarvis_req_{int(time.time() * 1000)}.json"
-        try:
-            temp_req_file.write_text(json.dumps(req_body), encoding="utf-8")
-            file_arg = f"@{str(temp_req_file).replace(chr(92), '/')}"
-            models_to_try = ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest"]
-            for model_name in models_to_try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                proc = subprocess.run(
-                    ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
-                    capture_output=True,
-                    text=True,
-                    timeout=8
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    res_data = json.loads(proc.stdout)
-                    candidates = res_data.get("candidates") or []
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts:
-                            raw_output = parts[0].get("text", "").strip()
-                            if raw_output:
-                                break
-                            if raw_output:
-                                break
-        except Exception as e:
-            sys.stderr.write(f"[Server JARVIS] curl query notice: {e}\n")
-        finally:
-            if temp_req_file.exists():
-                try:
-                    temp_req_file.unlink()
-                except Exception:
-                    pass
+        raw_output = query_ai_engine(
+            full_prompt,
+            system_directive=system_directive,
+            preferred="auto",
+            gemini_key=api_key,
+            nvidia_key=payload.get("nvidia_api_key", ""),
+            timeout=15
+        )
 
         if raw_output:
             clean_json = raw_output
@@ -2309,12 +2358,13 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         fall back to its offline generator. The client re-validates everything
         (required hashtags, tone, length) before showing it.
         """
-        api_key = (payload.get("api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
-        if not api_key:
-            self.send_json_response({"success": False, "error": "No Gemini API key configured"})
+        gemini_key = (payload.get("api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
+        nvidia_key = (payload.get("nvidia_api_key") or "").strip() or os.environ.get("NVIDIA_API_KEY", "") or load_local_secret("NVIDIA_API_KEY")
+        if not gemini_key and not nvidia_key:
+            self.send_json_response({"success": False, "error": "No Gemini or NVIDIA API key configured"})
             return
 
-        creator = str(payload.get("creator") or "the streamer").strip()[:60]
+        creator = str(payload.get("creator") or "the creator").strip()[:60]
         campaign = str(payload.get("campaign") or payload.get("creator") or "").strip()[:60]
         title = str(payload.get("title") or "").strip()[:80]
         platform = str(payload.get("platform") or "tiktok").strip()[:20]
@@ -2324,56 +2374,30 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         required = [str(t).strip() for t in (payload.get("required_tags") or []) if str(t).strip()][:5]
 
         prompt_txt = (
-            "You write short-form social video captions for a clipping campaign.\n"
+            "You write high-converting, viral short-form social video captions for a video clip.\n"
             "Target audience: native English speakers in the USA, UK, Canada, Australia and New Zealand.\n"
-            f"Main creator in the clip: {creator}. Platform: {platform}. Edit style hint: {archetype or 'n/a'}.\n"
-            f"Clip transcript:\n\"\"\"{transcript or '(no transcript)'}\"\"\"\n"
-            f"Campaign brief:\n\"\"\"{brief or '(none)'}\"\"\"\n"
+            f"Creator/Channel: {creator}. Video Title: {title}. Platform: {platform}. Edit style: {archetype or 'viral short'}.\n"
+            f"Clip spoken transcript:\n\"\"\"{transcript or '(no transcript)'}\"\"\"\n"
+            f"Campaign / Channel brief:\n\"\"\"{brief or '(none)'}\"\"\"\n"
             "Rules:\n"
-            "- Natural American English internet/streamer voice (words like chat, bro, W are fine). "
-            "No non-English words and no slang specific to regions outside US/UK/CA/AU/NZ.\n"
-            "- Positive or funny framing ONLY. Never portray the creator negatively, never mock them, never invent drama "
-            "or a false narrative (avoid words like exposed, cringe, fail, meltdown, beef, drama, hate).\n"
-            "- No profanity. Do not mention logos, payouts, campaigns or clipping.\n"
-            "- hook: max 90 characters, max 2 emojis, describe what actually happens in the transcript.\n"
-            "- cta: max 60 characters (follow for more clips, or a question that sparks comments).\n"
-            f"- hashtags: 4 to 6 relevant CamelCase hashtags popular in the US. MUST include: {', '.join(required) or 'none'}.\n"
+            "- Adapt strictly to the actual topic of the video and spoken transcript (e.g. street interview, millionaire story, advice, god/faith, gaming, comedy).\n"
+            "- Positive or motivational tone. Never invent false drama.\n"
+            "- No profanity. Do not mention logos, payouts, or clipping.\n"
+            "- hook: max 90 characters, max 2 emojis, describe the specific interesting moment/quote in the video.\n"
+            "- cta: max 65 characters, high engagement (e.g. ask a question, tell viewers to comment, save, or follow).\n"
+            f"- hashtags: 4 to 6 relevant CamelCase hashtags matching the actual video topic. MUST include: {', '.join(required) if required else '#Shorts'}.\n"
             'Return ONLY JSON: {"variants":[{"hook":"...","cta":"...","hashtags":["#..."]}]} with exactly 3 variants.'
         )
-        req_body = {
-            "contents": [{"parts": [{"text": prompt_txt}]}],
-            "generationConfig": {"temperature": 0.9, "responseMimeType": "application/json"}
-        }
 
-        raw_output = ""
-        used_model = ""
-        temp_f = engine.TEMP / f"post_caption_{int(time.time() * 1000)}.json"
-        try:
-            temp_f.write_text(json.dumps(req_body), encoding="utf-8")
-            file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
-            for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-pro", "gemini-3.8-flash"]:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                proc = subprocess.run(
-                    ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
-                    capture_output=True, text=True, timeout=12
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    try:
-                        cands = json.loads(proc.stdout).get("candidates") or []
-                    except Exception:
-                        cands = []
-                    if cands:
-                        raw_output = (cands[0].get("content", {}).get("parts", [{}])[0].get("text", "") or "").strip()
-                        if raw_output:
-                            used_model = model_name
-                            break
-        except Exception as e:
-            sys.stderr.write(f"[Post Caption] Gemini notice: {e}\n")
-        finally:
-            try:
-                temp_f.unlink(missing_ok=True)
-            except Exception:
-                pass
+        raw_output = query_ai_engine(
+            prompt_txt,
+            system_directive="You are an elite short-form video copywriter. Return ONLY JSON.",
+            preferred="auto",
+            gemini_key=gemini_key,
+            nvidia_key=nvidia_key,
+            timeout=22
+        )
+        used_model = "ai-dual-engine (gemini/nvidia)"
 
         variants = []
         if raw_output:

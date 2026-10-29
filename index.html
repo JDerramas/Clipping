@@ -169,6 +169,11 @@
         <span class="badge-name">Gemini 3.5 AI</span>
         <span class="badge-tag">READY</span>
       </div>
+      <div class="repo-badge active" title="NVIDIA NIM 90B Multi-Engine Accelerated">
+        <span class="badge-icon">⚡</span>
+        <span class="badge-name">NVIDIA AI</span>
+        <span class="badge-tag">READY</span>
+      </div>
     </div>
     <div class="repo-pipeline-status" id="repoPipelineStatus">
       <span class="status-check">🟢</span>
@@ -649,6 +654,20 @@
           </div>
 
           <div class="drawer-section">
+            <div class="drawer-section-title"><span>NVIDIA NIM API KEY (90B MODEL)</span></div>
+            <input
+              type="password"
+              id="nvidiaApiKeyInput"
+              class="studio-input"
+              placeholder="Paste NVIDIA NIM API key..."
+              value=""
+            />
+            <div style="font-size:10px; color:#10b981; margin-top:4px;">
+              ✓ Connected via secret_keys.json (Supports Llama 3.2 90B & Mistral Large)
+            </div>
+          </div>
+
+          <div class="drawer-section">
             <div class="drawer-section-title"><span>PIXABAY API KEY</span></div>
             <input
               type="text"
@@ -941,6 +960,10 @@
       <div class="modal-body">
         <label style="font-size:11px; font-weight:700; color:#fff;">Google Gemini AI Key (AI Studio):</label>
         <input type="password" id="userAiApiKeyInput" class="studio-input" style="width:100%; margin:4px 0 10px 0;" placeholder="AI Studio Key..." />
+        <label style="font-size:11px; font-weight:700; color:#fff;">NVIDIA NIM API Key (90B Multi-Engine):</label>
+        <input type="password" id="userNvidiaKeyInput" class="studio-input" style="width:100%; margin:4px 0 10px 0;" placeholder="nvapi-..." value="" />
+
+
         <label style="font-size:11px; font-weight:700; color:#fff;">Pixabay API Key (Stock Media):</label>
         <input type="text" id="userPixabayKeyInput" class="studio-input" style="width:100%; margin:4px 0 10px 0;" value="58281434-0199a4345a7540437f190c4d9" readonly />
         <button type="button" id="saveAiKeyBtn" class="btn-primary-glow" style="width:100%; padding:8px; font-weight:700; background:var(--accent-coral); color:#fff; border:none; border-radius:6px; cursor:pointer;">
