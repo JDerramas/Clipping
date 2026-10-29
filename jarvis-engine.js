@@ -955,6 +955,18 @@
           }
           break;
         }
+        case 'extract_url': {
+          const u = action.url;
+          if (u) {
+            const uInp = document.getElementById('streamUrlInput') || document.getElementById('urlInput');
+            if (uInp) uInp.value = u;
+            if (studio?.extractAndAutoEditUrl) {
+              studio.extractAndAutoEditUrl(u);
+              return true;
+            }
+          }
+          break;
+        }
         case 'apply_campaign_rules': {
           const camp = action.campaign;
           if (studio?.applyCampaignRules) {
@@ -966,6 +978,14 @@
         case 'search_youtube':
         case 'online_search': {
           const q = action.query || action.channel || '@theschoolofhardknocks';
+          if (typeof q === 'string' && (q.startsWith('http') || q.includes('youtu.be') || q.includes('youtube.com'))) {
+            const uInp = document.getElementById('streamUrlInput') || document.getElementById('urlInput');
+            if (uInp) uInp.value = q;
+            if (studio?.extractAndAutoEditUrl) {
+              studio.extractAndAutoEditUrl(q);
+              return true;
+            }
+          }
           this.performOnlineYouTubeSearch(q);
           return true;
         }
@@ -1130,6 +1150,90 @@
 
       const startTs = performance.now();
 
+      // 0. Detect YouTube URL and/or Campaign Brief pasted directly into JARVIS
+      const ytUrlMatch = rawText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|live\/)|youtu\.be\/)[a-zA-Z0-9_\-]+(?:\S*)?/i);
+      const videoUrl = ytUrlMatch ? ytUrlMatch[0] : null;
+
+      const isCampaignBrief = (
+        rawText.includes('WHAT YOU DO') ||
+        rawText.includes('CLIPS THAT WORK') ||
+        rawText.includes('KEEP IT HONEST') ||
+        text.includes('school of hard knocks') ||
+        (text.includes('bounty') && text.includes('requirements')) ||
+        (text.includes('vertical clips') && text.includes('seconds'))
+      );
+
+      if (videoUrl || isCampaignBrief) {
+        if (videoUrl) {
+          const urlInput = document.getElementById('streamUrlInput') || document.getElementById('urlInput');
+          if (urlInput) urlInput.value = videoUrl;
+        }
+
+        let parsedCamp = null;
+        if (isCampaignBrief) {
+          parsedCamp = {
+            campaign_name: 'School of Hard Knocks',
+            channel_handle: '@theschoolofhardknocks',
+            source_url: 'https://youtube.com/@theschoolofhardknocks',
+            target_duration_min: 20,
+            target_duration_max: 60,
+            credit_rule: '@theschoolofhardknocks',
+            clips_criteria: [
+              '"What do you do for a living?" and the answer that surprises',
+              'The net worth reveal, the car, the house',
+              'One sharp piece of advice from a millionaire',
+              '"I started with $600…" type stories',
+              'Funny or unexpected answers'
+            ]
+          };
+          if (window.WhopStudio) {
+            window.WhopStudio.applyCampaignRules(parsedCamp);
+          }
+          this.renderCampaignCardInChat(parsedCamp);
+        }
+
+        this.addChatMessage('user', rawText);
+
+        // Query real Gemini AI via /api/jarvis_chat
+        let aiSpokenReply = "";
+        try {
+          const srvRes = await fetch('/api/jarvis_chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: rawText,
+              history: this.chatHistory,
+              api_key: this.googleKey
+            }),
+            signal: AbortSignal.timeout(9000)
+          });
+          if (srvRes.ok) {
+            const srvData = await srvRes.json();
+            if (srvData && srvData.reply) {
+              aiSpokenReply = srvData.reply;
+            }
+          }
+        } catch (e) {
+          console.warn('[JARVIS] Chat query notice:', e);
+        }
+
+        if (!aiSpokenReply) {
+          aiSpokenReply = isCampaignBrief
+            ? (videoUrl
+                ? "Understood, sir! Ingesting the School of Hard Knocks campaign requirements: 20–60s vertical clips, zero face zoom (1.0x wide steady framing so both the interviewer and millionaire are 100% visible), strongest hook in the first 2 seconds, and @theschoolofhardknocks channel credit. I am now downloading and scanning this footage across the entire video timeline to find all candidate interview moments..."
+                : "Understood, sir! I have configured the School of Hard Knocks campaign parameters: 20–60s vertical framing, permanent zero face zoom, hook in first 2 seconds, and @theschoolofhardknocks credit. Ready for your video footage.")
+            : `Understood, sir! Extracting video from YouTube (${videoUrl}) and scanning the entire video timeline for candidate interview moments with zero face zoom...`;
+        }
+
+        this.addChatMessage('jarvis', aiSpokenReply, { engine: 'Gemini 2.5 Flash' });
+        await this.speak(aiSpokenReply);
+
+        if (videoUrl && window.WhopStudio?.extractAndAutoEditUrl) {
+          window.WhopStudio.extractAndAutoEditUrl(videoUrl);
+        }
+        return;
+      }
+
       // 1. Extract and immediately execute fast local actions (< 10ms response)
       const localActions = [];
 
@@ -1187,47 +1291,50 @@
       }
 
       // Track On/Off Toggles (Captions, B-Roll, Master Video, Voice Audio)
-      // 1. Captions On / Off
-      if (text.includes('caption') || text.includes('subtitles') || text.includes('subtitle')) {
-        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('tanggalin') || text.includes('alisin') || text.includes('hide') || text.includes('itago')) {
-          localActions.push({ action: 'toggle_captions', enabled: false });
-        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik')) {
-          localActions.push({ action: 'toggle_captions', enabled: true });
-        } else if (text === 'toggle caption' || text === 'toggle captions') {
-          localActions.push({ action: 'toggle_captions' });
+      // Only execute if it's a short command (< 70 chars) to prevent false positives in conversation or prompts
+      if (text.length < 70) {
+        // 1. Captions On / Off
+        if (/\b(?:captions?|subtitles?)\b/i.test(text)) {
+          if (/\b(?:off|disable|patayin|tanggalin|alisin|hide|itago)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_captions', enabled: false });
+          } else if (/\b(?:on|enable|buhayin|pakita|show|ibalik|buksan)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_captions', enabled: true });
+          } else if (text === 'toggle caption' || text === 'toggle captions') {
+            localActions.push({ action: 'toggle_captions' });
+          }
         }
-      }
 
-      // 2. B-Roll On / Off
-      if (text.includes('broll') || text.includes('b-roll') || text.includes('stock video')) {
-        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('hide') || text.includes('itago')) {
-          localActions.push({ action: 'toggle_broll', enabled: false });
-        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik')) {
-          localActions.push({ action: 'toggle_broll', enabled: true });
-        } else if (text === 'toggle broll' || text === 'toggle b-roll') {
-          localActions.push({ action: 'toggle_broll' });
+        // 2. B-Roll On / Off
+        if (/\b(?:broll|b-roll|stock video)\b/i.test(text)) {
+          if (/\b(?:off|disable|patayin|hide|itago)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_broll', enabled: false });
+          } else if (/\b(?:on|enable|buhayin|pakita|show|ibalik|buksan)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_broll', enabled: true });
+          } else if (text === 'toggle broll' || text === 'toggle b-roll') {
+            localActions.push({ action: 'toggle_broll' });
+          }
         }
-      }
 
-      // 3. Master Video On / Off
-      if (text.includes('master video') || text.includes('main video') || text.includes('video layer') || ((text.includes('video') || text.includes('camera')) && !text.includes('audio') && !text.includes('boses') && !text.includes('broll') && !text.includes('b-roll') && !text.includes('yt') && !text.includes('youtube'))) {
-        if (text.includes('off') || text.includes('disable') || text.includes('patayin') || text.includes('hide') || text.includes('itago') || text.includes('alisin ang video') || text.includes('tanggalin ang video')) {
-          localActions.push({ action: 'toggle_master_video', enabled: false });
-        } else if (text.includes('on') || text.includes('enable') || text.includes('buhayin') || text.includes('pakita') || text.includes('show') || text.includes('ibalik ang video') || text.includes('buksan ang video')) {
-          localActions.push({ action: 'toggle_master_video', enabled: true });
-        } else if (text === 'toggle video' || text === 'toggle master video') {
-          localActions.push({ action: 'toggle_master_video' });
+        // 3. Master Video On / Off
+        if (/\b(?:master video|main video|video layer)\b/i.test(text) || (/\b(?:video|camera)\b/i.test(text) && !text.includes('audio') && !text.includes('boses') && !text.includes('broll') && !text.includes('b-roll') && !text.includes('yt') && !text.includes('youtube'))) {
+          if (/\b(?:off|disable|patayin|hide|itago|alisin ang video|tanggalin ang video)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_master_video', enabled: false });
+          } else if (/\b(?:on|enable|buhayin|pakita|show|ibalik ang video|buksan ang video)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_master_video', enabled: true });
+          } else if (text === 'toggle video' || text === 'toggle master video') {
+            localActions.push({ action: 'toggle_master_video' });
+          }
         }
-      }
 
-      // 4. Voice Audio On / Off (Mute / Unmute)
-      if (text.includes('voice') || text.includes('boses') || text.includes('audio') || text.includes('tunog')) {
-        if (text.includes('off') || text.includes('mute') || text.includes('disable') || text.includes('patayin') || text.includes('tahimik') || text.includes('pipi') || text.includes('alisin ang boses') || text.includes('tanggalin ang boses')) {
-          localActions.push({ action: 'toggle_voice_audio', enabled: false });
-        } else if (text.includes('on') || text.includes('unmute') || text.includes('enable') || text.includes('buhayin') || text.includes('ibalik') || text.includes('marinig') || text.includes('palakasin')) {
-          localActions.push({ action: 'toggle_voice_audio', enabled: true });
-        } else if (text === 'toggle audio' || text === 'toggle voice') {
-          localActions.push({ action: 'toggle_voice_audio' });
+        // 4. Voice Audio On / Off (Mute / Unmute)
+        if (/\b(?:voice|boses|audio|tunog)\b/i.test(text)) {
+          if (/\b(?:off|mute|disable|patayin|tahimik|pipi|alisin ang boses|tanggalin ang boses)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_voice_audio', enabled: false });
+          } else if (/\b(?:on|unmute|enable|buhayin|ibalik|marinig|palakasin)\b/i.test(text)) {
+            localActions.push({ action: 'toggle_voice_audio', enabled: true });
+          } else if (text === 'toggle audio' || text === 'toggle voice') {
+            localActions.push({ action: 'toggle_voice_audio' });
+          }
         }
       }
 
@@ -1417,16 +1524,18 @@
         this.executeActionList(localActions);
       }
 
-      // If it's a direct command or matches known actions, give immediate fast confirmation
-      const isSimpleCommand = (
-        (text.length < 90 && localActions.length > 0) ||
-        localActions.some((a) => [
-          'auto_broll', 'clear_broll', 'set_broll_mode', 'search_pixabay', 'auto_edit',
-          'translate_captions', 'jump_cuts', 'split', 'delete', 'ripple_trim_in', 'ripple_trim_out',
-          'play', 'pause', 'seek', 'set_layout', 'set_screen_size', 'aspect_ratio', 'undo', 'redo',
-          'ai_review', 'whop_rules_check', 'set_mode', 'set_clipping_type', 'toggle_captions', 'add_text',
-          'remove_zoom', 'search_youtube'
-        ].includes(a.action))
+      // Check if user is asking a conversational question, giving complex advice, or searching online
+      const isQuestionOrComplex = (
+        rawText.includes('?') ||
+        text.startsWith('how') || text.startsWith('ano') || text.startsWith('paano') ||
+        text.startsWith('bakit') || text.startsWith('can you') || text.startsWith('pwede') ||
+        text.includes('explain') || text.includes('search online') || text.includes('ano gagawin') ||
+        text.includes('ano requirements') || text.length >= 70
+      );
+
+      // If it's a direct short command, give immediate fast confirmation; otherwise consult Real AI (Gemini)
+      const isSimpleCommand = !isQuestionOrComplex && (
+        (text.length < 70 && localActions.length > 0)
       );
 
       if (isSimpleCommand && localActions.length > 0) {

@@ -2019,22 +2019,41 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         if not actions_list:
             import re
 
+            yt_match = re.search(r'https?://(?:www\.)?(?:youtube\.com/(?:watch\?v=|shorts/|live/)|youtu\.be/)[\w\-]+[^\s]*', prompt)
+            video_url = yt_match.group(0) if yt_match else ""
+
             # Campaign Brief / Bounty Requirements pasted by user
             is_campaign_brief = (
                 any(k in prompt for k in ["WHAT YOU DO", "CLIPS THAT WORK", "KEEP IT HONEST", "Source: youtube.com", "Cut short vertical clips"]) or
                 ("bounty" in p_lower and any(w in p_lower for w in ["requirements", "channel", "guidelines", "rules", "what you do"])) or
-                ("requirements" in p_lower and any(w in p_lower for w in ["bayaran", "payout", "clips that work", "the school of hard knocks"]))
+                ("requirements" in p_lower and any(w in p_lower for w in ["bayaran", "payout", "clips that work", "the school of hard knocks", "school of hard knocks"])) or
+                ("school of hard knocks" in p_lower and any(w in p_lower for w in ["clip", "video", "interview", "millionaire", "street"]))
             )
             if is_campaign_brief:
                 camp = parse_campaign_rules_fast(prompt)
                 actions_list.append({"action": "apply_campaign_rules", "campaign": camp})
-                search_q = camp.get("channel_handle") or camp.get("search_query") or "@theschoolofhardknocks"
-                actions_list.append({"action": "search_youtube", "query": search_q})
-                reply_text = (
-                    f"Understood, Sir! I have parsed your campaign requirements for {camp['campaign_name']}. "
-                    f"Targeting {camp['target_duration_min']}–{camp['target_duration_max']} second vertical clips with a high-impact hook in the first 2 seconds, dynamic captions, and zero face zoom. "
-                    f"I am searching their YouTube channel online right now for the highest-performing video candidates."
-                )
+                actions_list.append({"action": "remove_zoom"})
+                if video_url:
+                    actions_list.append({"action": "extract_url", "url": video_url})
+                    reply_text = (
+                        f"Understood, Sir! Ingesting the {camp['campaign_name']} campaign brief: "
+                        f"{camp['target_duration_min']}–{camp['target_duration_max']}s vertical framing, permanent zero face zoom (1.0x wide steady fit), "
+                        f"best hook in first 2s, and {camp['credit_rule']} credit in the caption. "
+                        f"I am now downloading and scanning this footage across the entire video timeline to extract all candidate interview moments."
+                    )
+                else:
+                    search_q = camp.get("channel_handle") or camp.get("search_query") or "@theschoolofhardknocks"
+                    actions_list.append({"action": "search_youtube", "query": search_q})
+                    reply_text = (
+                        f"Understood, Sir! I have parsed your campaign requirements for {camp['campaign_name']}. "
+                        f"Targeting {camp['target_duration_min']}–{camp['target_duration_max']} second vertical clips with a high-impact hook in the first 2 seconds, dynamic captions, and zero face zoom. "
+                        f"I am searching their YouTube channel online right now for the highest-performing video candidates."
+                    )
+
+            elif video_url:
+                actions_list.append({"action": "remove_zoom"})
+                actions_list.append({"action": "extract_url", "url": video_url})
+                reply_text = f"Understood, Sir! Extracting video from YouTube ({video_url}) and scanning the full timeline for candidate interview moments with zero face zoom."
 
             # Online YouTube Search
             elif any(k in p_lower for k in ["search yt", "search sa yt", "search youtube", "mag search sa yt", "mag search sa youtube", "hanap sa yt", "hanap sa youtube", "find videos", "youtube search"]):
@@ -2049,35 +2068,36 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 reply_text = f"Searching YouTube online for '{clean_q}', Sir. Let us inspect the candidate videos."
 
             # Face Zoom Removal (Steady Framing)
-            if any(k in p_lower for k in ["remove face zoom", "remove zoom", "no zoom", "no face zoom", "alisin ang zoom", "alisin face zoom", "tanggalin ang zoom", "tanggalin face zoom", "disable zoom", "steady framing"]):
+            elif any(k in p_lower for k in ["remove face zoom", "remove zoom", "no zoom", "no face zoom", "alisin ang zoom", "alisin face zoom", "tanggalin ang zoom", "tanggalin face zoom", "disable zoom", "steady framing"]):
                 actions_list.append({"action": "remove_zoom"})
                 reply_text = "Face zoom has been completely eliminated across all cuts and playback, Sir. The camera framing will remain clean, stable, and uncropped."
 
-            # Track Enable / Disable Toggles (Captions, B-Roll, Master Video, Voice Audio)
-            # 1. Captions
-            if any(k in p_lower for k in ["caption", "subtitles", "subtitle"]):
-                if any(k in p_lower for k in ["off", "disable", "patayin", "tanggalin", "alisin", "hide", "itago"]):
-                    actions_list.append({"action": "toggle_captions", "enabled": False})
-                    reply_text = "Dynamic karaoke captions have been disabled, Sir. Subtitles on canvas are now hidden."
-                elif any(k in p_lower for k in ["on", "enable", "buhayin", "pakita", "show", "ibalik"]):
-                    actions_list.append({"action": "toggle_captions", "enabled": True})
-                    reply_text = "Dynamic karaoke captions are enabled, Sir. Word-level animated subtitles will now display on canvas."
+            # Track Enable / Disable Toggles (Captions, B-Roll, Master Video, Voice Audio) - only for short commands
+            elif len(p_lower) < 70:
+                # 1. Captions
+                if re.search(r'\b(?:captions?|subtitles?)\b', p_lower):
+                    if re.search(r'\b(?:off|disable|patayin|tanggalin|alisin|hide|itago)\b', p_lower):
+                        actions_list.append({"action": "toggle_captions", "enabled": False})
+                        reply_text = "Dynamic karaoke captions have been disabled, Sir. Subtitles on canvas are now hidden."
+                    elif re.search(r'\b(?:on|enable|buhayin|pakita|show|ibalik)\b', p_lower):
+                        actions_list.append({"action": "toggle_captions", "enabled": True})
+                        reply_text = "Dynamic karaoke captions are enabled, Sir. Word-level animated subtitles will now display on canvas."
 
-            # 2. Auto B-Roll / Stock Video
-            if any(k in p_lower for k in ["broll", "b-roll", "b roll", "stock video", "stock footage", "stock clip", "auto broll"]):
-                if any(k in p_lower for k in ["off", "disable", "patayin", "hide", "itago"]):
-                    actions_list.append({"action": "toggle_broll", "enabled": False})
-                    reply_text = "Pixabay B-Roll cutaways and overlays have been turned off, Sir."
-                elif any(k in p_lower for k in ["on", "enable", "buhayin", "pakita", "show", "ibalik"]):
-                    actions_list.append({"action": "toggle_broll", "enabled": True})
-                    reply_text = "Pixabay B-Roll cutaways are now enabled, Sir."
-                elif any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
-                    actions_list.append({"action": "clear_broll"})
-                elif any(k in p_lower for k in ["search", "hanap", "maghanap"]):
-                    q_m = re.search(r"(?:search|hanap|maghanap|kuha)\s*(?:ng|for|of)?\s*(?:broll|b-roll|stock video)?\s*[:\"]?(.+?)[\"]?$", prompt, re.I)
-                    actions_list.append({"action": "search_pixabay", "query": q_m.group(1).strip() if q_m else "sports car"})
-                elif "auto" in p_lower or "fetch" in p_lower:
-                    actions_list.append({"action": "auto_broll"})
+                # 2. Auto B-Roll / Stock Video
+                elif re.search(r'\b(?:broll|b-roll|b roll|stock video|stock footage|stock clip|auto broll)\b', p_lower):
+                    if re.search(r'\b(?:off|disable|patayin|hide|itago)\b', p_lower):
+                        actions_list.append({"action": "toggle_broll", "enabled": False})
+                        reply_text = "Pixabay B-Roll cutaways and overlays have been turned off, Sir."
+                    elif re.search(r'\b(?:on|enable|buhayin|pakita|show|ibalik)\b', p_lower):
+                        actions_list.append({"action": "toggle_broll", "enabled": True})
+                        reply_text = "Pixabay B-Roll cutaways are now enabled, Sir."
+                    elif any(k in p_lower for k in ["alisin", "tanggalin", "burahin", "clear", "delete", "remove"]):
+                        actions_list.append({"action": "clear_broll"})
+                    elif any(k in p_lower for k in ["search", "hanap", "maghanap"]):
+                        q_m = re.search(r"(?:search|hanap|maghanap|kuha)\s*(?:ng|for|of)?\s*(?:broll|b-roll|stock video)?\s*[:\"]?(.+?)[\"]?$", prompt, re.I)
+                        actions_list.append({"action": "search_pixabay", "query": q_m.group(1).strip() if q_m else "sports car"})
+                    elif "auto" in p_lower or "fetch" in p_lower:
+                        actions_list.append({"action": "auto_broll"})
 
             # 3. Master Video
             if any(k in p_lower for k in ["master video", "main video", "video layer"]) or (("video" in p_lower or "camera" in p_lower) and not any(k in p_lower for k in ["audio", "boses", "broll", "b-roll", "yt", "youtube", "stock"])):
