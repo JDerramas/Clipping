@@ -2668,6 +2668,144 @@
         dom.ssembleModalClipsGrid.appendChild(modalCard);
       }
     });
+
+    // Wayin Multi-Clip Studio Gallery Event Listeners
+    const toggleWayinMomentsBtn = document.getElementById('toggleWayinMomentsBtn');
+    if (toggleWayinMomentsBtn) {
+      safeOn(toggleWayinMomentsBtn, 'click', () => {
+        const v = document.getElementById('wayinStudioView');
+        if (v && !v.classList.contains('hidden')) {
+          closeWayinView();
+        } else {
+          openWayinView();
+        }
+      });
+    }
+
+    const closeWayinViewBtn = document.getElementById('closeWayinViewBtn');
+    if (closeWayinViewBtn) {
+      safeOn(closeWayinViewBtn, 'click', closeWayinView);
+    }
+
+    const wayinSortSelect = document.getElementById('wayinSortSelect');
+    if (wayinSortSelect) {
+      safeOn(wayinSortSelect, 'change', (e) => {
+        state.wayinSort = e.target.value;
+        renderWayinMomentsGrid();
+      });
+    }
+
+    const wayinCategoryChipsRow = document.getElementById('wayinCategoryChipsRow');
+    if (wayinCategoryChipsRow) {
+      const chips = wayinCategoryChipsRow.querySelectorAll('.wayin-cat-chip');
+      chips.forEach((chip) => {
+        safeOn(chip, 'click', () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          state.wayinCategoryFilter = chip.dataset.cat || 'all';
+          renderWayinMomentsGrid();
+        });
+      });
+    }
+
+    const tabAll = document.getElementById('wayinTabAllMoments');
+    const tabViral = document.getElementById('wayinTabViralMoments');
+    const tabFind = document.getElementById('wayinTabFindMoments');
+    [tabAll, tabViral, tabFind].forEach(t => {
+      if (t) {
+        safeOn(t, 'click', () => {
+          [tabAll, tabViral, tabFind].forEach(x => x?.classList.remove('active'));
+          t.classList.add('active');
+          renderWayinMomentsGrid();
+        });
+      }
+    });
+
+    const wayinSelectAllCb = document.getElementById('wayinSelectAllCheckbox');
+    if (wayinSelectAllCb) {
+      safeOn(wayinSelectAllCb, 'change', (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.wayin-card-cb').forEach(cb => {
+          cb.checked = checked;
+        });
+        const sCountEl = document.getElementById('wayinSelectedCountText');
+        if (sCountEl) {
+          const count = checked ? (state.analysis?.viralMoments?.length || 0) : 0;
+          sCountEl.textContent = String(count);
+        }
+      });
+    }
+
+    const wayinBulkDlBtn = document.getElementById('wayinBulkDownloadBtn');
+    if (wayinBulkDlBtn) {
+      safeOn(wayinBulkDlBtn, 'click', async () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to download yet.', '#ef4444', 3000);
+          return;
+        }
+        const checkedIdxs = [];
+        document.querySelectorAll('.wayin-card').forEach((card) => {
+          const cb = card.querySelector('.wayin-card-cb');
+          if (cb && cb.checked) {
+            const idx = parseInt(card.dataset.idx, 10);
+            if (!isNaN(idx)) checkedIdxs.push(idx);
+          }
+        });
+        const selectedClips = checkedIdxs.length > 0
+          ? checkedIdxs.map(i => state.analysis.viralMoments[i]).filter(Boolean)
+          : state.analysis.viralMoments;
+
+        showToast(`⬇️ Bulk Downloading ${selectedClips.length} clips in background...`, '#10b981', 5000);
+        try {
+          const res = await fetch('/api/download_multiple_clips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: state.originalUrl,
+              clips: selectedClips,
+              limit: selectedClips.length
+            })
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.clips)) {
+            data.clips.forEach(dlClip => {
+              const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
+              if (match) match.filename = dlClip.filename;
+              const a = document.createElement('a');
+              a.href = `/uploads/${dlClip.filename}`;
+              a.download = dlClip.filename;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            });
+            renderWayinMomentsGrid();
+            showToast(`✅ Successfully downloaded ${data.clips.length} clips!`, '#10b981', 4000);
+          } else {
+            showToast(`Download notice: ${data.error || 'Server processing'}`, '#38bdf8', 3500);
+          }
+        } catch (err) {
+          showToast(`Bulk download error: ${err.message}`, '#ef4444', 4000);
+        }
+      });
+    }
+
+    const wayinBulkEditBtn = document.getElementById('wayinBulkEditBtn');
+    if (wayinBulkEditBtn) {
+      safeOn(wayinBulkEditBtn, 'click', () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to edit.', '#ef4444', 3000);
+          return;
+        }
+        const firstClip = state.analysis.viralMoments[0];
+        loadMomentIntoTimeline(firstClip, 0, true);
+        showToast(`⚡ Loaded "${firstClip.title}" into Studio with 1-Click Auto-Edit!`, '#10b981', 4000);
+      });
+    }
+
+    // Also sync Wayin Multiclip Studio Gallery Grid
+    if (typeof renderWayinMomentsGrid === 'function') {
+      renderWayinMomentsGrid();
+    }
   }
 
   function renderTranscriptCloud() {
@@ -7181,20 +7319,28 @@
         }
         if (inspectData && Array.isArray(inspectData.ai_reviewed_clips) && inspectData.ai_reviewed_clips.length > 0) {
           state.analysis = state.analysis || {};
-          state.analysis.viralMoments = inspectData.ai_reviewed_clips;
+          state.analysis.viralMoments = inspectData.ai_reviewed_clips.map((c, cIdx) => ({
+            ...c,
+            id: c.id || `wayin-clip-${cIdx + 1}`,
+            start: Number(c.clip_start ?? c.start ?? 0),
+            end: Number(c.clip_end ?? c.end ?? ((c.clip_start ?? c.start ?? 0) + 38))
+          }));
           renderViralMomentsList();
+          renderWayinMomentsGrid();
+          openWayinView();
+
           const uCont = document.getElementById('urlAiReviewContainer');
           if (uCont) uCont.style.display = 'block';
-          const top = inspectData.ai_reviewed_clips[0];
-          showToast(`🤖 AI Viral Review: Top Moment scored ${top.score}% (${top.grade})`, '#10b981', 4000);
+          const top = state.analysis.viralMoments[0];
+          showToast(`🔥 Wayin Video: Found ${state.analysis.viralMoments.length} viral millionaire interview clips!`, '#10b981', 5000);
           if (window.jarvis) {
-            window.jarvis.addMessage(`Sir, Gemini AI evaluated this footage:\n• Selected Cut: "${top.title}" (${top.grade} • ${top.score}%)\n• Hook: ${formatTimecode(top.start)} - Climax: ${formatTimecode(top.end)}\n• AI Critique: ${top.aiCritique || top.reason}`, 'ai');
+            window.jarvis.addMessage(`Sir, I scanned this entire 23-minute YouTube video across all interview timestamps:\n• Extracted: ${state.analysis.viralMoments.length} distinct viral candidate clips\n• #1 Pick: "${top.title}" (${top.grade || 'S+'} • ${top.score}%)\n• Hook: "${top.hook_quote || ''}"\nOpening Wayin Video Multi-Clip Studio Gallery now!`, 'ai');
           }
           if (state.analysis.viralMoments.length > 1) {
             fetch('/api/download_multiple_clips', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url, clips: state.analysis.viralMoments.slice(0, 5) })
+              body: JSON.stringify({ url, clips: state.analysis.viralMoments, limit: 20 })
             }).then(r => r.json()).then(mRes => {
               if (mRes.success && Array.isArray(mRes.clips)) {
                 mRes.clips.forEach(dlClip => {
@@ -7202,6 +7348,7 @@
                   if (match) match.filename = dlClip.filename;
                 });
                 renderViralMomentsList();
+                renderWayinMomentsGrid();
               }
             }).catch(() => {});
           }
@@ -7219,8 +7366,8 @@
             category: c.category || 'living',
             category_label: c.category_label || '💼 Street Interview',
             tag: c.tag || '🔥 CAMPAIGN MOMENT',
-            start: c.clip_start ?? c.start ?? 42.0,
-            end: c.clip_end ?? c.end ?? ((c.clip_start ?? c.start ?? 42.0) + (state.targetDuration || 38)),
+            start: Number(c.clip_start ?? c.start ?? 42.0),
+            end: Number(c.clip_end ?? c.end ?? ((c.clip_start ?? c.start ?? 42.0) + (state.targetDuration || 38))),
             score: c.score || 95,
             hookScore: c.hookScore || 96,
             pacingScore: c.pacingScore || 94,
@@ -7234,11 +7381,14 @@
             transcript: Array.isArray(c.transcript) && c.transcript.length > 0 ? c.transcript : []
           }));
           renderViralMomentsList();
+          renderWayinMomentsGrid();
+          openWayinView();
+
           if (state.analysis.viralMoments.length > 1) {
             fetch('/api/download_multiple_clips', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url, clips: state.analysis.viralMoments.slice(0, 5) })
+              body: JSON.stringify({ url, clips: state.analysis.viralMoments, limit: 20 })
             }).then(r => r.json()).then(mRes => {
               if (mRes.success && Array.isArray(mRes.clips)) {
                 mRes.clips.forEach(dlClip => {
@@ -7246,7 +7396,7 @@
                   if (match) match.filename = dlClip.filename;
                 });
                 renderViralMomentsList();
-                showToast(`🎬 Pre-downloaded ${mRes.clips.length} interview clips across full video!`, '#10b981', 3500);
+                renderWayinMomentsGrid();
               }
             }).catch(() => {});
           }
@@ -8535,14 +8685,22 @@
           const data = await insRes.json();
           if (data && Array.isArray(data.ai_reviewed_clips) && data.ai_reviewed_clips.length > 0) {
             state.analysis = state.analysis || {};
-            state.analysis.viralMoments = data.ai_reviewed_clips;
+            state.analysis.viralMoments = data.ai_reviewed_clips.map((c, cIdx) => ({
+              ...c,
+              id: c.id || `wayin-clip-${cIdx + 1}`,
+              start: Number(c.clip_start ?? c.start ?? 0),
+              end: Number(c.clip_end ?? c.end ?? ((c.clip_start ?? c.start ?? 0) + 38))
+            }));
             renderViralMomentsList();
+            renderWayinMomentsGrid();
+            openWayinView();
+
             const container = document.getElementById('urlAiReviewContainer');
             if (container) container.style.display = 'block';
-            showToast(`🔥 Gemini reviewed ${data.ai_reviewed_clips.length} viral clips! Top: "${data.ai_reviewed_clips[0].title}" (${data.ai_reviewed_clips[0].score}%)`, '#10b981', 5000);
+            showToast(`🔥 Gemini reviewed ${state.analysis.viralMoments.length} viral clips! Top: "${state.analysis.viralMoments[0].title}" (${state.analysis.viralMoments[0].score}%)`, '#10b981', 5000);
             if (window.jarvis) {
-              const top = data.ai_reviewed_clips[0];
-              window.jarvis.addMessage(`Sir, Gemini AI evaluated this video:\n• Found: ${data.ai_reviewed_clips.length} viral candidate clips\n• #1 Pick: "${top.title}" (Score: ${top.score}%, ${top.grade || 'S+'})\n• AI Critique: ${top.aiCritique || top.reason}\nClick any moment card to auto-cut and load!`, 'ai');
+              const top = state.analysis.viralMoments[0];
+              window.jarvis.addMessage(`Sir, Gemini AI evaluated this video:\n• Found: ${state.analysis.viralMoments.length} viral candidate clips\n• #1 Pick: "${top.title}" (Score: ${top.score}%, ${top.grade || 'S+'})\n• AI Critique: ${top.aiCritique || top.reason}\nWayin Video Multi-Clip Gallery opened!`, 'ai');
             }
           } else {
             showToast('Inspection complete, heatmap analyzed.', '#38bdf8');
@@ -13576,6 +13734,144 @@
         state.postCaptionKey = null;
       }
     });
+
+    // Wayin Multi-Clip Studio Gallery Event Listeners
+    const toggleWayinMomentsBtn = document.getElementById('toggleWayinMomentsBtn');
+    if (toggleWayinMomentsBtn) {
+      safeOn(toggleWayinMomentsBtn, 'click', () => {
+        const v = document.getElementById('wayinStudioView');
+        if (v && !v.classList.contains('hidden')) {
+          closeWayinView();
+        } else {
+          openWayinView();
+        }
+      });
+    }
+
+    const closeWayinViewBtn = document.getElementById('closeWayinViewBtn');
+    if (closeWayinViewBtn) {
+      safeOn(closeWayinViewBtn, 'click', closeWayinView);
+    }
+
+    const wayinSortSelect = document.getElementById('wayinSortSelect');
+    if (wayinSortSelect) {
+      safeOn(wayinSortSelect, 'change', (e) => {
+        state.wayinSort = e.target.value;
+        renderWayinMomentsGrid();
+      });
+    }
+
+    const wayinCategoryChipsRow = document.getElementById('wayinCategoryChipsRow');
+    if (wayinCategoryChipsRow) {
+      const chips = wayinCategoryChipsRow.querySelectorAll('.wayin-cat-chip');
+      chips.forEach((chip) => {
+        safeOn(chip, 'click', () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          state.wayinCategoryFilter = chip.dataset.cat || 'all';
+          renderWayinMomentsGrid();
+        });
+      });
+    }
+
+    const tabAll = document.getElementById('wayinTabAllMoments');
+    const tabViral = document.getElementById('wayinTabViralMoments');
+    const tabFind = document.getElementById('wayinTabFindMoments');
+    [tabAll, tabViral, tabFind].forEach(t => {
+      if (t) {
+        safeOn(t, 'click', () => {
+          [tabAll, tabViral, tabFind].forEach(x => x?.classList.remove('active'));
+          t.classList.add('active');
+          renderWayinMomentsGrid();
+        });
+      }
+    });
+
+    const wayinSelectAllCb = document.getElementById('wayinSelectAllCheckbox');
+    if (wayinSelectAllCb) {
+      safeOn(wayinSelectAllCb, 'change', (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.wayin-card-cb').forEach(cb => {
+          cb.checked = checked;
+        });
+        const sCountEl = document.getElementById('wayinSelectedCountText');
+        if (sCountEl) {
+          const count = checked ? (state.analysis?.viralMoments?.length || 0) : 0;
+          sCountEl.textContent = String(count);
+        }
+      });
+    }
+
+    const wayinBulkDlBtn = document.getElementById('wayinBulkDownloadBtn');
+    if (wayinBulkDlBtn) {
+      safeOn(wayinBulkDlBtn, 'click', async () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to download yet.', '#ef4444', 3000);
+          return;
+        }
+        const checkedIdxs = [];
+        document.querySelectorAll('.wayin-card').forEach((card) => {
+          const cb = card.querySelector('.wayin-card-cb');
+          if (cb && cb.checked) {
+            const idx = parseInt(card.dataset.idx, 10);
+            if (!isNaN(idx)) checkedIdxs.push(idx);
+          }
+        });
+        const selectedClips = checkedIdxs.length > 0
+          ? checkedIdxs.map(i => state.analysis.viralMoments[i]).filter(Boolean)
+          : state.analysis.viralMoments;
+
+        showToast(`⬇️ Bulk Downloading ${selectedClips.length} clips in background...`, '#10b981', 5000);
+        try {
+          const res = await fetch('/api/download_multiple_clips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: state.originalUrl,
+              clips: selectedClips,
+              limit: selectedClips.length
+            })
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.clips)) {
+            data.clips.forEach(dlClip => {
+              const match = state.analysis.viralMoments.find(vm => Math.abs(vm.start - dlClip.start) < 2);
+              if (match) match.filename = dlClip.filename;
+              const a = document.createElement('a');
+              a.href = `/uploads/${dlClip.filename}`;
+              a.download = dlClip.filename;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            });
+            renderWayinMomentsGrid();
+            showToast(`✅ Successfully downloaded ${data.clips.length} clips!`, '#10b981', 4000);
+          } else {
+            showToast(`Download notice: ${data.error || 'Server processing'}`, '#38bdf8', 3500);
+          }
+        } catch (err) {
+          showToast(`Bulk download error: ${err.message}`, '#ef4444', 4000);
+        }
+      });
+    }
+
+    const wayinBulkEditBtn = document.getElementById('wayinBulkEditBtn');
+    if (wayinBulkEditBtn) {
+      safeOn(wayinBulkEditBtn, 'click', () => {
+        if (!state.analysis || !Array.isArray(state.analysis.viralMoments) || state.analysis.viralMoments.length === 0) {
+          showToast('No moments available to edit.', '#ef4444', 3000);
+          return;
+        }
+        const firstClip = state.analysis.viralMoments[0];
+        loadMomentIntoTimeline(firstClip, 0, true);
+        showToast(`⚡ Loaded "${firstClip.title}" into Studio with 1-Click Auto-Edit!`, '#10b981', 4000);
+      });
+    }
+
+    // Also sync Wayin Multiclip Studio Gallery Grid
+    if (typeof renderWayinMomentsGrid === 'function') {
+      renderWayinMomentsGrid();
+    }
   }
 
   // Called when the Export modal opens: regenerate only if the clip/campaign changed

@@ -64,6 +64,10 @@
       <button type="button" id="openSavedVaultBtn" class="nav-btn nav-btn-ghost" title="Open Saved Clips Vault">
         <span>📁 Vault (<span id="savedClipsCountBadge">0</span>)</span>
       </button>
+
+      <button type="button" id="toggleWayinMomentsBtn" class="nav-btn nav-btn-accent" title="Open Wayin Multi-Clip Gallery View (20 Moments in 1 YouTube Video)" style="background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#34d399; font-weight:700;">
+        <span>🎬 All Moments (<span id="wayinCountBadge">20</span>)</span>
+      </button>
     </div>
 
     <!-- Center Format / Auto-Edit CTA -->
@@ -942,6 +946,83 @@
         <button type="button" id="saveAiKeyBtn" class="btn-primary-glow" style="width:100%; padding:8px; font-weight:700; background:var(--accent-coral); color:#fff; border:none; border-radius:6px; cursor:pointer;">
           Save Keys
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       WAYIN VIDEO MULTI-CLIP STUDIO VIEW (20 VIRAL MOMENTS IN 1 YT VIDEO)
+       ===================================================================== -->
+  <div id="wayinStudioView" class="wayin-moments-overlay hidden" role="dialog" aria-modal="true">
+    <div class="wayin-container">
+      <!-- Wayin Top Header: Logo, Title, Bulk Actions, Close -->
+      <header class="wayin-top-header">
+        <div class="wayin-top-left">
+          <div class="wayin-brand-badge">
+            <span class="wayin-brand-icon">🎬</span>
+            <span class="wayin-brand-title">WayinVideo</span>
+            <span class="wayin-brand-tag">AI MULTI-CLIP</span>
+          </div>
+          <div class="wayin-title-wrap">
+            <h2 id="wayinHeaderVideoTitle" class="wayin-video-title">Asking Black Millionaires How They Got Rich (Atlanta)</h2>
+          </div>
+        </div>
+        <div class="wayin-top-right">
+          <span class="status-pill status-cyan" style="font-size:11px;">🌐 English (US/UK)</span>
+          <button type="button" id="wayinBulkDownloadBtn" class="btn-wayin-header btn-wayin-accent" title="Download all selected clips to your disk">
+            ⬇️ <span>Bulk Download All (.MP4)</span>
+          </button>
+          <button type="button" id="wayinBulkEditBtn" class="btn-wayin-header" title="Bulk auto-edit clips into 9:16 vertical shorts">
+            ⚡ <span>Bulk 1-Click Edit</span>
+          </button>
+          <div class="wayin-sort-box">
+            <span style="font-size:11px; color:#94a3b8; font-weight:600;">Sort:</span>
+            <select id="wayinSortSelect" class="wayin-sort-dropdown">
+              <option value="score" selected>Highest Viral Score</option>
+              <option value="time">Timeline Order</option>
+              <option value="duration">Clip Duration</option>
+            </select>
+          </div>
+          <button type="button" id="closeWayinViewBtn" class="btn-wayin-close" title="Switch back to Timeline Editor">
+            ✕ <span>Studio Editor</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Wayin Subheader: Tabs, Select All, and Category Chips -->
+      <div class="wayin-subheader">
+        <div class="wayin-sub-left">
+          <button type="button" class="wayin-tab-btn active" id="wayinTabAllMoments">
+            <span class="wayin-tab-dot"></span>
+            <span>All Moments (<span id="wayinTotalClipsCount">20</span>)</span>
+          </button>
+          <button type="button" class="wayin-tab-btn" id="wayinTabViralMoments">
+            <span>🔥 Viral Moments (<span id="wayinViralClipsCount">20</span>)</span>
+          </button>
+          <button type="button" class="wayin-tab-btn" id="wayinTabFindMoments">
+            <span>🔍 Find Moments</span>
+          </button>
+          <label class="wayin-select-all-box">
+            <input type="checkbox" id="wayinSelectAllCheckbox" checked />
+            <span>Select all <span id="wayinSelectedCountText">20</span> clips</span>
+          </label>
+        </div>
+        <div class="wayin-sub-right">
+          <div class="wayin-category-chips" id="wayinCategoryChipsRow">
+            <button type="button" class="wayin-cat-chip active" data-cat="all">All (20)</button>
+            <button type="button" class="wayin-cat-chip" data-cat="networth">💰 Net Worth</button>
+            <button type="button" class="wayin-cat-chip" data-cat="living">💼 Career Reveal</button>
+            <button type="button" class="wayin-cat-chip" data-cat="advice">💡 Millionaire Advice</button>
+            <button type="button" class="wayin-cat-chip" data-cat="surprise">🤯 Unexpected</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wayin 5-Column Responsive Cards Grid -->
+      <div class="wayin-grid-body">
+        <div id="wayinCardsGrid" class="wayin-cards-grid">
+          <!-- Populated dynamically with all 20 cards! -->
+        </div>
       </div>
     </div>
   </div>

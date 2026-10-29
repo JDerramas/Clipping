@@ -919,6 +919,9 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             peak = campaign_res["top_window"]
             candidates = campaign_res["candidates"]
             campaign_clips = campaign_res["campaign_clips"]
+            for c in campaign_clips:
+                c["start"] = float(c.get("clip_start", c.get("start", 0.0)))
+                c["end"] = float(c.get("clip_end", c.get("end", c["start"] + target_dur)))
 
             video_dur = float(meta_info.get("duration") or 60.0)
             video_title = str(meta_info.get("title") or "Stream Link")
@@ -3163,7 +3166,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         downloaded = []
         try:
             meta = engine.inspect_url_metadata(url)
-            for idx, c in enumerate(clips[:5]):
+            limit = int(payload.get("limit", 25))
+            for idx, c in enumerate(clips[:limit]):
                 st = float(c.get("start", c.get("clip_start", 0)))
                 et = float(c.get("end", c.get("clip_end", st + 45.0)))
                 title = str(c.get("title", f"Interview Moment #{idx + 1}"))
