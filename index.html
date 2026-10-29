@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&family=Anton&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261029_v5_clean_ui" />
 </head>
 <body>
   <!-- Hidden Background Hardware Media Pipeline -->
@@ -425,6 +425,19 @@
               </button>
             </div>
 
+            <!-- B-Roll Insert Duration Selector (min 0.1s) -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin:10px 0 6px 0; background:#121324; padding:6px 10px; border-radius:6px; border:1px solid #232545;">
+              <span style="font-size:10.5px; color:#94a3b8; font-weight:700;">⏱️ B-ROLL DURATION:</span>
+              <div style="display:flex; align-items:center; gap:5px;">
+                <button type="button" class="btn-micro broll-dur-preset-chip" data-dur="0.1" style="font-size:10px; padding:2px 6px;">⚡ 0.1s</button>
+                <button type="button" class="btn-micro broll-dur-preset-chip" data-dur="0.5" style="font-size:10px; padding:2px 6px;">0.5s</button>
+                <button type="button" class="btn-micro broll-dur-preset-chip" data-dur="1.5" style="font-size:10px; padding:2px 6px;">1.5s</button>
+                <button type="button" class="btn-micro broll-dur-preset-chip active" data-dur="3.0" style="font-size:10px; padding:2px 6px;">3.0s</button>
+                <input type="number" id="customBrollDurInput" min="0.1" max="30.0" step="0.1" value="3.0" style="width:46px; background:#0a0a14; border:1px solid #38bdf8; color:#38bdf8; font-size:10.5px; font-weight:700; text-align:center; border-radius:4px; padding:2px;" title="Set B-roll duration (minimum 0.1s)">
+                <span style="font-size:9.5px; color:#64748b;">s</span>
+              </div>
+            </div>
+
             <!-- Live Stock Grid -->
             <div class="drawer-section-title" style="margin-top:10px;">
               <span id="stockGridTitle">STOCK MEDIA (CLICK TO PREVIEW & INSERT):</span>
@@ -544,51 +557,31 @@
              DRAWER TAB 4: WHOP CAMPAIGN, RULES & AUTO-UPLOAD
              ========================================== -->
         <div id="drawerTab-schedule" class="drawer-content">
-          <!-- Kai Cenat Whop Campaign Official Requirements Box -->
-          <div class="drawer-section whop-rules-card">
+          <!-- Dynamic Creator / Whop Campaign Official Requirements Box -->
+          <div class="drawer-section whop-rules-card" id="activeWhopRulesCard">
             <div class="whop-rules-header">
-              <h4>📋 KAI CENAT $10,000 CAMPAIGN RULES</h4>
-              <span class="status-pill status-amber">OFFICIAL</span>
+              <h4 id="activeWhopRulesTitle">📋 SCHOOL OF HARD KNOCKS CAMPAIGN RULES</h4>
+              <span class="status-pill status-amber" id="activeWhopRulesPill">ACTIVE</span>
             </div>
-            <div class="whop-rule-item">
+            <div class="whop-rule-item" id="whopRuleSourceRow">
               <span class="whop-rule-icon">✅</span>
-              <span><strong>Source:</strong> Sourced strictly from Kai Cenat Twitch or YouTube</span>
+              <span id="whopRuleSourceText"><strong>Source:</strong> youtube.com/@theschoolofhardknocks (or any long video)</span>
             </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Main Focus:</strong> Video must feature Kai Cenat as the central focus</span>
+            <div class="whop-rule-item" id="whopRuleFocusRow">
+              <span class="whop-rule-icon">🎯</span>
+              <span id="whopRuleFocusText"><strong>Clips that work:</strong> Net worth reveal, "What do you do for a living?", origin struggle stories, millionaire life advice</span>
             </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Date Range:</strong> Clipped content MUST BE from 10.21 to 10.31</span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Platforms:</strong> Only TikTok, Instagram Reels, and YouTube Shorts</span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Audience:</strong> ≥ 50% native English countries (USA, CA, AU, UK, NZ)</span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Hashtag:</strong> Captions MUST contain hashtag <code>#KaiCenat</code></span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">✅</span>
-              <span><strong>Payout Pool:</strong> $10,000 pool split by approved views (min 350k views)</span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">🚫</span>
-              <span><strong>No Logos:</strong> Logos of any kind are strictly prohibited</span>
-            </div>
-            <div class="whop-rule-item">
-              <span class="whop-rule-icon">🚫</span>
-              <span><strong>No Hate Farming:</strong> No negative false narratives or botting</span>
-            </div>
-            <div class="whop-rule-item">
+            <div class="whop-rule-item" id="whopRuleDurationRow">
               <span class="whop-rule-icon">⏱️</span>
-              <span><strong>30-Min Rule:</strong> Submit clip link to Whop within 30 minutes of posting!</span>
+              <span id="whopRuleDurationText"><strong>Duration & Framing:</strong> 20–60s vertical, hook in first 2s, 1.0x wide steady framing (Zero Face Zoom)</span>
+            </div>
+            <div class="whop-rule-item" id="whopRuleCreditRow">
+              <span class="whop-rule-icon">🏷️</span>
+              <span id="whopRuleCreditText"><strong>Credit:</strong> @theschoolofhardknocks in the caption</span>
+            </div>
+            <div class="whop-rule-item" id="whopRuleHonestyRow">
+              <span class="whop-rule-icon">🛡️</span>
+              <span id="whopRuleHonestyText"><strong>Keep it Honest:</strong> Do not change people's words/meaning; no get-rich-quick claims</span>
             </div>
           </div>
 
@@ -602,10 +595,10 @@
             </a>
           </div>
 
-          <!-- US/UK Post Caption & Hashtags Generator -->
+          <!-- Universal / Creator Post Caption & Hashtags Generator -->
           <div class="drawer-section">
             <div class="drawer-section-title">
-              <span>AUTO-GENERATE POST CAPTION (US/UK):</span>
+              <span>AUTO-GENERATE POST CAPTION:</span>
               <button type="button" id="generatePostCaptionBtn" class="btn-micro" style="background:var(--accent-coral); color:#fff; font-weight:800; border:none;">
                 ✨ Generate
               </button>
@@ -615,10 +608,10 @@
               class="studio-input"
               rows="3"
               style="width:100%; font-size:11px; line-height:1.4; resize:vertical; padding:8px; background:#141414; border:1px solid #363636; color:#ffffff; border-radius:6px;"
-              placeholder="Auto-generated viral caption with #KaiCenat..."
-            >Bro was NOT expecting this reaction from Kai Cenat 💀🔥 Watch till the end! #KaiCenat #KaiCenatClips #Shorts #Viral</textarea>
+              placeholder="Auto-generated viral caption tailored to active campaign..."
+            >His net worth reveal will shock you 💰 "What do you do for a living?" Credit: @theschoolofhardknocks #SchoolOfHardKnocks #Business #Millionaire #MoneyAdvice #Success #Shorts</textarea>
             <div style="display:flex; justify-content:space-between; margin-top:6px;">
-              <span style="font-size:10px; color:#10b981;">✓ Includes required #KaiCenat</span>
+              <span id="postCaptionRulesNotice" style="font-size:10px; color:#10b981;">✓ Campaign compliance verified</span>
               <button type="button" id="copyHashtagsBtn" class="btn-chip" title="Copy caption & hashtags">📋 Copy</button>
             </div>
           </div>
@@ -957,9 +950,9 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="broll-engine.js?v=20261029_clean_chat"></script>
-  <script src="audio-engine.js?v=20261029_clean_chat"></script>
-  <script src="jarvis-engine.js?v=20261029_clean_chat"></script>
-  <script src="clipper-app.js?v=20261029_clean_chat"></script>
+  <script src="broll-engine.js?v=20261029_v5_clean_ui"></script>
+  <script src="audio-engine.js?v=20261029_v5_clean_ui"></script>
+  <script src="jarvis-engine.js?v=20261029_v5_clean_ui"></script>
+  <script src="clipper-app.js?v=20261029_v5_clean_ui"></script>
 </body>
 </html>

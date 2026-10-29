@@ -522,14 +522,35 @@ def find_all_campaign_clips_across_video(
                     clip_dur = round(clip_et - clip_st, 2)
 
                 ret_score = compute_retention_score(clip_st, clip_et)
-                # Virality algorithm: hook punch + numbers + question
-                v_score = 86.0
+                # Virality algorithm: high thrill, shock factor, money reveal, plot twists
+                v_score = 85.0
+                full_clip_text = " ".join([w.get("word", "") for w in clip_words]).lower()
+                sent_lower = sent["text"].lower()
+
+                # 1. SHOCK / REVEAL BOOST: Net worth, millions, cash, wealth (+12 pts)
+                if any(k in full_clip_text for k in ("net worth", "million", "billion", "worth", "how much", "$", "dollar", "wealth", "ferrari", "lambo", "lamborghini", "porsche", "rolls royce", "mansion")):
+                    v_score += 12.0
+
+                # 2. SHOCK / DISBELIEF BOOST: Jaw-dropping reactions & plot twists (+8 pts)
+                if any(k in full_clip_text for k in ("wait what", "really", "no way", "serious", "how do you afford", "unbelievable", "holy", "insane", "what do you do for a living")):
+                    v_score += 8.0
+
+                # 3. HUMBLE BEGINNINGS / HERO STRUGGLE (+6 pts)
+                if any(k in full_clip_text for k in ("started with", "broke", "zero dollars", "dropped out", "from nothing", "in debt", "lost everything")):
+                    v_score += 6.0
+
+                # 4. HOOK PUNCH in first sentence (+5 pts)
                 if "?" in sent["text"]:
                     v_score += 4.0
                 if any(c.isdigit() or c == "$" for c in sent["text"]):
-                    v_score += 4.0
-                v_score += min(5.0, (ret_score - 80.0) * 0.25)
-                v_score = round(min(99.0, max(88.0, v_score)), 1)
+                    v_score += 3.0
+
+                # 5. PENALIZE BORING PLEASANTRIES & FILLER TALK (-18 pts)
+                if any(b in sent_lower for b in ("hello", "how are you", "what's your name", "what is your name", "nice to meet", "welcome to", "subscribe to my", "check out my", "leave a like", "good morning")):
+                    v_score -= 18.0
+
+                v_score += min(4.0, (ret_score - 80.0) * 0.2)
+                v_score = round(min(99.0, max(75.0, v_score)), 1)
 
                 candidates.append({
                     "id": f"campaign-clip-{len(candidates) + 1}",

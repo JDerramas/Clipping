@@ -184,7 +184,7 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
             '      "ai_critique": "Explosive pattern interrupt in the opening 2.4s hooks viewers immediately. Escalating comedy with zero dead air, finishing on a memorable reaction that drives comment engagement and high completion rates on TikTok/Reels.",\n'
             '      "suggested_hook_title": "HE REALLY SAID THIS ON LIVE 💀👇",\n'
             '      "suggested_broll": "car phonk drift",\n'
-            '      "suggested_caption": "Kai could not believe what just happened 😭 #KaiCenat #Viral"\n'
+            '      "suggested_caption": "Wait till you hear what he reveals at the end 💰 #Shorts #Viral #Millionaire"\n'
             '    }\n'
             '  ]\n'
             "}"
@@ -276,7 +276,7 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
                 "aiCritique": f"Pacing velocity is optimal for short-form retention with steady comedic build-up ({t1-t0:.1f}s cut).",
                 "suggestedHookTitle": f"{title} 🤯👇",
                 "suggestedBroll": "car phonk drift",
-                "suggestedCaption": f'Kai Cenat viral moment #{idx+1} 😭 #KaiCenat #Shorts',
+                "suggestedCaption": f'{title} 🚀 #Shorts #Viral #Trending',
                 "reason": f"Grade S+ ({score}/100) • High viewer retention peak",
                 "transcript": chunk_words
             })
@@ -2306,6 +2306,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             return
 
         creator = str(payload.get("creator") or "the streamer").strip()[:60]
+        campaign = str(payload.get("campaign") or payload.get("creator") or "").strip()[:60]
+        title = str(payload.get("title") or "").strip()[:80]
         platform = str(payload.get("platform") or "tiktok").strip()[:20]
         archetype = str(payload.get("archetype") or "").strip()[:40]
         transcript = str(payload.get("transcript") or "").strip()[:2500]
@@ -2340,11 +2342,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         try:
             temp_f.write_text(json.dumps(req_body), encoding="utf-8")
             file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
-            for model_name in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]:
+            for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-pro", "gemini-3.8-flash"]:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 proc = subprocess.run(
                     ["curl.exe", "-s", "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
-                    capture_output=True, text=True, timeout=20
+                    capture_output=True, text=True, timeout=12
                 )
                 if proc.returncode == 0 and proc.stdout:
                     try:
@@ -2389,10 +2391,44 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 sys.stderr.write(f"[Post Caption] JSON parse notice: {e}\n")
 
-        if variants:
-            self.send_json_response({"success": True, "engine": used_model, "variants": variants})
-        else:
-            self.send_json_response({"success": False, "error": "AI caption generation unavailable"})
+        if not variants:
+            camp_lower = str(campaign or "").lower()
+            is_hk = "hard" in camp_lower or "knocks" in camp_lower or "school" in camp_lower or "@theschoolofhardknocks" in str(req_body).lower()
+            if is_hk:
+                variants = [
+                    {
+                        "hook": f'His net worth reveal will leave you speechless 💰 "{title[:55]}"',
+                        "cta": "What's the number one rule you follow for wealth? Drop your thoughts 👇 Credit: @theschoolofhardknocks",
+                        "hashtags": ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Entrepreneur", "#MoneyAdvice", "#Success", "#Shorts"]
+                    },
+                    {
+                        "hook": f'"What do you do for a living?" The answer completely caught us off guard 🤯',
+                        "cta": "Would you have guessed his net worth? Comment below 👇 Credit: @theschoolofhardknocks",
+                        "hashtags": ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Wealth", "#MoneyAdvice", "#Shorts"]
+                    },
+                    {
+                        "hook": f'Started with nothing and made millions. Listen to this advice carefully 💡',
+                        "cta": "Save this for when you need motivation to build your business 🚀 Credit: @theschoolofhardknocks",
+                        "hashtags": ["#SchoolOfHardKnocks", "#Entrepreneur", "#Millionaire", "#Success", "#Motivation", "#Shorts"]
+                    }
+                ]
+                used_model = "dynamic-campaign-offline"
+            else:
+                variants = [
+                    {
+                        "hook": f'Wait till you see what happened here 🤯 "{title[:55]}"',
+                        "cta": "Would you have done the same thing? Comment below 👇",
+                        "hashtags": ["#Shorts", "#Viral", "#Trending", "#MustWatch"]
+                    },
+                    {
+                        "hook": f'You need to watch this until the very end 🔥',
+                        "cta": "Drop a follow for more viral daily clips 🔔",
+                        "hashtags": ["#Shorts", "#Viral", "#FYP", "#Trending"]
+                    }
+                ]
+                used_model = "dynamic-creator-offline"
+
+        self.send_json_response({"success": True, "engine": used_model, "variants": variants})
 
     def handle_api_translit(self, payload):
         """
@@ -2731,7 +2767,15 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         status = str(item.get("status") or "scheduled")
         caption = str(item.get("caption") or "").strip()
-        tags = item.get("hashtags") or ["#KaiCenat"]
+        campaign_name = str(item.get("campaign") or "hard-knocks")
+        if item.get("hashtags"):
+            tags = item.get("hashtags")
+        elif "hard-knock" in campaign_name.lower():
+            tags = ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Shorts"]
+        elif "kai" in campaign_name.lower():
+            tags = ["#KaiCenat", "#TwitchClips", "#Shorts"]
+        else:
+            tags = ["#Shorts", "#Viral", "#Trending"]
         video_filename = str(item.get("video_filename") or "")
         video_url = str(item.get("video_url") or "")
         if not video_url and video_filename:
@@ -2747,12 +2791,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             "video_url": video_url,
             "platform": platform,
             "caption": caption,
-            "hashtags": tags if isinstance(tags, list) else ["#KaiCenat"],
+            "hashtags": tags if isinstance(tags, list) else list(tags),
             "scheduled_time_utc": scheduled_time_utc,
             "scheduled_time_est": scheduled_time_est,
             "scheduled_time_local": scheduled_time_local,
             "status": status,
-            "campaign": str(item.get("campaign") or "kai-cenat"),
+            "campaign": campaign_name,
             "target_audience": "US/UK/CA/AU/NZ (Native English)",
             "post_url": str(item.get("post_url") or ""),
             "whop_deadline_utc": str(item.get("whop_deadline_utc") or ""),
@@ -2860,23 +2904,52 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
             clip_words = [w for w in transcript if float(w.get("start", 0)) >= t0 and float(w.get("end", 0)) <= t1]
             raw_text = " ".join([str(w.get("word", "")) for w in clip_words[:7]]).strip()
-            title = raw_text or f"Kai Cenat Viral Clip #{i+1}"
+            camp_param = str(payload.get("campaign") or payload.get("creator") or "").lower()
+            is_hk = "hard" in camp_param or "school" in camp_param or "knocks" in camp_param or "@theschoolofhardknocks" in str(payload.get("channel", "")).lower()
+            is_kai = "kai" in camp_param and not is_hk
+
+            if is_hk:
+                title = raw_text or f"Millionaire Interview #{i+1}"
+            elif is_kai:
+                title = raw_text or f"Kai Cenat Viral Clip #{i+1}"
+            else:
+                title = raw_text or f"Viral Highlight #{i+1}"
+
             if len(title) > 42:
                 title = title[:39].rstrip() + "..."
 
             plat = platforms[i % len(platforms)]
 
-            if plat == "shorts":
-                caption = f'Kai really said "{title}" 😭 #Shorts #KaiCenat'
-                if len(caption) > 100:
-                    caption = caption[:96].rstrip() + "… #Shorts #KaiCenat"
-                tags = ["#Shorts", "#KaiCenat", "#KaiCenatClips"]
-            elif plat == "reels":
-                caption = f'Kai really said "{title}" 😭\n\nWould you have reacted the same way? 👇\n\n#Reels #KaiCenat #KaiCenatClips #AMP #TwitchClips'
-                tags = ["#Reels", "#KaiCenat", "#KaiCenatClips", "#AMP", "#TwitchClips"]
+            if is_hk:
+                if plat == "shorts":
+                    caption = f'"{title}" 💰 Credit: @theschoolofhardknocks #SchoolOfHardKnocks #Shorts'
+                    tags = ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Shorts"]
+                elif plat == "reels":
+                    caption = f'"{title}" 💰\n\nWould you have answered the same way? 👇\n\nCredit: @theschoolofhardknocks\n#SchoolOfHardKnocks #Business #Millionaire #Wealth #Shorts'
+                    tags = ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Wealth", "#Shorts"]
+                else:
+                    caption = f'"{title}" 💰\n\nDrop your thoughts below! 🔔 Credit: @theschoolofhardknocks\n#SchoolOfHardKnocks #Business #Millionaire #Success #Shorts'
+                    tags = ["#SchoolOfHardKnocks", "#Business", "#Millionaire", "#Success", "#Shorts"]
+            elif is_kai:
+                if plat == "shorts":
+                    caption = f'Kai really said "{title}" 😭 #Shorts #KaiCenat'
+                    tags = ["#Shorts", "#KaiCenat", "#KaiCenatClips"]
+                elif plat == "reels":
+                    caption = f'Kai really said "{title}" 😭\n\nWould you have reacted the same way? 👇\n\n#Reels #KaiCenat #KaiCenatClips #AMP #TwitchClips'
+                    tags = ["#Reels", "#KaiCenat", "#KaiCenatClips", "#AMP", "#TwitchClips"]
+                else:
+                    caption = f'Kai really said "{title}" 😭\n\nFollow for daily clips 🔔\n\n#KaiCenat #KaiCenatClips #KaiCenatStream #AMP #TwitchClips'
+                    tags = ["#KaiCenat", "#KaiCenatClips", "#KaiCenatStream", "#AMP", "#TwitchClips"]
             else:
-                caption = f'Kai really said "{title}" 😭\n\nFollow for daily Kai clips 🔔\n\n#KaiCenat #KaiCenatClips #KaiCenatStream #AMP #TwitchClips'
-                tags = ["#KaiCenat", "#KaiCenatClips", "#KaiCenatStream", "#AMP", "#TwitchClips"]
+                if plat == "shorts":
+                    caption = f'"{title}" 🚀 #Shorts #Viral #Trending'
+                    tags = ["#Shorts", "#Viral", "#Trending"]
+                elif plat == "reels":
+                    caption = f'"{title}" 🚀\n\nWhat are your thoughts on this? 👇\n\n#Reels #Shorts #Viral #Trending'
+                    tags = ["#Reels", "#Shorts", "#Viral", "#Trending"]
+                else:
+                    caption = f'"{title}" 🚀\n\nFollow for more daily clips 🔔\n\n#Shorts #Viral #Trending'
+                    tags = ["#Shorts", "#Viral", "#Trending"]
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             out_name = f"render_{video_path.stem}_clip{i+1}_{timestamp}.mp4"

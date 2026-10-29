@@ -747,6 +747,23 @@
           }
           break;
         }
+        case 'set_broll_duration': {
+          const d = Math.max(0.1, Number(action.duration) || 0.1);
+          if (window.WhopState) {
+            window.WhopState.customBrollDuration = d;
+            if (Array.isArray(window.WhopState.brollClips)) {
+              window.WhopState.brollClips.forEach(bc => bc.duration = d);
+            }
+          }
+          const inp = document.getElementById('customBrollDurInput');
+          if (inp) inp.value = d.toFixed(1);
+          const chips = document.querySelectorAll('.broll-dur-preset-chip');
+          chips.forEach(c => c.classList.toggle('active', Math.abs(parseFloat(c.dataset.dur) - d) < 0.05));
+          if (studio?.renderTimelineTracks) studio.renderTimelineTracks();
+          if (studio?.renderCanvasFrame) studio.renderCanvasFrame();
+          if (typeof showToast === 'function') showToast(`⚡ B-Roll duration set to ${d}s!`, '#38bdf8', 3500);
+          return true;
+        }
         case 'set_caption_style': {
           const style = action.style || 'hormozi-pop';
           if (studio?.setCaptionStyle) {
@@ -1265,6 +1282,14 @@
       // Auto Silence Jump-Cuts
       if (text === 'jump-cuts' || text.includes('jump cut') || text.includes('cut silence') || text.includes('dead air')) {
         localActions.push({ action: 'jump_cuts' });
+      }
+
+      // B-Roll Duration adjustment (e.g. "make b-roll 0.1s", "gawing 0.1s broll", "broll 0.1s", "set broll duration 0.1")
+      const brollDurMatch = rawText.match(/(?:b-?roll|broll)\s*(?:duration|tagal)?\s*(?:to|na|ng|gawing)?\s*([0-9]+(?:\.[0-9]+)?)\s*(?:s|sec|seconds?)?/i) ||
+                            rawText.match(/(?:set|gawing|make)\s*(?:ang\s*)?(?:b-?roll|broll)?\s*(?:to|na|ng)?\s*([0-9]+(?:\.[0-9]+)?)\s*(?:s|sec|seconds?)\s*(?:ang\s*)?(?:b-?roll|broll)?/i);
+      if (brollDurMatch && (text.includes('broll') || text.includes('b-roll'))) {
+        const dVal = Math.max(0.1, parseFloat(brollDurMatch[1]) || 0.1);
+        localActions.push({ action: 'set_broll_duration', duration: dVal });
       }
 
       // Aspect Ratio

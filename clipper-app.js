@@ -3584,13 +3584,14 @@
     for (let i = 0; i < state.brollClips.length; i++) {
       const bc = state.brollClips[i];
       const bStart = Number(bc.start) || 0;
-      const bDur = Math.max(0.5, Number(bc.duration) || 3.2);
+      const bDur = Math.max(0.1, Number(bc.duration) || 2.5);
       const bEnd = bStart + bDur;
       if (timeSec < bStart || timeSec > bEnd) continue;
 
       const relT = timeSec - bStart;
       const remT = bEnd - timeSec;
-      const fadeAlpha = relT < 0.20 ? (relT / 0.20) : (remT < 0.20 ? remT / 0.20 : 1.0);
+      const fadeWindow = Math.min(0.02, bDur * 0.2);
+      const fadeAlpha = fadeWindow <= 0.002 ? 1.0 : (relT < fadeWindow ? (relT / fadeWindow) : (remT < fadeWindow ? remT / fadeWindow : 1.0));
       const mode = (bc.mode || state.brollCutawayMode || 'fullscreen').toLowerCase();
 
       // Retrieve or allocate real video or image element for this B-roll clip
@@ -6060,7 +6061,7 @@
     if (Array.isArray(state.brollClips)) {
       state.brollClips.forEach((bc) => {
         const bStart = Number(bc.start) || 0;
-        const bDur = Math.max(0.5, Number(bc.duration) || 3.2);
+        const bDur = Math.max(0.1, Number(bc.duration) || 2.5);
         const bEnd = bStart + bDur;
         if (bEnd < viewStart || bStart > viewEnd) return;
 
@@ -6071,12 +6072,13 @@
         const bBlock = document.createElement('div');
         bBlock.className = `timeline-block block-broll-cutaway ${isSel ? 'selected' : ''}`;
         bBlock.style.left = `${leftPct}%`;
-        bBlock.style.width = `${Math.max(4.0, rightPct - leftPct)}%`;
-        bBlock.title = `AI B-Roll Cutaway: ${bc.name} (${bDur.toFixed(1)}s • ${bc.mode === 'pip-card' ? 'PIP' : 'Full Cutaway'}) • Double-click to toggle Full/PIP`;
+        bBlock.style.width = `${Math.max(1.2, rightPct - leftPct)}%`;
+        bBlock.style.minWidth = '14px';
+        bBlock.title = `AI B-Roll Cutaway: ${bc.name} (${bDur.toFixed(1)}s • ${bc.mode === 'pip-card' ? 'PIP' : 'Full Cutaway'}) • Drag right handle to trim duration (min 0.1s)`;
         bBlock.innerHTML = `
           <div class="block-resize-handle block-resize-left" data-action="resize-broll-left" title="Trim B-Roll Start"></div>
-          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎬 ${bc.name} (${bDur.toFixed(1)}s)</span>
-          <div class="block-resize-handle block-resize-right" data-action="resize-broll-right" title="Trim B-Roll Duration"></div>
+          <span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;">🎬 ${bc.name} (${bDur.toFixed(1)}s)</span>
+          <div class="block-resize-handle block-resize-right" data-action="resize-broll-right" title="Trim B-Roll Duration (min 0.1s)"></div>
         `;
 
         bBlock.addEventListener('dblclick', (e) => {
@@ -7541,10 +7543,10 @@
     }
   }
 
-  async function insertUnsplashBrollCue(item) {
+  async function insertUnsplashBrollCue(item, customDur = null) {
     pushUndoState('Add Unsplash 4K B-Roll');
     if (!Array.isArray(state.brollClips)) state.brollClips = [];
-    const dur = 3.5;
+    const dur = Math.max(0.1, Number(customDur || state.customBrollDuration || 3.0));
     let finalUrl = item.url;
 
     try {
@@ -7583,10 +7585,10 @@
     showToast(`📸 Added Unsplash 4K B-Roll "${cue.name.slice(0, 25)}" (${cue.duration}s) at ${formatTime(cue.start)}!`, '#ec4899');
   }
 
-  async function insertPixabayBrollCue(item) {
+  async function insertPixabayBrollCue(item, customDur = null) {
     pushUndoState('Add Pixabay B-Roll');
     if (!Array.isArray(state.brollClips)) state.brollClips = [];
-    const dur = Math.min(Math.max(item.duration || 3, 2), 6);
+    const dur = Math.max(0.1, Number(customDur || state.customBrollDuration || Math.min(Math.max(item.duration || 3, 0.1), 6)));
     let finalUrl = item.url;
 
     // Auto-download to local storage for instantaneous 0ms playback and 0 CORS failures
@@ -7917,6 +7919,32 @@
         const q = pixabaySearchInput ? pixabaySearchInput.value : 'luxury lifestyle';
         searchStockMedia(q);
         showToast('📸 B-Roll source: Unsplash 4K Editorial Photos');
+      });
+    }
+
+    // B-Roll Insert Duration Selector (supports down to 0.1s ultra-fast flash cuts)
+    const customBrollDurInput = document.getElementById('customBrollDurInput');
+    const brollDurChips = document.querySelectorAll('.broll-dur-preset-chip');
+    brollDurChips.forEach((chip) => {
+      safeOn(chip, 'click', () => {
+        brollDurChips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const d = Math.max(0.1, parseFloat(chip.dataset.dur) || 0.1);
+        state.customBrollDuration = d;
+        if (customBrollDurInput) customBrollDurInput.value = d.toFixed(1);
+        showToast(`⏱️ B-Roll insert duration: ${d}s (Ultra-fast flash cut ready!)`, '#38bdf8', 2500);
+      });
+    });
+
+    if (customBrollDurInput) {
+      safeOn(customBrollDurInput, 'change', () => {
+        const d = Math.max(0.1, parseFloat(customBrollDurInput.value) || 0.1);
+        state.customBrollDuration = d;
+        customBrollDurInput.value = d.toFixed(1);
+        brollDurChips.forEach((c) => {
+          c.classList.toggle('active', Math.abs(parseFloat(c.dataset.dur) - d) < 0.05);
+        });
+        showToast(`⏱️ B-Roll duration set to ${d}s!`, '#38bdf8', 2500);
       });
     }
 
@@ -10753,12 +10781,12 @@
             if (act === 'move-broll') {
               bc.start = Number(Math.max(0, resolveTimelineSnap(state.timelineBlockDrag.initStart + dt)).toFixed(2));
             } else if (act === 'resize-broll-right') {
-              bc.duration = Number(Math.max(0.6, state.timelineBlockDrag.initDuration + dt).toFixed(2));
+              bc.duration = Number(Math.max(0.1, state.timelineBlockDrag.initDuration + dt).toFixed(2));
             } else if (act === 'resize-broll-left') {
-              const newS = clamp(resolveTimelineSnap(state.timelineBlockDrag.initStart + dt), 0, state.timelineBlockDrag.initStart + state.timelineBlockDrag.initDuration - 0.6);
+              const newS = clamp(resolveTimelineSnap(state.timelineBlockDrag.initStart + dt), 0, state.timelineBlockDrag.initStart + state.timelineBlockDrag.initDuration - 0.1);
               const dS = newS - state.timelineBlockDrag.initStart;
               bc.start = Number(newS.toFixed(2));
-              bc.duration = Number(Math.max(0.6, state.timelineBlockDrag.initDuration - dS).toFixed(2));
+              bc.duration = Number(Math.max(0.1, state.timelineBlockDrag.initDuration - dS).toFixed(2));
             }
             renderContextBrollList();
             renderTimelineTracks();
@@ -13094,6 +13122,25 @@
   // when a key is configured. Every result is re-validated client-side.
   // =========================================================================
   const POST_CAMPAIGNS = {
+    'hard-knocks': {
+      creator: 'School of Hard Knocks',
+      short: 'Hard Knocks',
+      channel: '@theschoolofhardknocks',
+      required: ['#SchoolOfHardKnocks'],
+      niche: ['#SchoolOfHardKnocks', '#Business', '#Millionaire', '#Entrepreneur', '#MoneyAdvice', '#Wealth', '#Success', '#Shorts'],
+      clipWindow: '',
+      credit: '@theschoolofhardknocks',
+      noLogos: true
+    },
+    'whop-creator': {
+      creator: 'Creator',
+      short: 'Creator',
+      required: ['#Shorts'],
+      niche: ['#Shorts', '#Viral', '#Trending', '#Motivation', '#Success', '#Podcast'],
+      clipWindow: '',
+      credit: '',
+      noLogos: false
+    },
     'kai-cenat': {
       creator: 'Kai Cenat',
       short: 'Kai',
@@ -13105,8 +13152,8 @@
     generic: {
       creator: '',
       short: '',
-      required: [],
-      niche: ['#StreamerClips', '#FunnyMoments', '#TwitchClips', '#Clips', '#Viral'],
+      required: ['#Shorts'],
+      niche: ['#Shorts', '#Viral', '#Trending', '#Clips', '#FYP'],
       clipWindow: '',
       noLogos: false
     }
@@ -13122,7 +13169,8 @@
   const POST_TOPIC_TAGS = [
     [/\bfortnite\b/i, '#Fortnite'], [/\bgta\b/i, '#GTA'], [/\bminecraft\b/i, '#Minecraft'],
     [/\b2k\b/i, '#NBA2K'], [/\bsubathon\b/i, '#Subathon'], [/\bmafiathon\b/i, '#Mafiathon'],
-    [/\bfootball|nfl\b/i, '#NFL'], [/\bnba|basketball\b/i, '#NBA'], [/\bhalloween\b/i, '#Halloween']
+    [/\bfootball|nfl\b/i, '#NFL'], [/\bnba|basketball\b/i, '#NBA'], [/\bhalloween\b/i, '#Halloween'],
+    [/\bmillion|dollar|wealth|net\s*worth|money\b/i, '#Millionaire'], [/\bbusiness|entrepreneur\b/i, '#Business']
   ];
 
   // Words that frame the creator negatively / hate-farm (campaign rejection risk)
@@ -13142,7 +13190,14 @@
 
   function getPostCampaignKey() {
     const sel = document.getElementById('postCampaignSelect');
-    return (sel && POST_CAMPAIGNS[sel.value]) ? sel.value : 'kai-cenat';
+    if (sel && POST_CAMPAIGNS[sel.value]) return sel.value;
+    if (state.activeCampaign?.id === 'school-of-hard-knocks' || (state.activeCampaign?.campaign_name || '').toLowerCase().includes('hard knock')) {
+      return 'hard-knocks';
+    }
+    const titleLower = `${state.videoTitle || ''} ${state.activeCampaign?.campaign_name || ''}`.toLowerCase();
+    if (titleLower.includes('hard knock')) return 'hard-knocks';
+    if (titleLower.includes('kai cenat')) return 'kai-cenat';
+    return 'hard-knocks';
   }
 
   function getPostPlatformKey() {
@@ -13221,7 +13276,7 @@
     if (platformKey === 'shorts') {
       const isProtected = (t) => {
         const low = t.toLowerCase();
-        return low === '#shorts' || low === '#kaicenat';
+        return low === '#shorts' || low === '#schoolofhardknocks' || (POST_CAMPAIGNS[getPostCampaignKey()]?.required || []).some(r => r.toLowerCase() === low);
       };
       let tags = [...baseTags];
       let hook = variant.hook;
@@ -13807,10 +13862,14 @@
 
   async function scheduleCurrentActiveClip(preset = 'next-peak') {
     const clip = getActiveClip();
-    const title = (clip && clip.title) || state.clipTitle || 'Kai Cenat Highlight';
+    const campKey = getPostCampaignKey();
+    const camp = POST_CAMPAIGNS[campKey] || POST_CAMPAIGNS['hard-knocks'];
+    const title = (clip && clip.title) || state.clipTitle || (camp.creator ? `${camp.creator} Highlight` : 'Viral Moment');
     const platform = getPostPlatformKey() || 'tiktok';
+    const creditTag = camp.credit ? `Credit: ${camp.credit}` : '';
+    const defTag = camp.required?.[0] || '#Viral';
     const caption = (dom.postCaptionTextarea && dom.postCaptionTextarea.value.trim()) ||
-      `${title} 😭 #KaiCenat #TwitchClips`;
+      `${title} 🚀 ${creditTag} ${defTag} #Shorts`.trim();
     const dur = (state.trimEnd && state.trimStart) ? (state.trimEnd - state.trimStart) : 30.0;
 
     const payload = {
@@ -13818,8 +13877,8 @@
       duration: dur,
       platform,
       caption,
-      hashtags: getPostRequiredTags(getPostCampaignKey()),
-      campaign: getPostCampaignKey()
+      hashtags: getPostRequiredTags(campKey),
+      campaign: campKey
     };
 
     try {
@@ -13939,7 +13998,7 @@
     pushUndoState(`Insert B-Roll (${found.name})`);
     if (!Array.isArray(state.brollClips)) state.brollClips = [];
     const s = Number(Math.max(0, Number(startSec) || 0).toFixed(2));
-    const d = clamp(Number(durSec) || 2.6, 0.6, 12.0);
+    const d = clamp(Number(durSec) || (state.customBrollDuration || 2.5), 0.1, 30.0);
     const clipObj = {
       id: `broll_${Date.now()}_${Math.floor(Math.random() * 999)}`,
       topicId: found.id,
@@ -14038,14 +14097,29 @@
       const modeTag = bc.mode === 'pip-card' ? 'PIP' : 'FULL';
       row.innerHTML = `
         <button type="button" class="viral-mini-jump" title="Seek to B-Roll cutaway">
-          <span>🎬 ${bc.name}</span>
-          <small>${bc.start.toFixed(1)}s (${(bc.duration || 2.5).toFixed(1)}s • ${modeTag})</small>
+          <span>🎬 ${escapeHtml(bc.name)}</span>
+          <small>${bc.start.toFixed(1)}s • ${modeTag}</small>
         </button>
+        <div style="display:inline-flex; align-items:center; gap:3px; margin:0 6px;">
+          <input type="number" class="broll-row-dur-inp" min="0.1" max="30" step="0.1" value="${(bc.duration || 2.5).toFixed(1)}" style="width:44px; background:#0f0f1e; border:1px solid #38bdf8; color:#38bdf8; font-size:10.5px; font-weight:700; text-align:center; border-radius:4px; padding:2px;" title="Edit B-roll duration in seconds (min 0.1s)">
+          <span style="font-size:9.5px; color:#94a3b8;">s</span>
+        </div>
         <button type="button" class="viral-mini-del" title="Remove B-Roll cutaway">✕</button>
       `;
+      const durInp = row.querySelector('.broll-row-dur-inp');
+      if (durInp) {
+        durInp.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const newD = Math.max(0.1, parseFloat(e.target.value) || 0.1);
+          bc.duration = Number(newD.toFixed(2));
+          renderTimelineTracks();
+          renderCanvasFrame();
+          showToast(`⏱️ B-Roll "${bc.name}" set to ${bc.duration}s!`, '#38bdf8', 2500);
+        });
+      }
       row.querySelector('.viral-mini-jump').addEventListener('click', () => {
         state.selectedTimelineItem = `broll-${bc.id}`;
-        seekToTime(bc.start + 0.2);
+        seekToTime(bc.start + 0.05);
         renderTimelineTracks();
         renderCanvasFrame();
       });

@@ -3781,6 +3781,7 @@ input[type="range"] {
 .opencut-navbar {
   min-height: 48px;
   height: 48px;
+  max-height: 48px;
   background: var(--oc-bg-panel);
   border-bottom: 1px solid var(--oc-border);
   display: flex;
@@ -3791,13 +3792,21 @@ input[type="range"] {
   z-index: 50;
   user-select: none;
   flex-wrap: nowrap;
+  white-space: nowrap !important;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+.opencut-navbar * {
+  white-space: nowrap !important;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap !important;
 }
 
 .nav-logo {
@@ -3878,7 +3887,7 @@ input[type="range"] {
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-  white-space: nowrap;
+  white-space: nowrap !important;
   flex-shrink: 1;
   min-width: 0;
   overflow: hidden;
@@ -3894,6 +3903,7 @@ input[type="range"] {
   border-radius: 99px;
   max-width: 230px;
   flex-shrink: 0;
+  white-space: nowrap !important;
 }
 
 .campaign-select {
@@ -3905,17 +3915,18 @@ input[type="range"] {
   cursor: pointer;
   outline: none;
   max-width: 195px;
-  white-space: nowrap;
+  white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .active-campaign-banner {
-  white-space: nowrap;
+  white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 260px;
-  flex-shrink: 1;
+  flex-shrink: 0;
+  max-height: 28px;
 }
 
 .pill-dot {
@@ -3939,6 +3950,10 @@ input[type="range"] {
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(0, 242, 254, 0.3);
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  max-height: 28px;
+}
   transition: all 0.15s ease;
 }
 
@@ -7668,30 +7683,19 @@ input[type="range"] {
 }
 
 .jarvis-quick-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 8px 12px;
-  border-top: 1px solid #282828;
-  background: #161616;
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .jarvis-quick-pill {
-  background: #222222;
-  border: 1px solid #383838;
-  color: #cfcfcf;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.jarvis-quick-pill:hover {
-  background: #2d2d2d;
-  color: #fff;
-  border-color: var(--accent-coral);
+  display: none !important;
 }
 
 .jarvis-input-bar {
