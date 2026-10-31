@@ -2387,10 +2387,419 @@
       if (window.jarvis) {
         window.jarvis.addMessage(`Sir, I have loaded moment #${idx + 1} "${clip.title}" (${clip.grade || 'S+'} • ${clip.score}%).\nAI Critique: ${clip.aiCritique || clip.reason}`, 'ai');
       }
+    closeWayinView();
+      }
     }
-  }
 
-  function renderViralMomentsList() {
+      // ==================== WAYIN.AI STYLE ENHANCED FUNCTIONS ====================
+
+      function openClipPreviewModal(clip, idx) {
+        const modal = document.createElement('div');
+        modal.className = 'wayin-preview-modal';
+        modal.innerHTML = `
+          <div class="wayin-preview-modal-backdrop"></div>
+          <div class="wayin-preview-modal-content">
+            <div class="wayin-preview-header">
+              <h3>${escapeHtml(clip.title)}</h3>
+              <button class="wayin-preview-close" title="Close">&times;</button>
+            </div>
+            <div class="wayin-preview-video">
+              <video controls playsinline preload="metadata" style="width: 100%; height: auto;">
+                <source src="${clip.filename ? ('/uploads/' + clip.filename) : (dom.mainVideoEl?.src || '')}" type="video/mp4" />
+              </video>
+            </div>
+            <div class="wayin-preview-details">
+              <div class="wayin-preview-meta">
+                <span>⏱️ ${formatTimecode(clip.start)} - ${formatTimecode(clip.end)} (${((clip.end - clip.start) || 0).toFixed(1)}s)</span>
+                <span>🏆 Score: ${clip.score || 95}/100</span>
+                <span>🎯 Grade: ${clip.grade || 'S+'}</span>
+              </div>
+              <div class="wayin-preview-actions">
+                <button class="btn-primary" onclick="loadMomentIntoTimeline(arguments[0], ${idx}, false); this.closest('.wayin-preview-modal').remove();">👁️ Preview in Studio</button>
+                <button class="btn-secondary" onclick="runOneClickAutoEdit(${idx}); this.closest('.wayin-preview-modal').remove();">⚡ Auto-Edit</button>
+                <button class="btn-accent" onclick="downloadSingleClip(${JSON.stringify(clip).replace(/"/g, '"')}, ${idx}); this.closest('.wayin-preview-modal').remove();">⬇️ Download</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+    
+        modal.querySelector('.wayin-preview-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('.wayin-preview-modal-backdrop').addEventListener('click', () => modal.remove());
+    
+        // ESC to close
+        const escHandler = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+      }
+
+      function showClipBrollSuggestions(clip, idx) {
+        const topic = clip.category || detectBrollTopicFromClip(clip);
+        const suggestions = getBrollSuggestionsForTopic(topic);
+    
+        const modal = document.createElement('div');
+        modal.className = 'wayin-broll-modal';
+        modal.innerHTML = `
+          <div class="wayin-broll-modal-backdrop"></div>
+          <div class="wayin-broll-modal-content">
+            <div class="wayin-broll-header">
+              <h3>🎬 AI B-Roll Suggestions for: ${escapeHtml(clip.title)}</h3>
+              <span class="broll-topic-badge">Topic: ${topic}</span>
+              <button class="wayin-broll-close" title="Close">&times;</button>
+            </div>
+            <div class="wayin-broll-grid">
+              ${suggestions.map((s, i) => `
+                <div class="broll-suggestion-card" data-query="${escapeHtml(s.query)}">
+                  <div class="broll-thumb" style="background-image: url('${s.thumbnail || '/assets/broll-placeholder.jpg'}');"></div>
+                  <div class="broll-info">
+                    <span class="broll-query">${escapeHtml(s.query)}</span>
+                    <span class="broll-reason">${escapeHtml(s.reason)}</span>
+                  </div>
+                  <button class="broll-add-btn" onclick="addBrollToClip('${escapeHtml(s.query)}', ${idx})">➕ Add</button>
+                </div>
+              `).join('')}
+            </div>
+            <div class="wayin-broll-custom">
+              <input type="text" id="customBrollQuery" placeholder="Custom B-Roll search query..." />
+              <button onclick="searchCustomBroll()">🔍 Search</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.wayin-broll-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('.wayin-broll-modal-backdrop').addEventListener('click', () => modal.remove());
+      }
+
+      function detectBrollTopicFromClip(clip) {
+        const text = `${clip.title} ${clip.hook_quote || ''} ${clip.reason || ''} ${clip.aiCritique || ''}`.toLowerCase();
+        const topics = {
+          'god-christian': ['god', 'jesus', 'christ', 'lord', 'faith', 'prayer', 'blessing', 'holy', 'bible', 'scripture', 'worship', 'church', 'gospel', 'amen', 'hallelujah', 'praise', 'salvation', 'heaven', 'divine', 'spirit', 'grace', 'miracle'],
+          'money-wealth': ['money', 'cash', 'dollar', 'million', 'billion', 'wealth', 'rich', 'income', 'profit', 'revenue', 'business', 'entrepreneur', 'net worth', 'earnings', 'salary', 'investment', 'crypto', 'stocks', 'trading'],
+          'sad-emotional': ['sad', 'cry', 'crying', 'tears', 'heartbreak', 'breakup', 'loss', 'grief', 'depression', 'anxiety', 'lonely', 'alone', 'pain', 'hurt', 'suffering', 'struggle', 'tragic', 'devastated'],
+          'gaming-esports': ['game', 'gaming', 'gamer', 'play', 'stream', 'streamer', 'twitch', 'esports', 'tournament', 'clutch', 'pentakill', 'victory', 'fps', 'moba', 'battle royale', 'valorant', 'league', 'fortnite', 'minecraft'],
+          'motivation-success': ['motivation', 'inspire', 'success', 'achieve', 'goal', 'dream', 'hustle', 'grind', 'discipline', 'consistency', 'habit', 'mindset', 'growth', 'progress', 'overcome', 'challenge', 'champion', 'winner'],
+          'tech-ai': ['ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural network', 'llm', 'gpt', 'claude', 'gemini', 'chatgpt', 'openai', 'coding', 'programming', 'developer', 'software', 'engineer', 'github', 'api'],
+          'fitness-health': ['gym', 'workout', 'exercise', 'fitness', 'muscle', 'bodybuilding', 'powerlifting', 'weightlifting', 'cardio', 'running', 'marathon', 'hiit', 'crossfit', 'protein', 'creatine', 'diet', 'nutrition', 'bulk', 'cut'],
+          'travel-lifestyle': ['travel', 'trip', 'vacation', 'holiday', 'flight', 'hotel', 'beach', 'island', 'mountain', 'city', 'country', 'passport', 'backpack', 'adventure', 'wanderlust', 'digital nomad', 'road trip'],
+          'education-learning': ['learn', 'learning', 'study', 'course', 'class', 'lesson', 'tutorial', 'guide', 'how to', 'skill', 'master', 'certification', 'degree', 'university', 'teacher', 'mentor', 'coach', 'training'],
+          'comedy-funny': ['funny', 'hilarious', 'laugh', 'lol', 'lmao', 'rofl', 'joke', 'meme', 'comedy', 'comedian', 'skit', 'prank', 'roast', 'viral', 'trending', 'reaction', 'tier list', 'ranking']
+        };
+    
+        for (const [topic, keywords] of Object.entries(topics)) {
+          if (keywords.some(k => text.includes(k))) return topic;
+        }
+        return 'general';
+      }
+
+      function getBrollSuggestionsForTopic(topic) {
+        const suggestionsMap = {
+          'god-christian': [
+            { query: 'prayer hands faith', reason: 'Reverent visualization of prayer and faith', thumbnail: '' },
+            { query: 'church stained glass light', reason: 'Beautiful church interior with divine light', thumbnail: '' },
+            { query: 'open bible cross light', reason: 'Scripture and cross symbolism', thumbnail: '' },
+            { query: 'sunlight clouds sky heavenly', reason: 'Divine atmosphere and spiritual uplift', thumbnail: '' },
+            { query: 'faith worship gospel choir', reason: 'Community worship and spiritual connection', thumbnail: '' }
+          ],
+          'money-wealth': [
+            { query: 'stacks of cash counting money', reason: 'Visual representation of wealth and earnings', thumbnail: '' },
+            { query: 'luxury mansion modern architecture', reason: 'Real estate success and luxury living', thumbnail: '' },
+            { query: 'business meeting handshake deal', reason: 'Business success and partnerships', thumbnail: '' },
+            { query: 'stock market chart growing', reason: 'Investment growth and financial gains', thumbnail: '' },
+            { query: 'gold bars treasure chest', reason: 'Wealth accumulation and assets', thumbnail: '' }
+          ],
+          'sad-emotional': [
+            { query: 'person looking sad alone in room', reason: 'Solitude and emotional struggle', thumbnail: '' },
+            { query: 'rain window melancholy atmosphere', reason: 'Emotional mood and reflection', thumbnail: '' },
+            { query: 'crying tears close up emotional', reason: 'Raw emotional expression', thumbnail: '' },
+            { query: 'dark clouds stormy sky', reason: 'Metaphor for difficult times', thumbnail: '' },
+            { query: 'grief support group comfort', reason: 'Healing and community support', thumbnail: '' }
+          ],
+          'gaming-esports': [
+            { query: 'gaming setup rgb keyboard mouse', reason: 'Pro gaming environment', thumbnail: '' },
+            { query: 'esports arena tournament crowd', reason: 'Competitive gaming atmosphere', thumbnail: '' },
+            { query: 'gamer hands keyboard intense', reason: 'Skill and concentration', thumbnail: '' },
+            { query: 'neon gaming room cyberpunk', reason: 'Modern gaming aesthetic', thumbnail: '' },
+            { query: 'victory celebration gaming', reason: 'Winning moment and achievement', thumbnail: '' }
+          ],
+          'motivation-success': [
+            { query: 'mountain climbing achievement summit', reason: 'Overcoming challenges and reaching goals', thumbnail: '' },
+            { query: 'sunrise achievement new beginning', reason: 'Fresh start and hope', thumbnail: '' },
+            { query: 'business handshake success deal', reason: 'Professional achievement', thumbnail: '' },
+            { query: 'goal setting planning vision board', reason: 'Planning and vision for success', thumbnail: '' },
+            { query: 'champion winner celebration trophy', reason: 'Victory and recognition', thumbnail: '' }
+          ],
+          'tech-ai': [
+            { query: 'artificial intelligence neural network', reason: 'AI and machine learning visualization', thumbnail: '' },
+            { query: 'coding screen programming developer', reason: 'Software development process', thumbnail: '' },
+            { query: 'futuristic technology hologram interface', reason: 'Cutting-edge tech aesthetic', thumbnail: '' },
+            { query: 'data center server room', reason: 'Infrastructure powering AI', thumbnail: '' },
+            { query: 'robot hand human collaboration', reason: 'Human-AI partnership', thumbnail: '' }
+          ],
+          'fitness-health': [
+            { query: 'gym workout fitness motivation', reason: 'Training and discipline', thumbnail: '' },
+            { query: 'running track marathon athlete', reason: 'Endurance and perseverance', thumbnail: '' },
+            { query: 'healthy food meal prep nutrition', reason: 'Diet and wellness', thumbnail: '' },
+            { query: 'weight lifting muscle training', reason: 'Strength building', thumbnail: '' },
+            { query: 'yoga meditation wellness', reason: 'Mind-body balance', thumbnail: '' }
+          ],
+          'travel-lifestyle': [
+            { query: 'travel destination beach paradise', reason: 'Dream vacation and relaxation', thumbnail: '' },
+            { query: 'mountain landscape adventure hiking', reason: 'Exploration and nature', thumbnail: '' },
+            { query: 'city skyline urban lifestyle', reason: 'Modern city living', thumbnail: '' },
+            { query: 'road trip scenic drive adventure', reason: 'Journey and freedom', thumbnail: '' },
+            { query: 'digital nomad remote work laptop', reason: 'Work from anywhere lifestyle', thumbnail: '' }
+          ],
+          'education-learning': [
+            { query: 'online learning student studying', reason: 'Knowledge acquisition', thumbnail: '' },
+            { query: 'books library knowledge', reason: 'Learning and research', thumbnail: '' },
+            { query: 'teacher classroom education', reason: 'Mentorship and guidance', thumbnail: '' },
+            { query: 'skill development practice mastery', reason: 'Practice and improvement', thumbnail: '' },
+            { query: 'certification degree graduation', reason: 'Achievement and recognition', thumbnail: '' }
+          ],
+          'comedy-funny': [
+            { query: 'laughing people happy group', reason: 'Joy and entertainment', thumbnail: '' },
+            { query: 'comedy show stand up theater', reason: 'Live entertainment', thumbnail: '' },
+            { query: 'funny reaction surprised face', reason: 'Viral reaction content', thumbnail: '' },
+            { query: 'happy friends social media', reason: 'Relatable social content', thumbnail: '' },
+            { query: 'improv theater spontaneous funny', reason: 'Authentic humor', thumbnail: '' }
+          ]
+        };
+    
+        return suggestionsMap[topic] || [
+          { query: 'viral reaction trending', reason: 'General viral content', thumbnail: '' },
+          { query: 'success celebration achievement', reason: 'Positive outcome', thumbnail: '' },
+          { query: 'business professional meeting', reason: 'Professional context', thumbnail: '' },
+          { query: 'luxury lifestyle wealth', reason: 'Aspirational content', thumbnail: '' },
+          { query: 'motivation inspiration quote', reason: 'Inspirational message', thumbnail: '' }
+        ];
+      }
+
+      function generateClipSocialCaptions(clip, idx) {
+        const modal = document.createElement('div');
+        modal.className = 'wayin-captions-modal';
+        modal.innerHTML = `
+          <div class="wayin-captions-modal-backdrop"></div>
+          <div class="wayin-captions-modal-content">
+            <div class="wayin-captions-header">
+              <h3>📝 Social Media Captions & Hashtags</h3>
+              <span class="captions-clip-title">${escapeHtml(clip.title)}</span>
+              <button class="wayin-captions-close" title="Close">&times;</button>
+            </div>
+            <div class="wayin-captions-platforms">
+              <button class="platform-btn active" data-platform="tiktok" onclick="switchCaptionPlatform(this, 'tiktok')">📱 TikTok</button>
+              <button class="platform-btn" data-platform="shorts" onclick="switchCaptionPlatform(this, 'shorts')">▶️ Shorts</button>
+              <button class="platform-btn" data-platform="reels" onclick="switchCaptionPlatform(this, 'reels')">📷 Reels</button>
+              <button class="platform-btn" data-platform="twitter" onclick="switchCaptionPlatform(this, 'twitter')">🐦 Twitter/X</button>
+            </div>
+            <div class="wayin-captions-content" id="captionsContent">
+              <div class="loading-captions">Generating AI captions...</div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.wayin-captions-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('.wayin-captions-modal-backdrop').addEventListener('click', () => modal.remove());
+    
+        // Generate captions via API
+        fetch('/api/generate_social_captions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clip: clip,
+            platforms: ['tiktok', 'shorts', 'reels', 'twitter'],
+            clip_transcript: clip.transcript ? clip.transcript.map(w => w.word).join(' ') : ''
+          })
+        }).then(r => r.json()).then(data => {
+          if (data.success) renderCaptionsInModal(data.captions, 'tiktok');
+        }).catch(() => {
+          document.getElementById('captionsContent').innerHTML = '<div class="error">Failed to generate captions</div>';
+        });
+      }
+
+      function renderCaptionsInModal(captions, platform) {
+        const container = document.getElementById('captionsContent');
+        if (!container || !captions[platform]) return;
+    
+        const caps = captions[platform];
+        container.innerHTML = `
+          <div class="caption-variant">
+            <h4>🎯 Hook: ${escapeHtml(caps.hook)}</h4>
+            <p class="caption-text">${escapeHtml(caps.caption)}</p>
+            <div class="hashtags">${caps.hashtags.map(h => `<span class="hashtag">${escapeHtml(h)}</span>`).join(' ')}</div>
+            <button class="btn-copy" onclick="copyToClipboard(\`${escapeHtml(caps.hook)}\\n\\n${escapeHtml(caps.caption)}\\n\\n${caps.hashtags.join(' ')}\`)">📋 Copy</button>
+          </div>
+        `;
+      }
+
+      function switchCaptionPlatform(btn, platform) {
+        document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // Re-render with new platform
+        // This would need the captions data stored globally
+      }
+
+      function openClipMusicPanel(clip, idx) {
+        const modal = document.createElement('div');
+        modal.className = 'wayin-music-modal';
+        modal.innerHTML = `
+          <div class="wayin-music-modal-backdrop"></div>
+          <div class="wayin-music-modal-content">
+            <div class="wayin-music-header">
+              <h3>🎵 Background Music & Sound Effects</h3>
+              <span class="music-clip-title">${escapeHtml(clip.title)}</span>
+              <button class="wayin-music-close" title="Close">&times;</button>
+            </div>
+            <div class="wayin-music-tabs">
+              <button class="music-tab active" data-tab="bgm">🎵 Background Music</button>
+              <button class="music-tab" data-tab="sfx">🔊 Sound Effects</button>
+              <button class="music-tab" data-tab="voice">🎙️ Voice Audio</button>
+            </div>
+            <div class="wayin-music-content">
+              <div class="music-tab-content active" id="bgmTab">
+                <div class="music-preset-grid">
+                  ${MUSIC_PRESETS.map(p => `
+                    <button class="music-preset-btn ${p.id === state.musicPreset ? 'active' : ''}" 
+                      onclick="applyMusicPreset('${p.id}')">
+                      <span class="music-preset-icon">${p.id === 'none' ? '🔇' : p.id === 'phonk-drive' ? '🏎️' : p.id === 'lofi-chill' ? '🎧' : '🎭'}</span>
+                      <span class="music-preset-name">${p.name}</span>
+                      <span class="music-preset-bpm">${p.bpm ? p.bpm + ' BPM' : ''}</span>
+                    </button>
+                  `).join('')}
+                </div>
+                <div class="music-volume-control">
+                  <label>Volume: <input type="range" id="bgmVolume" min="0" max="100" value="${state.musicVolume * 100}" oninput="setMusicVolume(this.value / 100)"> ${state.musicVolume * 100}%</label>
+                </div>
+              </div>
+              <div class="music-tab-content" id="sfxTab">
+                <div class="sfx-grid">
+                  ${SFX_PRESETS.map(s => `
+                    <button class="sfx-btn" onclick="previewSFX('${s.id}')" title="${s.name} (${s.duration}s)">
+                      <span class="sfx-icon">${s.icon}</span>
+                      <span class="sfx-name">${s.name}</span>
+                    </button>
+                  `).join('')}
+                </div>
+                <div class="sfx-volume-control">
+                  <label>SFX Volume: <input type="range" id="sfxVolume" min="0" max="100" value="${(state.sfxVolume || 0.5) * 100}" oninput="setSFXVolume(this.value / 100)"> ${Math.round((state.sfxVolume || 0.5) * 100)}%</label>
+                </div>
+              </div>
+              <div class="music-tab-content" id="voiceTab">
+                <div class="voice-controls">
+                  <label>
+                    <input type="checkbox" id="voiceMute" ${state.mainAudioMuted ? 'checked' : ''} onchange="toggleVoiceAudio(this.checked)">
+                    🔇 Mute Voice Audio
+                  </label>
+                  <label>
+                    Voice Volume: <input type="range" id="voiceVolume" min="0" max="100" value="${state.mainVolume * 100}" oninput="setVoiceVolume(this.value / 100)"> ${state.mainVolume * 100}%
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.wayin-music-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('.wayin-music-modal-backdrop').addEventListener('click', () => modal.remove());
+    
+        // Tab switching
+        modal.querySelectorAll('.music-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            modal.querySelectorAll('.music-tab').forEach(t => t.classList.remove('active'));
+            modal.querySelectorAll('.music-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+          });
+        });
+      }
+
+      // Global handlers for modal buttons
+      window.addBrollToClip = function(query, clipIdx) {
+        showToast(`🎬 Adding B-Roll: ${query}`, '#10b981');
+        // This would integrate with the B-roll engine
+        if (window.WhopBrollEngine) {
+          window.WhopBrollEngine.searchVideos(query).then(hits => {
+            if (hits.length > 0) {
+              window.WhopBrollEngine.downloadVideo(hits[0]).then(dl => {
+                if (dl) showToast(`✅ B-Roll added to clip`, '#10b981');
+              });
+            }
+          });
+        };
+
+      window.searchCustomBroll = function() {
+        const query = document.getElementById('customBrollQuery')?.value;
+        if (query) {
+          showClipBrollSuggestions({ title: 'Custom Search', category: 'custom' }, -1);
+        }
+      };
+
+      window.applyMusicPreset = function(presetId) {
+        state.musicPreset = presetId;
+        if (window.WhopAudioEngine) {
+          window.WhopAudioEngine.setMusicPreset(presetId);
+        }
+        showToast(`🎵 Applied ${presetId} music`, '#10b981');
+        document.querySelectorAll('.music-preset-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.onclick.toString().includes(presetId));
+        });
+      };
+
+      window.setMusicVolume = function(vol) {
+        state.musicVolume = vol;
+        if (window.WhopAudioEngine) window.WhopAudioEngine.setMusicVolume(vol);
+      };
+
+      window.setSFXVolume = function(vol) {
+        state.sfxVolume = vol;
+        if (window.WhopAudioEngine) window.WhopAudioEngine.setSFXVolume(vol);
+      };
+
+      window.setVoiceVolume = function(vol) {
+        state.mainVolume = vol;
+        if (dom.mainVideoEl) dom.mainVideoEl.volume = vol;
+      };
+
+      window.toggleVoiceAudio = function(muted) {
+        state.mainAudioMuted = muted;
+        if (dom.mainVideoEl) dom.mainVideoEl.muted = muted;
+      };
+
+      window.previewSFX = function(sfxId) {
+        if (window.WhopAudioEngine) {
+          window.WhopAudioEngine.playSfx(sfxId);
+        }
+        showToast(`🔊 ${sfxId}`, '#38bdf8');
+      };
+
+      window.downloadSingleClip = function(clip, idx) {
+        if (clip.filename) {
+          const a = document.createElement('a');
+          a.href = `/uploads/${clip.filename}`;
+          a.download = clip.filename;
+          a.click();
+          showToast(`⬇️ Downloading "${clip.title}"...`, '#10b981');
+        } else if (state.originalUrl) {
+          showToast(`⚡ Slicing & downloading...`, '#38bdf8');
+          fetch('/api/download_url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: state.originalUrl, clip_start: clip.start, clip_end: clip.end, title: clip.title })
+          }).then(r => r.json()).then(dl => {
+            if (dl.success) {
+              clip.filename = dl.filename;
+              const a = document.createElement('a');
+              a.href = `/uploads/${dl.filename}`;
+              a.download = dl.filename;
+              a.click();
+            }
+          });
+        }
+      };
+
+      window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('📋 Copied to clipboard!', '#10b981');
+        });
+      };
     if (!state.analysis || !Array.isArray(state.analysis.viralMoments)) return;
     const rawMoments = state.analysis.viralMoments;
 
@@ -2819,96 +3228,190 @@
       const durStr = `${formatTimecode(m.start)} / ${formatTimecode(m.end)}`;
 
       card.innerHTML = `
-        <div class="wayin-card-header">
-          <input type="checkbox" class="wayin-card-cb" checked title="Select clip for bulk action" />
-          <h4 class="wayin-card-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h4>
-          <span class="wayin-card-dur">${durStr}</span>
-        </div>
+              <div class="wayin-card-header">
+                <input type="checkbox" class="wayin-card-cb" checked title="Select clip for bulk action" />
+                <h4 class="wayin-card-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h4>
+                <span class="wayin-card-dur">${durStr}</span>
+              </div>
 
-        <div class="wayin-card-preview" data-action="preview" title="Click to open & edit in Studio">
-          <video class="wayin-card-video" preload="metadata" playsinline muted poster="${state.videoThumbnail || ''}">
-            <source src="${m.filename ? ('/uploads/' + m.filename) : (dom.mainVideoEl?.src || '')}" type="video/mp4" />
-          </video>
-          <div class="wayin-play-overlay">
-            <div class="wayin-play-btn">▶</div>
-          </div>
-          <div class="wayin-card-subtitle-overlay">${escapeHtml(cleanHook)}</div>
-        </div>
+              <div class="wayin-card-preview" data-action="preview" title="Click to preview clip">
+                <video class="wayin-card-video" preload="metadata" playsinline muted poster="${state.videoThumbnail || ''}">
+                  <source src="${m.filename ? ('/uploads/' + m.filename) : (dom.mainVideoEl?.src || '')}" type="video/mp4" />
+                </video>
+                <div class="wayin-play-overlay">
+                  <div class="wayin-play-btn">▶</div>
+                </div>
+                <div class="wayin-card-subtitle-overlay">${escapeHtml(cleanHook)}</div>
+                <div class="wayin-preview-badge">👁️ Preview</div>
+              </div>
 
-        <div class="wayin-card-meta">
-          <div class="wayin-score-badge ${scoreClass}">${m.score || 95} / 100</div>
-          <div class="wayin-card-actions">
-            <button type="button" class="wayin-action-btn btn-auto-edit" data-action="auto" title="1-Click Viral Edit with Steady Fit & Captions">
-              ⚡ <span>Edit</span>
-            </button>
-            <button type="button" class="wayin-action-btn" data-action="download" title="Download this .MP4 clip">
-              ⬇️
-            </button>
-            <button type="button" class="wayin-action-btn btn-del" data-action="delete" title="Delete this clip candidate">
-              🗑️
-            </button>
-          </div>
-        </div>
+              <div class="wayin-card-meta">
+                <div class="wayin-score-badge ${scoreClass}">${m.score || 95} / 100</div>
+                <div class="wayin-card-actions">
+                  <button type="button" class="wayin-action-btn btn-preview" data-action="preview" title="Preview clip in modal">
+                    👁️ <span>Preview</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-auto-edit" data-action="auto" title="1-Click Viral Edit with B-Roll, Captions & Music">
+                    ⚡ <span>Edit</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-occ" data-action="openchatcut" title="Edit freely in OpenChatCut NLE (Port 5199)" style="background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.4); color:#38bdf8;">
+                    ✂️ <span>OpenChatCut</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn" data-action="download" title="Download this .MP4 clip">
+                    ⬇️
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-broll" data-action="broll" title="AI B-Roll Suggestions for this clip">
+                    🎬 <span>B-Roll</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-captions" data-action="captions" title="Generate Social Captions & Hashtags">
+                    📝 <span>Captions</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-music" data-action="music" title="Add Background Music & Sound Effects">
+                    🎵 <span>Music</span>
+                  </button>
+                  <button type="button" class="wayin-action-btn btn-del" data-action="delete" title="Delete this clip candidate">
+                    🗑️
+                  </button>
+                </div>
+              </div>
 
-        <div class="wayin-card-summary" title="${escapeHtml(m.reason || m.aiCritique || '')}">
-          ${escapeHtml(m.reason || m.aiCritique || 'High-retention millionaire interview clip opening in the first 2 seconds.')}
-        </div>
-      `;
+              <div class="wayin-card-ai-analysis" style="display: none;">
+                <div class="ai-analysis-header">🤖 AI Analysis</div>
+                <div class="ai-analysis-grid">
+                  <div class="ai-metric">
+                    <span class="ai-metric-label">Hook Score</span>
+                    <span class="ai-metric-value">${m.hookScore || m.hook_score || 95}/100</span>
+                  </div>
+                  <div class="ai-metric">
+                    <span class="ai-metric-label">Pacing</span>
+                    <span class="ai-metric-value">${m.pacingScore || m.pacing_score || 90}/100</span>
+                  </div>
+                  <div class="ai-metric">
+                    <span class="ai-metric-label">Retention</span>
+                    <span class="ai-metric-value">${m.retentionScore || m.payoffScore || 92}/100</span>
+                  </div>
+                  <div class="ai-metric">
+                    <span class="ai-metric-label">Grade</span>
+                    <span class="ai-metric-value">${m.grade || 'S+'}</span>
+                  </div>
+                </div>
+                <div class="ai-broll-suggestions">
+                  <strong>🎬 Suggested B-Roll:</strong> ${m.suggestedBroll || m.suggested_broll || 'luxury lifestyle, business meeting, success celebration'}
+                </div>
+                <div class="ai-caption-suggestion">
+                  <strong>📝 Suggested Hook:</strong> ${m.suggestedHookTitle || m.suggested_hook_title || 'VIRAL MOMENT 🤯👇'}
+                </div>
+                <div class="ai-critique">
+                  ${escapeHtml(m.aiCritique || m.reason || 'High-retention viral clip with strong hook in first 2 seconds.')}
+                </div>
+              </div>
+
+              <div class="wayin-card-summary" title="${escapeHtml(m.reason || m.aiCritique || '')}">
+                ${escapeHtml(m.reason || m.aiCritique || 'High-retention millionaire interview clip opening in the first 2 seconds.')}
+              </div>
+            `;
 
       card.addEventListener('click', (e) => {
-        const delBtn = e.target.closest('[data-action="delete"]');
-        if (delBtn) {
-          e.stopPropagation();
-          const targetTitle = m.title || `Clip #${origIdx + 1}`;
-          state.analysis.viralMoments = state.analysis.viralMoments.filter((_, i) => i !== origIdx);
-          renderWayinMomentsGrid();
-          renderViralMomentsList();
-          showToast(`🗑️ Deleted "${targetTitle}" (${state.analysis.viralMoments.length} clips remaining)`, '#f43f5e', 3000);
-          return;
-        }
+              const occBtn = e.target.closest('[data-action="openchatcut"]');
+              if (occBtn) {
+                e.stopPropagation();
+                window.open(`http://localhost:5199/?clip=${origIdx}&title=${encodeURIComponent(m.title)}&start=${m.start}&end=${m.end}`, '_blank');
+                showToast(`✂️ Opening "${m.title}" in OpenChatCut Editor (Port 5199)...`, '#38bdf8', 3500);
+                return;
+              }
 
-        const dlBtn = e.target.closest('[data-action="download"]');
-        if (dlBtn) {
-          e.stopPropagation();
-          if (m.filename) {
-            const a = document.createElement('a');
-            a.href = `/uploads/${m.filename}`;
-            a.download = m.filename;
-            a.click();
-            showToast(`⬇️ Downloading "${m.title}"...`, '#10b981', 3000);
-          } else if (state.originalUrl) {
-            showToast(`⚡ Slicing & downloading "${m.title}"...`, '#38bdf8', 4000);
-            fetch('/api/download_url', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                url: state.originalUrl,
-                clip_start: m.start,
-                clip_end: m.end,
-                title: m.title
-              })
-            }).then(r => r.json()).then(dl => {
-              if (dl.success) {
-                m.filename = dl.filename;
-                const a = document.createElement('a');
-                a.href = `/uploads/${dl.filename}`;
-                a.download = dl.filename;
-                a.click();
-                showToast(`⬇️ Download ready: "${m.title}"`, '#10b981', 3000);
+              const delBtn = e.target.closest('[data-action="delete"]');
+              if (delBtn) {
+                e.stopPropagation();
+                const targetTitle = m.title || `Clip #${origIdx + 1}`;
+                state.analysis.viralMoments = state.analysis.viralMoments.filter((_, i) => i !== origIdx);
+                renderWayinMomentsGrid();
+                renderViralMomentsList();
+                showToast(`🗑️ Deleted "${targetTitle}" (${state.analysis.viralMoments.length} clips remaining)`, '#f43f5e', 3000);
+                return;
+              }
+
+              const dlBtn = e.target.closest('[data-action="download"]');
+              if (dlBtn) {
+                e.stopPropagation();
+                if (m.filename) {
+                  const a = document.createElement('a');
+                  a.href = `/uploads/${m.filename}`;
+                  a.download = m.filename;
+                  a.click();
+                  showToast(`⬇️ Downloading "${m.title}"...`, '#10b981', 3000);
+                } else if (state.originalUrl) {
+                  showToast(`⚡ Slicing & downloading "${m.title}"...`, '#38bdf8', 4000);
+                  fetch('/api/download_url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      url: state.originalUrl,
+                      clip_start: m.start,
+                      clip_end: m.end,
+                      title: m.title
+                    })
+                  }).then(r => r.json()).then(dl => {
+                    if (dl.success) {
+                      m.filename = dl.filename;
+                      const a = document.createElement('a');
+                      a.href = `/uploads/${dl.filename}`;
+                      a.download = dl.filename;
+                      a.click();
+                      showToast(`⬇️ Download ready: "${m.title}"`, '#10b981', 3000);
+                    }
+                  });
+                }
+                return;
+              }
+
+              const previewBtn = e.target.closest('[data-action="preview"]');
+              if (previewBtn) {
+                e.stopPropagation();
+                openClipPreviewModal(m, origIdx);
+                return;
+              }
+
+              const brollBtn = e.target.closest('[data-action="broll"]');
+              if (brollBtn) {
+                e.stopPropagation();
+                showClipBrollSuggestions(m, origIdx);
+                return;
+              }
+
+              const captionsBtn = e.target.closest('[data-action="captions"]');
+              if (captionsBtn) {
+                e.stopPropagation();
+                generateClipSocialCaptions(m, origIdx);
+                return;
+              }
+
+              const musicBtn = e.target.closest('[data-action="music"]');
+              if (musicBtn) {
+                e.stopPropagation();
+                openClipMusicPanel(m, origIdx);
+                return;
+              }
+
+              const analysisToggle = e.target.closest('.wayin-card-meta');
+              if (analysisToggle && !e.target.closest('.wayin-action-btn')) {
+                const analysisEl = card.querySelector('.wayin-card-ai-analysis');
+                if (analysisEl) {
+                  const isHidden = analysisEl.style.display === 'none';
+                  analysisEl.style.display = isHidden ? 'block' : 'none';
+                  showToast(isHidden ? '🤖 AI Analysis expanded' : '🤖 AI Analysis collapsed', '#38bdf8', 2000);
+                }
+                return;
+              }
+
+              const autoBtn = e.target.closest('[data-action="auto"]');
+              const prevArea = e.target.closest('.wayin-card-preview');
+
+              if (autoBtn || prevArea) {
+                e.stopPropagation();
+                loadMomentIntoTimeline(m, origIdx, !!autoBtn);
               }
             });
-          }
-          return;
-        }
-
-        const autoBtn = e.target.closest('[data-action="auto"]');
-        const prevArea = e.target.closest('.wayin-card-preview');
-
-        if (autoBtn || prevArea) {
-          e.stopPropagation();
-          loadMomentIntoTimeline(m, origIdx, !!autoBtn);
-        }
-      });
 
       grid.appendChild(card);
     });
@@ -8627,25 +9130,34 @@
     });
 
     // Send Button & Text Input
-    const submitJarvisChat = () => {
-      if (!dom.jarvisTextInput) return;
-      const val = dom.jarvisTextInput.value.trim();
-      if (!val) return;
-      dom.jarvisTextInput.value = '';
-      if (window.jarvis) {
-        window.jarvis.handleUserCommand(val);
-      }
-    };
+        const submitJarvisChat = () => {
+          if (!dom.jarvisTextInput) return;
+          const val = dom.jarvisTextInput.value.trim();
+          if (!val) return;
+          dom.jarvisTextInput.value = '';
+          // Auto-resize textarea back to minimum height
+          dom.jarvisTextInput.style.height = 'auto';
+          dom.jarvisTextInput.style.height = Math.max(44, dom.jarvisTextInput.scrollHeight) + 'px';
+          if (window.jarvis) {
+            window.jarvis.handleUserCommand(val);
+          }
+        };
 
-    safeOn(dom.jarvisSendBtn, 'click', submitJarvisChat);
-    if (dom.jarvisTextInput) {
-      dom.jarvisTextInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          submitJarvisChat();
+        safeOn(dom.jarvisSendBtn, 'click', submitJarvisChat);
+        if (dom.jarvisTextInput) {
+          // Auto-resize textarea as user types
+          dom.jarvisTextInput.addEventListener('input', () => {
+            dom.jarvisTextInput.style.height = 'auto';
+            dom.jarvisTextInput.style.height = Math.min(160, Math.max(44, dom.jarvisTextInput.scrollHeight)) + 'px';
+          });
+      
+          dom.jarvisTextInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submitJarvisChat();
+            }
+          });
         }
-      });
-    }
 
     // Key settings & Voice preset
     safeOn(dom.jarvisElevenKeyInput, 'change', (e) => {

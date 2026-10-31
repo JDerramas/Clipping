@@ -68,6 +68,9 @@
       <button type="button" id="toggleWayinMomentsBtn" class="nav-btn nav-btn-accent" title="Open Wayin Multi-Clip Gallery View (20 Moments in 1 YouTube Video)" style="background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#34d399; font-weight:700;">
         <span>🎬 All Moments (<span id="wayinCountBadge">20</span>)</span>
       </button>
+      <a href="http://localhost:5199/" target="_blank" id="navOpenChatCutBtn" class="nav-btn" title="Open OpenChatCut Full Video Editor (Port 5199)" style="background:rgba(56,189,248,0.15); border:1px solid #38bdf8; color:#38bdf8; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+        <span>✂️ OpenChatCut (Port 5199)</span>
+      </a>
     </div>
 
     <!-- Center Format / Auto-Edit CTA -->
@@ -103,13 +106,9 @@
 
     <!-- Right: J.A.R.V.I.S. + AI Keys + Export -->
     <div class="nav-right">
-      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="Toggle J.A.R.V.I.S. AI Co-Editor (Ctrl+J)">
-        <div class="jarvis-reactor" id="jarvisReactor">
-          <div class="reactor-core"></div>
-          <div class="reactor-ring ring-1"></div>
-          <div class="reactor-ring ring-2"></div>
-        </div>
-        <span class="jarvis-label">J.A.R.V.I.S.</span>
+      <button type="button" id="jarvisHudBtn" class="nav-btn nav-btn-jarvis" title="Toggle AI Assistant (Ctrl+J)">
+        <span style="font-size:14px; margin-right:4px;">✨</span>
+        <span class="jarvis-label">AI Assistant</span>
       </button>
 
       <button type="button" id="openAiKeyModalBtn" class="nav-btn nav-btn-ai-key" title="Google Gemini & Pixabay API Keys">
@@ -766,14 +765,12 @@
          RIGHT PANEL: J.A.R.V.I.S. AI AGENT (OPENCHATCUT STYLE) & INSPECTOR
          =================================================================== -->
     <div class="opencut-right-panel" id="inspectorSidebar">
-      <!-- J.A.R.V.I.S. Embedded Chat Panel -->
+      <!-- AI Assistant Embedded Chat Panel -->
       <div class="openchatcut-jarvis-panel" id="openchatcutJarvisPanel">
         <div class="jarvis-panel-header">
           <div class="jarvis-header-title">
-            <div class="jarvis-reactor" style="width:18px; height:18px;">
-              <div class="reactor-core"></div>
-            </div>
-            <span>J.A.R.V.I.S. AI DIRECTOR</span>
+            <span style="font-size:16px;">✨</span>
+            <span>AI ASSISTANT</span>
           </div>
           <span class="status-pill status-emerald" style="font-size:9.5px;">ONLINE</span>
         </div>
@@ -781,22 +778,23 @@
         <!-- Chat Stream -->
         <div id="jarvisChatMessages" class="jarvis-chat-stream">
           <div class="jarvis-chat-bubble jarvis-bubble-ai">
-            At your service, sir. I am your all-around AI video co-editor. Load any footage—podcast, gaming, car edit, or stream highlights—and I will arrange, cut silence, subtitle with gold accents, and match stock B-roll for you.
+            AI Assistant ready. Tell me how you want to edit: 1-click auto-edit, cut silences, auto-match stock B-roll, translate captions, or adjust timing.
           </div>
         </div>
 
-        <!-- Prompt Input Bar -->
-        <div class="jarvis-input-bar">
-          <input
-            type="text"
+        <!-- Prompt Input Bar - Expandable Multi-line -->
+        <div class="jarvis-input-bar" id="jarvisInputBar">
+          <textarea
             id="jarvisTextInput"
             class="jarvis-input-field"
-            placeholder="Tell J.A.R.V.I.S. how to edit..."
-          />
-          <button type="button" id="jarvisMicBtn" class="jarvis-action-icon-btn" title="Voice Command">
+            placeholder="Ask AI Assistant how to edit... (Shift+Enter for new line, Enter to send)"
+            rows="1"
+            style="resize: none; min-height: 44px; max-height: 160px;"
+          ></textarea>
+          <button type="button" id="jarvisMicBtn" class="jarvis-action-icon-btn" title="Voice Dictation">
             🎤
           </button>
-          <button type="button" id="jarvisSendBtn" class="jarvis-action-icon-btn" title="Send Instruction">
+          <button type="button" id="jarvisSendBtn" class="jarvis-action-icon-btn" title="Send Instruction (Enter)">
             ➤
           </button>
         </div>
@@ -992,7 +990,10 @@
         </div>
         <div class="wayin-top-right">
           <span class="status-pill status-cyan" style="font-size:11px;">🌐 English (US/UK)</span>
-          <button type="button" id="wayinBulkDownloadBtn" class="btn-wayin-header btn-wayin-accent" title="Download all selected clips to your disk">
+          <a href="http://localhost:5199/" target="_blank" class="btn-wayin-header" style="background:rgba(56,189,248,0.18); border:1px solid #38bdf8; color:#38bdf8; font-weight:700; text-decoration:none;" title="Open OpenChatCut Full Multi-Track NLE Editor on Port 5199">
+              ✂️ <span>OpenChatCut Editor (Port 5199)</span>
+            </a>
+            <button type="button" id="wayinBulkDownloadBtn" class="btn-wayin-header btn-wayin-accent" title="Download all selected clips to your disk">
             ⬇️ <span>Bulk Download All (.MP4)</span>
           </button>
           <button type="button" id="wayinBulkEditBtn" class="btn-wayin-header" title="Bulk auto-edit clips into 9:16 vertical shorts">

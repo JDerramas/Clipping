@@ -48,3 +48,9 @@ Thumbs.db
 .env
 secret_keys.json
 local_keys.json
+
+OpenChatCut/
+openshorts/
+supoclip/
+models/
+

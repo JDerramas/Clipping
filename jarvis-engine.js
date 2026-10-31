@@ -1,23 +1,23 @@
 /**
- * JARVIS AI Voice Butler Engine
+ * AI Assistant AI Voice Butler Engine
  * Features:
  * - ElevenLabs Realistic Male Voice TTS (with British/American Butler presets)
- * - Seamless Web Speech API male fallback with British JARVIS pitch/rate tuning
+ * - Seamless Web Speech API male fallback with British AI Assistant pitch/rate tuning
  * - Speech-to-Text Voice Recognition for hands-free video editing commands
  * - Google AI Integration (Gemma / Gemini 2.5/3.8) for intelligent conversational butler responses
  * - Futuristic Glowing Arc Reactor UI HUD with sound wave audio visualization
- * - Event-driven spoken notifications ("It's done, sir", "Clip split at playhead, sir")
+ * - Event-driven spoken notifications ("It's done", "Clip split at playhead")
  */
 (function (global) {
   'use strict';
 
-  // Default API keys can be supplied via localStorage or the JARVIS settings UI
+  // Default API keys can be supplied via localStorage or the AI Assistant settings UI
   const DEFAULT_ELEVEN_KEY = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_elevenlabs_key')) || '';
   const DEFAULT_GOOGLE_KEY = (typeof localStorage !== 'undefined' && (localStorage.getItem('whop_google_api_key') || localStorage.getItem('whop_ai_api_key') || localStorage.getItem('whop_gemini_key') || localStorage.getItem('gemini_api_key') || localStorage.getItem('jarvis_google_key'))) || '';
 
   // Famous ElevenLabs Male Voices (George = British articulate butler, Adam = Deep authoritative, Callum = Crisp)
   const ELEVEN_VOICES = {
-    'jarvis-british': { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George (British Butler / Classic JARVIS)' },
+    'jarvis-british': { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George (British Butler / Classic AI Assistant)' },
     'jarvis-deep': { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam (Deep Authoritative Male)' },
     'jarvis-callum': { id: 'N2lVS1w4EtoT3dr4eOWO', name: 'Callum (Crisp Confident Male)' },
   };
@@ -28,7 +28,7 @@
       this.googleKey = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_google_api_key')) || DEFAULT_GOOGLE_KEY;
       this.voicePreset = 'jarvis-british';
       this.recognitionLang = (typeof localStorage !== 'undefined' && localStorage.getItem('whop_jarvis_lang')) || 'fil-PH';
-      this.voiceEnabled = true;
+      this.voiceEnabled = false; // Silent AI Assistant: No spoken voice synthesis
       this.isSpeaking = false;
       this.isListening = false;
       this.currentAudio = null;
@@ -105,7 +105,7 @@
 
     finishListeningAndSubmit(overrideText = null) {
       if (this._hasSubmittedCurrentUtterance) {
-        console.log('[JARVIS] Utterance already submitted; ignoring redundant finish call.');
+        console.log('[AI Assistant] Utterance already submitted; ignoring redundant finish call.');
         return;
       }
       this._hasSubmittedCurrentUtterance = true;
@@ -182,7 +182,7 @@
           cover: true
         });
       } catch (e) {
-        console.warn('[JARVIS] SiriWave init notice:', e);
+        console.warn('[AI Assistant] SiriWave init notice:', e);
       }
     }
 
@@ -266,114 +266,9 @@
     }
 
     async speak(text, priority = false) {
-      if (!this.voiceEnabled || !text) return;
-
-      // Stop any existing speech
-      this.stopSpeaking();
-      this.isSpeaking = true;
-      this.showVisualSpeechIndicator(text);
-
-      // Attempt 1: ElevenLabs Male TTS
-      let playedElevenLabs = false;
-      if (this.elevenKey && this.elevenKey.startsWith('sk_')) {
-        try {
-          const voiceId = ELEVEN_VOICES[this.voicePreset]?.id || ELEVEN_VOICES['jarvis-british'].id;
-          const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'xi-api-key': this.elevenKey,
-              'Content-Type': 'application/json',
-              'Accept': 'audio/mpeg'
-            },
-            body: JSON.stringify({
-              text: text,
-              model_id: 'eleven_multilingual_v2',
-              voice_settings: {
-                stability: 0.65,
-                similarity_boost: 0.85,
-                style: 0.35,
-                use_speaker_boost: true
-              }
-            })
-          });
-
-          if (res.ok) {
-            const blob = await res.blob();
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            this.currentAudio = audio;
-
-            await new Promise((resolve) => {
-              const safetyTimer = setTimeout(() => {
-                this.isSpeaking = false;
-                this.hideVisualSpeechIndicator();
-                resolve();
-              }, Math.min(8000, Math.max(2000, text.length * 70)));
-
-              audio.onended = () => {
-                clearTimeout(safetyTimer);
-                this.isSpeaking = false;
-                this.hideVisualSpeechIndicator();
-                resolve();
-              };
-              audio.onerror = () => {
-                clearTimeout(safetyTimer);
-                resolve();
-              };
-              audio.play().catch(() => {
-                clearTimeout(safetyTimer);
-                resolve();
-              });
-            });
-            playedElevenLabs = true;
-          }
-        } catch (e) {
-          console.warn('[JARVIS] ElevenLabs TTS notice, falling back to Web Speech:', e);
-        }
-      }
-
-      // Attempt 2: High-Quality Web Speech API British Butler Voice
-      if (!playedElevenLabs && this.speechSynth) {
-        try {
-          this.speechSynth.cancel();
-          const utter = new SpeechSynthesisUtterance(text);
-          if (this.selectedWebVoice) utter.voice = this.selectedWebVoice;
-          // Crisp, suave British butler cadence (always English voice as user requested)
-          utter.pitch = 0.92;
-          utter.rate = 1.03;
-          utter.volume = 1.0;
-
-          await new Promise((resolve) => {
-            const safetyTimer = setTimeout(() => {
-              this.isSpeaking = false;
-              this.hideVisualSpeechIndicator();
-              resolve();
-            }, Math.min(6000, Math.max(1200, text.length * 50)));
-
-            utter.onend = () => {
-              clearTimeout(safetyTimer);
-              this.isSpeaking = false;
-              this.hideVisualSpeechIndicator();
-              resolve();
-            };
-            utter.onerror = () => {
-              clearTimeout(safetyTimer);
-              this.isSpeaking = false;
-              this.hideVisualSpeechIndicator();
-              resolve();
-            };
-            this.speechSynth.speak(utter);
-          });
-        } catch (err) {
-          console.warn('[JARVIS] Web Speech error:', err);
-          this.isSpeaking = false;
-          this.hideVisualSpeechIndicator();
-        }
-      } else if (!playedElevenLabs) {
-        this.isSpeaking = false;
-        this.hideVisualSpeechIndicator();
-      }
+      // Completely silent: No voice speaking out loud
+      this.isSpeaking = false;
+      return;
     }
 
     stopSpeaking() {
@@ -399,76 +294,76 @@
       switch (eventType) {
         case 'url-inspect':
           this.speak(pickRandom([
-            "Scanning video link and audience retention heatmap, sir.",
-            "Analyzing video URL and locating viral rewatch peaks, sir.",
-            "Inspecting video metadata and viewer retention curves, sir."
+            "Scanning video link and audience retention heatmap.",
+            "Analyzing video URL and locating viral rewatch peaks.",
+            "Inspecting video metadata and viewer retention curves."
           ]));
           break;
         case 'url-download':
           this.speak(pickRandom([
-            "Downloading the viral highlight segment now, sir.",
-            "Fetching the peak highlight clip directly, sir.",
-            "Extracting the thirty-second retention peak, sir."
+            "Downloading the viral highlight segment now.",
+            "Fetching the peak highlight clip directly.",
+            "Extracting the thirty-second retention peak."
           ]));
           break;
         case 'url-transcribe':
           this.speak(pickRandom([
-            "Transcribing native audio and aligning word-level captions, sir.",
-            "Indexing voiceover speech and generating dynamic karaoke subtitles, sir.",
-            "Transcribing audio with auto-language detection, sir."
+            "Transcribing native audio and aligning word-level captions.",
+            "Indexing voiceover speech and generating dynamic karaoke subtitles.",
+            "Transcribing audio with auto-language detection."
           ]));
           break;
         case 'url-done':
           this.speak(pickRandom([
-            "All done, sir! Your clip and accurate captions are ready on the timeline.",
-            "Footage imported and synchronized, sir. Your workspace is ready.",
-            "Process complete, sir. Timeline and karaoke subtitles are aligned."
+            "All done! Your clip and accurate captions are ready on the timeline.",
+            "Footage imported and synchronized. Your workspace is ready.",
+            "Process complete. Timeline and karaoke subtitles are aligned."
           ]));
           break;
         case 'auto-edit-done':
           this.speak(pickRandom([
-            "Auto-edit complete, sir. Viral moments indexed and captions synchronized.",
-            "All done, sir. I have trimmed the highlight and formatted 9 by 16 vertical layout.",
-            "Footage edited to peak engagement specifications, sir."
+            "Auto-edit complete. Viral moments indexed and captions synchronized.",
+            "All done. I have trimmed the highlight and formatted 9 by 16 vertical layout.",
+            "Footage edited to peak engagement specifications."
           ]));
           break;
         case 'split-done':
           this.speak(pickRandom([
-            "Clip split at the playhead, sir.",
-            "Partitioned cleanly at your current timestamp, sir.",
-            "Cut completed, sir. Both segments are independent."
+            "Clip split at the playhead.",
+            "Partitioned cleanly at your current timestamp.",
+            "Cut completed. Both segments are independent."
           ]));
           break;
         case 'gap-created':
           this.speak(pickRandom([
-            "Timeline shifted, sir. Space reserved for your visual overlay.",
-            "Gap created, sir. Ready for your image insertion.",
-            "Space cleared on the timeline, sir."
+            "Timeline shifted. Space reserved for your visual overlay.",
+            "Gap created. Ready for your image insertion.",
+            "Space cleared on the timeline."
           ]));
           break;
         case 'cut-deleted':
           this.speak(pickRandom([
-            "Segment removed from the timeline, sir.",
-            "Cut clip deleted, sir. Workspace updated.",
-            "Segment excised as requested, sir."
+            "Segment removed from the timeline.",
+            "Cut clip deleted. Workspace updated.",
+            "Segment excised as requested."
           ]));
           break;
         case 'upload-done':
           this.speak(pickRandom([
-            "Footage ingested and indexed, sir. Timeline ready.",
-            "Video loaded and speech transcribed, sir."
+            "Footage ingested and indexed. Timeline ready.",
+            "Video loaded and speech transcribed."
           ]));
           break;
         case 'render-start':
           this.speak(pickRandom([
-            "Render initiated, sir. Compiling your 1080p vertical short now.",
-            "Export running, sir. Encoding with server-side FFmpeg acceleration."
+            "Render initiated. Compiling your 1080p vertical short now.",
+            "Export running. Encoding with server-side FFmpeg acceleration."
           ]));
           break;
         case 'render-done':
           this.speak(pickRandom([
-            "Your high-definition viral short is ready for download, sir.",
-            "Export complete, sir! 1080p vertical video compiled successfully."
+            "Your high-definition viral short is ready for download.",
+            "Export complete! 1080p vertical video compiled successfully."
           ]));
           break;
         case 'custom':
@@ -581,7 +476,7 @@
         };
 
         this.recognition.onerror = (e) => {
-          console.warn('[JARVIS] Speech recognition error event:', e);
+          console.warn('[AI Assistant] Speech recognition error event:', e);
           this.clearSilenceCountdown();
           if (timerBar) timerBar.classList.add('hidden');
           this.isListening = false;
@@ -616,7 +511,7 @@
         this.recognition.start();
         return true;
       } catch (e) {
-        console.warn('[JARVIS] Recognition start error:', e);
+        console.warn('[AI Assistant] Recognition start error:', e);
         this.isListening = false;
         return false;
       }
@@ -647,7 +542,7 @@
       const type = action.action;
       const studio = window.WhopStudio;
       const state = window.WhopState;
-      console.log('[JARVIS Action Executor] Executing action:', action);
+      console.log('[AI Assistant Action Executor] Executing action:', action);
 
       if (studio?.setSystemPulse) {
         studio.setSystemPulse(true);
@@ -836,6 +731,39 @@
           }
           const tBtn = document.getElementById('translateSubtitlesBtn');
           if (tBtn) { tBtn.click(); return true; }
+          break;
+        }
+        case 'regenerate_captions': {
+          // Trigger caption regeneration via API
+          if (studio?.regenerateCaptions) {
+            studio.regenerateCaptions(action.style || 'hormozi-pop', action.language);
+            return true;
+          }
+          // Fallback: call API directly
+          const currentVideo = state.customMainFileName || (dom.mainVideoEl?.src ? dom.mainVideoEl.src.split('/').pop() : '');
+          if (currentVideo) {
+            fetch('/api/regenerate_captions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: currentVideo,
+                style: action.style || 'hormozi-pop',
+                language: action.language || null,
+                use_gemini_polish: true
+              })
+            }).then(r => r.json()).then(data => {
+              if (data.success) {
+                showToast(`✅ Captions regenerated with ${action.style || 'hormozi-pop'} style!`, '#10b981', 4000);
+                // Reload the SRT if available
+                if (data.srt_path && studio?.loadSRT) {
+                  studio.loadSRT(data.srt_path);
+                }
+              } else {
+                showToast(`❌ Caption regeneration failed: ${data.error}`, '#ef4444', 4000);
+              }
+            }).catch(() => showToast('❌ Caption regeneration error', '#ef4444'));
+            return true;
+          }
           break;
         }
         case 'auto_broll': {
@@ -1085,6 +1013,19 @@
           }
           break;
         }
+        case 'generate_social_captions': {
+          // Trigger the Wayin.ai style social captions modal for the current clip
+          const currentVideo = state.customMainFileName || (dom.mainVideoEl?.src ? dom.mainVideoEl.src.split('/').pop() : '');
+          if (currentVideo && state.analysis && state.analysis.viralMoments && state.analysis.viralMoments.length > 0) {
+            const clip = state.analysis.viralMoments[state.activeClipIndex || 0];
+            if (clip) {
+              generateClipSocialCaptions(clip, state.activeClipIndex || 0);
+              return true;
+            }
+          }
+          showToast('❌ No clip available for caption generation', '#ef4444');
+          return true;
+        }
         case 'post_timer': {
           if (studio?.startPostSubmitTimer) {
             studio.startPostSubmitTimer();
@@ -1116,7 +1057,7 @@
           break;
         }
         default:
-          console.warn('[JARVIS] Unknown action type:', type);
+          console.warn('[AI Assistant] Unknown action type:', type);
           if (studio?.updateTaskChecklistStep) {
             studio.updateTaskChecklistStep(actionTaskId, {
               status: 'error',
@@ -1145,7 +1086,7 @@
           const ok = this.executeEditorAction(act);
           if (ok !== false) count++;
         } catch (e) {
-          console.warn('[JARVIS] Error executing action:', act, e);
+          console.warn('[AI Assistant] Error executing action:', act, e);
         }
       }
       return count;
@@ -1159,7 +1100,7 @@
 
       // Debounce duplicate submissions within 1500ms
       if (this._lastCommandText === text && (now - (this._lastCommandTime || 0)) < 1500) {
-        console.warn('[JARVIS] Suppressed duplicate command submission within 1.5s window:', text);
+        console.warn('[AI Assistant] Suppressed duplicate command submission within 1.5s window:', text);
         return;
       }
       this._lastCommandText = text;
@@ -1167,7 +1108,7 @@
 
       const startTs = performance.now();
 
-      // 0. Detect YouTube URL and/or Campaign Brief pasted directly into JARVIS
+      // 0. Detect YouTube URL and/or Campaign Brief pasted directly into AI Assistant
       const ytUrlMatch = rawText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|live\/)|youtu\.be\/)[a-zA-Z0-9_\-]+(?:\S*)?/i);
       const videoUrl = ytUrlMatch ? ytUrlMatch[0] : null;
 
@@ -1231,15 +1172,15 @@
             }
           }
         } catch (e) {
-          console.warn('[JARVIS] Chat query notice:', e);
+          console.warn('[AI Assistant] Chat query notice:', e);
         }
 
         if (!aiSpokenReply) {
           aiSpokenReply = isCampaignBrief
             ? (videoUrl
-                ? "Understood, sir! Ingesting the School of Hard Knocks campaign requirements: 20–60s vertical clips, zero face zoom (1.0x wide steady framing so both the interviewer and millionaire are 100% visible), strongest hook in the first 2 seconds, and @theschoolofhardknocks channel credit. I am now downloading and scanning this footage across the entire video timeline to find all candidate interview moments..."
-                : "Understood, sir! I have configured the School of Hard Knocks campaign parameters: 20–60s vertical framing, permanent zero face zoom, hook in first 2 seconds, and @theschoolofhardknocks credit. Ready for your video footage.")
-            : `Understood, sir! Extracting video from YouTube (${videoUrl}) and scanning the entire video timeline for candidate interview moments with zero face zoom...`;
+                ? "Understood! Ingesting the School of Hard Knocks campaign requirements: 20–60s vertical clips, zero face zoom (1.0x wide steady framing so both the interviewer and millionaire are 100% visible), strongest hook in the first 2 seconds, and @theschoolofhardknocks channel credit. I am now downloading and scanning this footage across the entire video timeline to find all candidate interview moments..."
+                : "Understood! I have configured the School of Hard Knocks campaign parameters: 20–60s vertical framing, permanent zero face zoom, hook in first 2 seconds, and @theschoolofhardknocks credit. Ready for your video footage.")
+            : `Understood! Extracting video from YouTube (${videoUrl}) and scanning the entire video timeline for candidate interview moments with zero face zoom...`;
         }
 
         this.addChatMessage('jarvis', aiSpokenReply, { engine: 'Gemini 2.5 Flash' });
@@ -1445,12 +1386,14 @@
       }
 
       // Post Caption & Hashtag Generator (US/UK audience + Kai Cenat campaign)
-      if (text.includes('kai cenat caption') || text.includes('generate caption') || text.includes('caption generator') || text.includes('caption at hashtag') || text.includes('hashtag') || text.includes('hashtags') || text.includes('us caption') || text.includes('gumawa ng caption') || text.includes('post caption')) {
-        const campaign = (text.includes('generic') || text.includes('general')) ? 'generic' : 'kai-cenat';
-        const platform = text.includes('shorts') ? 'shorts' : (text.includes('reels') ? 'reels' : 'tiktok');
-        localActions.push({ action: 'post_caption', campaign, platform });
-      } else if (text.includes('submit timer') || text.includes('posted') || text.includes('30 min') || text.includes('nag post na') || text.includes('start timer')) {
-        localActions.push({ action: 'post_timer' });
+            if (text.includes('generate social media caption') || text.includes('generate social media captions') || text.includes('generate social caption') || text.includes('generate social captions') || text.includes('social media caption') || text.includes('social media captions') || text.includes('ai caption') || text.includes('caption for tiktok') || text.includes('caption for shorts') || text.includes('caption for reels') || text.includes('caption for twitter') || text.includes('hashtag generator') || text.includes('generate hashtags') || text.includes('social caption') || text.includes('multi-platform caption') || text.includes('social media caption') || text.includes('generate social media caption') || text.includes('caption generator') || text.includes('generate social captions') || text.includes('generate social media captions')) {
+              localActions.push({ action: 'generate_social_captions' });
+            } else if (text.includes('kai cenat caption') || text.includes('post caption') || text.includes('us caption') || text.includes('gumawa ng caption') || text.includes('caption generator') || text.includes('caption at hashtag') || text.includes('hashtag') || text.includes('hashtags')) {
+              const campaign = (text.includes('generic') || text.includes('general')) ? 'generic' : 'kai-cenat';
+              const platform = text.includes('shorts') ? 'shorts' : (text.includes('reels') ? 'reels' : 'tiktok');
+              localActions.push({ action: 'post_caption', campaign, platform });
+            } else if (text.includes('submit timer') || text.includes('posted') || text.includes('30 min') || text.includes('nag post na') || text.includes('start timer')) {
+              localActions.push({ action: 'post_timer' });
       } else if (text.includes('auto assemble') || text.includes('assemble all') || text.includes('gawin mo lahat') || text.includes('assemble everything') || text.includes('full auto pipeline') || text.includes('auto pipeline') || text.includes('auto publish')) {
         localActions.push({ action: 'auto_pipeline' });
       } else if (text.includes('schedule upload') || text.includes('i-schedule') || text.includes('schedule clip') || text.includes('schedule post') || text.includes('upload queue') || text.includes('schedule studio')) {
@@ -1491,6 +1434,88 @@
         }
       }
 
+      // ========================================================================
+      // TOPIC-AWARE B-ROLL DETECTION (Enhanced for god/christian, money, sad, gaming, etc.)
+      // ========================================================================
+      const BROLL_TOPIC_KEYWORDS = {
+        'god-christian': {
+          keywords: ['god', 'jesus', 'christ', 'lord', 'faith', 'prayer', 'blessing', 'blessed', 'holy', 'bible', 'scripture', 'worship', 'church', 'gospel', 'amen', 'hallelujah', 'praise', 'salvation', 'heaven', 'divine', 'spirit', 'grace', 'miracle', 'testimony', 'anointed', 'providence', 'almighty', 'savior', 'redemption', 'cross', 'catholic', 'christian', 'pastor', 'priest', 'bishop', 'ministry', 'sermon', 'verse', 'psalm', 'proverb'],
+          pixabayQueries: ['prayer worship', 'church interior', 'bible open', 'cross sunset', 'holy light', 'faith hands praying', 'spiritual meditation', 'gospel choir', 'heavenly light rays'],
+          unsplashQueries: ['prayer', 'church', 'bible', 'cross', 'faith', 'worship', 'spiritual', 'holy', 'blessing']
+        },
+        'money-wealth': {
+          keywords: ['money', 'cash', 'dollar', 'million', 'billion', 'wealth', 'rich', 'income', 'profit', 'revenue', 'business', 'entrepreneur', 'startup', 'investment', 'stocks', 'crypto', 'bitcoin', 'trading', 'financial', 'finance', 'bank', 'net worth', 'earnings', 'salary', 'paycheck', 'commission', 'royalty', 'passive income', 'side hustle', 'freelance', 'ecommerce', 'dropshipping', 'amazon fba', 'shopify', 'affiliate', 'course sales', 'coaching', 'consulting', 'real estate', 'property', 'rental', 'flip'],
+          pixabayQueries: ['money counting', 'cash stack', 'wealth luxury', 'business meeting', 'stock market chart', 'gold bars', 'dollar bills', 'financial growth', 'entrepreneur success'],
+          unsplashQueries: ['money', 'cash', 'wealth', 'business', 'finance', 'entrepreneur', 'success', 'luxury', 'investment']
+        },
+        'sad-emotional': {
+          keywords: ['sad', 'cry', 'crying', 'tears', 'heartbreak', 'breakup', 'loss', 'grief', 'depression', 'anxiety', 'lonely', 'alone', 'pain', 'hurt', 'suffering', 'struggle', 'hard time', 'difficult', 'tragic', 'devastated', 'broken', 'empty', 'hopeless', 'despair', 'sorrow', 'mourning', 'funeral', 'death', 'died', 'passed away', 'goodbye', 'miss you', 'regret', 'mistake', 'failed', 'failure', 'give up', 'tired', 'exhausted', 'burnout', 'overwhelmed'],
+          pixabayQueries: ['sad person', 'crying woman', 'lonely silhouette', 'rain window', 'emotional moment', 'heartbreak', 'grief support', 'dark clouds', 'melancholy atmosphere'],
+          unsplashQueries: ['sad', 'crying', 'lonely', 'rain', 'emotional', 'grief', 'heartbreak', 'melancholy', 'solitude']
+        },
+        'gaming-esports': {
+          keywords: ['game', 'gaming', 'gamer', 'play', 'playing', 'stream', 'streamer', 'twitch', 'youtube gaming', 'esports', 'tournament', 'competitive', 'ranked', 'clutch', 'ace', 'pentakill', 'victory', 'defeat', 'fps', 'moba', 'battle royale', 'warzone', 'valorant', 'league of legends', 'lol', 'dota', 'csgo', 'counter strike', 'apex', 'fortnite', 'minecraft', 'roblox', 'genshin', 'elden ring', 'dark souls', 'speedrun', 'world record', 'glitch', 'bug', 'patch', 'update', 'dlc', 'season', 'battle pass', 'skin', 'cosmetic', 'loot', 'drop', 'chest', 'raid', 'dungeon', 'boss', 'level up', 'xp', 'grind', 'farm'],
+          pixabayQueries: ['gaming setup', 'rgb keyboard', 'esports arena', 'gamer hands', 'neon gaming', 'twitch stream', 'gaming chair', 'mechanical keyboard', 'gaming monitor'],
+          unsplashQueries: ['gaming', 'gamer', 'esports', 'streamer', 'rgb', 'neon', 'keyboard', 'gaming setup', 'video game']
+        },
+        'motivation-success': {
+          keywords: ['motivation', 'motivated', 'inspire', 'inspiring', 'success', 'successful', 'achieve', 'achievement', 'goal', 'goals', 'dream', 'dreams', 'hustle', 'grind', 'work hard', 'discipline', 'consistency', 'habit', 'routine', 'mindset', 'growth', 'progress', 'improve', 'better', 'best', 'champion', 'winner', 'win', 'victory', 'overcome', 'obstacle', 'challenge', 'adversity', 'resilience', 'persistence', 'determination', 'focus', 'dedication', 'commitment', 'sacrifice', 'delayed gratification', 'long term', 'vision', 'purpose', 'why', 'legacy', 'impact', 'change the world'],
+          pixabayQueries: ['motivation quote', 'success celebration', 'mountain climbing', 'sunrise achievement', 'business handshake', 'team victory', 'goal setting', 'growth chart', 'champion mindset'],
+          unsplashQueries: ['motivation', 'success', 'achievement', 'mountain', 'sunrise', 'victory', 'growth', 'champion', 'inspiration']
+        },
+        'tech-ai': {
+          keywords: ['ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural network', 'llm', 'gpt', 'claude', 'gemini', 'chatgpt', 'openai', 'anthropic', 'google', 'microsoft', 'nvidia', 'cuda', 'gpu', 'tpu', 'training', 'inference', 'prompt', 'prompting', 'fine-tune', 'rag', 'vector database', 'embedding', 'transformer', 'attention', 'generative', 'diffusion', 'stable diffusion', 'midjourney', 'dall-e', 'code', 'coding', 'programming', 'developer', 'software', 'engineer', 'github', 'git', 'api', 'sdk', 'framework', 'react', 'vue', 'nextjs', 'python', 'javascript', 'typescript', 'rust', 'go', 'docker', 'kubernetes', 'cloud', 'aws', 'azure', 'gcp', 'serverless', 'microservices', 'database', 'sql', 'nosql', 'redis', 'postgresql', 'mongodb'],
+          pixabayQueries: ['artificial intelligence', 'neural network', 'coding screen', 'data center', 'futuristic technology', 'robot hand', 'hologram interface', 'quantum computing', 'cyber security'],
+          unsplashQueries: ['ai', 'technology', 'coding', 'programming', 'artificial intelligence', 'robot', 'futuristic', 'data', 'innovation']
+        },
+        'fitness-health': {
+          keywords: ['gym', 'workout', 'exercise', 'fitness', 'muscle', 'bodybuilding', 'powerlifting', 'weightlifting', 'cardio', 'running', 'marathon', 'sprint', 'hiit', 'crossfit', 'calisthenics', 'pull up', 'push up', 'squat', 'deadlift', 'bench press', 'protein', 'creatine', 'pre-workout', 'bulk', 'cut', 'shred', 'abs', 'six pack', 'physique', 'aesthetic', 'natty', 'steroid', 'natural', 'diet', 'nutrition', 'macro', 'calorie', 'deficit', 'surplus', 'meal prep', 'intermittent fasting', 'keto', 'carnivore', 'vegan', 'supplement', 'recovery', 'sleep', 'mobility', 'stretch', 'yoga', 'pilates'],
+          pixabayQueries: ['gym workout', 'fitness motivation', 'muscle training', 'running track', 'healthy food', 'protein shake', 'weight lifting', 'yoga pose', 'athletic performance'],
+          unsplashQueries: ['gym', 'fitness', 'workout', 'muscle', 'running', 'healthy', 'nutrition', 'protein', 'athlete']
+        },
+        'travel-lifestyle': {
+          keywords: ['travel', 'trip', 'vacation', 'holiday', 'flight', 'airport', 'hotel', 'resort', 'beach', 'island', 'mountain', 'city', 'country', 'passport', 'visa', 'backpack', 'luggage', 'adventure', 'explore', 'discover', 'culture', 'food', 'cuisine', 'restaurant', 'street food', 'local', 'authentic', 'hidden gem', 'bucket list', 'wanderlust', 'nomad', 'digital nomad', 'remote work', 'work from anywhere', 'airbnb', 'hostel', 'road trip', 'drive', 'scenic', 'view', 'sunset', 'sunrise', 'landscape', 'nature', 'wildlife', 'safari', 'hike', 'trek', 'camp', 'camping', 'glamping'],
+          pixabayQueries: ['travel destination', 'beach paradise', 'mountain landscape', 'city skyline', 'airport terminal', 'luxury hotel', 'street food market', 'scenic drive', 'adventure travel'],
+          unsplashQueries: ['travel', 'beach', 'mountain', 'city', 'landscape', 'adventure', 'vacation', 'wanderlust', 'digital nomad']
+        },
+        'education-learning': {
+          keywords: ['learn', 'learning', 'study', 'studying', 'course', 'class', 'lesson', 'tutorial', 'guide', 'how to', 'step by step', 'explain', 'understand', 'knowledge', 'skill', 'skills', 'master', 'mastery', 'expert', 'beginner', 'advanced', 'certification', 'degree', 'university', 'college', 'school', 'education', 'teacher', 'professor', 'mentor', 'coach', 'training', 'workshop', 'bootcamp', 'curriculum', 'syllabus', 'assignment', 'homework', 'exam', 'test', 'quiz', 'grade', 'pass', 'fail', 'study tips', 'productivity', 'focus', 'concentration', 'memory', 'retention', 'note taking', 'active recall', 'spaced repetition'],
+          pixabayQueries: ['online learning', 'student studying', 'online course', 'educational video', 'teacher classroom', 'books library', 'knowledge sharing', 'skill development', 'certification'],
+          unsplashQueries: ['learning', 'study', 'education', 'books', 'knowledge', 'student', 'teacher', 'course', 'skill']
+        },
+        'comedy-funny': {
+          keywords: ['funny', 'hilarious', 'laugh', 'laughing', 'lol', 'lmao', 'rofl', 'joke', 'meme', 'comedy', 'comedian', 'skit', 'sketch', 'prank', 'troll', 'roast', 'burn', 'savage', 'witty', 'humor', 'humorous', 'entertaining', 'viral', 'trending', 'internet', 'social media', 'tiktok', 'reels', 'shorts', 'reaction', 'react', 'response', 'commentary', 'review', 'rating', 'tier list', 'ranking', 'vs', 'versus', 'comparison', 'which is better', 'best', 'worst', 'overrated', 'underrated'],
+          pixabayQueries: ['laughing people', 'comedy show', 'funny reaction', 'entertainment', 'viral video', 'social media content', 'happy group', 'stand up comedy', 'improv theater'],
+          unsplashQueries: ['funny', 'laugh', 'comedy', 'entertainment', 'happy', 'joy', 'humor', 'viral', 'reaction']
+        }
+      };
+
+      // Function to detect topic from transcript/text
+      function detectBrollTopic(text) {
+        if (!text) return 'general';
+        const lowerText = text.toLowerCase();
+        let bestTopic = 'general';
+        let bestScore = 0;
+
+        for (const [topic, data] of Object.entries(BROLL_TOPIC_KEYWORDS)) {
+          let score = 0;
+          for (const keyword of data.keywords) {
+            const regex = new RegExp('\\b' + keyword.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\b', 'i');
+            const matches = (lowerText.match(regex) || []).length;
+            score += matches * (keyword.length > 8 ? 3 : keyword.length > 5 ? 2 : 1);
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestTopic = topic;
+          }
+        }
+        return bestScore > 0 ? bestTopic : 'general';
+      }
+
+      // Expose globally for use in auto_broll
+      window.detectBrollTopic = detectBrollTopic;
+      window.BROLL_TOPIC_KEYWORDS = BROLL_TOPIC_KEYWORDS;
+
       // Trimming Reflexes
       if (text.includes('trim in') || text.includes('ripple trim in') || text.includes('alisin ang simula') || text.includes('cut before playhead')) {
         localActions.push({ action: 'ripple_trim_in' });
@@ -1512,6 +1537,19 @@
 
       if (text.includes('translate') || text.includes('translation') || text.includes('salin') || text.includes('isalin') || text.includes('us english') || text.includes('uk english') || text.includes('english captions') || text.includes('subtitles english')) {
         localActions.push({ action: 'translate_captions', lang: 'en' });
+      }
+
+      // Caption Regeneration (AI Re-transcribe + Polish from voice audio)
+      if (
+        text.includes('regenerate caption') || text.includes('regenerate subtitle') ||
+        text.includes('retranscribe') || text.includes('re-transcribe') ||
+        text.includes('regenerate caption') || text.includes('regenerate sub') ||
+        text.includes('ai caption') || text.includes('polish caption') ||
+        text.includes('regenerate caption') || text.includes('fix caption') ||
+        text.includes('improve caption') || text.includes('enhance caption') ||
+        (text.includes('caption') && (text.includes('regenerate') || text.includes('redo') || text.includes('ibalik') || text.includes('gawin ulit')))
+      ) {
+        localActions.push({ action: 'regenerate_captions' });
       }
 
       // Face Zoom Removal (Steady Framing & Dual-Speaker Visibility)
@@ -1564,64 +1602,64 @@
       );
 
       if (isSimpleCommand && localActions.length > 0) {
-        let msg = "It is done, sir.";
+        let msg = "It is done.";
         const first = localActions[0];
         if (first.action === 'remove_zoom') {
-          msg = "Face zoom has been completely eliminated across all cuts and playback, sir. The camera framing will remain clean, stable, and uncropped.";
+          msg = "Face zoom has been completely eliminated across all cuts and playback. The camera framing will remain clean, stable, and uncropped.";
         } else if (first.action === 'search_youtube') {
-          msg = `Searching YouTube online for ${first.query || 'videos'}, sir. Inspecting candidates now.`;
+          msg = `Searching YouTube online for ${first.query || 'videos'}. Inspecting candidates now.`;
         } else if (first.action === 'split') {
-          msg = first.time ? `Split cut at ${first.time} seconds, sir.` : "Split cut at playhead, sir.";
+          msg = first.time ? `Split cut at ${first.time} seconds.` : "Split cut at playhead.";
         } else if (first.action === 'ripple_trim_in') {
-          msg = "Ripple trimmed in from playhead, sir.";
+          msg = "Ripple trimmed in from playhead.";
         } else if (first.action === 'ripple_trim_out') {
-          msg = "Ripple trimmed out from playhead, sir.";
+          msg = "Ripple trimmed out from playhead.";
         } else if (first.action === 'play') {
-          msg = "Timeline playback started, sir.";
+          msg = "Timeline playback started.";
         } else if (first.action === 'pause') {
-          msg = "Timeline playback paused, sir.";
+          msg = "Timeline playback paused.";
         } else if (first.action === 'delete') {
-          msg = "Removed selected element from your workspace, sir.";
+          msg = "Removed selected element from your workspace.";
         } else if (first.action === 'add_text') {
-          msg = "Added a draggable, editable text layer onto your canvas, sir.";
+          msg = "Added a draggable, editable text layer onto your canvas.";
         } else if (first.action === 'set_watermark') {
-          msg = first.enabled === false ? "Creator watermark hidden from canvas, sir." : "Creator watermark restored, sir.";
+          msg = first.enabled === false ? "Creator watermark hidden from canvas." : "Creator watermark restored.";
         } else if (first.action === 'freeze_frame') {
-          msg = "Inserted a two-second freeze frame at the playhead, sir.";
+          msg = "Inserted a two-second freeze frame at the playhead.";
         } else if (first.action === 'jump_cuts') {
-          msg = "Applied automatic silence jump-cuts across dead air intervals, sir.";
+          msg = "Applied automatic silence jump-cuts across dead air intervals.";
         } else if (first.action === 'undo') {
-          msg = "Reverted your previous edit action, sir.";
+          msg = "Reverted your previous edit action.";
         } else if (first.action === 'redo') {
-          msg = "Restored your edit action, sir.";
+          msg = "Restored your edit action.";
         } else if (first.action === 'set_layout') {
-          msg = `Switched layout to ${first.mode.replace('-', ' ')}, sir.`;
+          msg = `Switched layout to ${first.mode.replace('-', ' ')}.`;
         } else if (first.action === 'set_broll') {
-          msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage, sir.`;
+          msg = `Applied ${first.preset.replace('-', ' ')} gameplay footage.`;
         } else if (first.action === 'set_caption_style') {
-          msg = `Updated subtitle style to ${first.style.replace('-', ' ')}, sir.`;
+          msg = `Updated subtitle style to ${first.style.replace('-', ' ')}.`;
         } else if (first.action === 'toggle_captions') {
-          msg = first.enabled === false ? "Subtitles hidden from preview, sir." : "Subtitles restored on preview, sir.";
+          msg = first.enabled === false ? "Subtitles hidden from preview." : "Subtitles restored on preview.";
         } else if (first.action === 'auto_edit') {
-          msg = "Executing 1-Click AI Auto-Edit for Kai Cenat Whop clipping. Converting sequence to 9:16 vertical, cutting dead air, translating to US English, and generating matching Pixabay stock B-roll, sir.";
+          msg = "Executing 1-Click AI Auto-Edit for Kai Cenat Whop clipping. Converting sequence to 9:16 vertical, cutting dead air, translating to US English, and generating matching Pixabay stock B-roll.";
         } else if (first.action === 'translate_captions') {
-          msg = "Translating your subtitles into fluent American/British English for 50%+ native reach, sir.";
+          msg = "Translating your subtitles into fluent American/British English for 50%+ native reach.";
         } else if (first.action === 'auto_broll') {
-          msg = "Scanning speech context and auto-inserting matching HD stock B-roll, sir.";
+          msg = "Scanning speech context and auto-inserting matching HD stock B-roll.";
         } else if (first.action === 'clear_broll') {
-          msg = "Cleared all B-roll cutaway clips from the timeline, sir.";
+          msg = "Cleared all B-roll cutaway clips from the timeline.";
         } else if (first.action === 'set_broll_mode') {
-          msg = `Switched B-roll cutaway display framing to ${first.mode}, sir.`;
+          msg = `Switched B-roll cutaway display framing to ${first.mode}.`;
         } else if (first.action === 'search_pixabay') {
-          msg = `Searching Pixabay stock video repository for "${first.query}", sir.`;
+          msg = `Searching Pixabay stock video repository for "${first.query}".`;
         } else if (first.action === 'ai_review') {
-          msg = "Running Gemini AI review on all candidate clips across viewer retention heatmaps, sir.";
+          msg = "Running Gemini AI review on all candidate clips across viewer retention heatmaps.";
         } else if (first.action === 'whop_rules_check') {
-          msg = "Verified Kai Cenat campaign rules: 50%+ US/UK audience, #KaiCenat tag required, 10.21-10.31 content, no logos, submit within 30 minutes of posting, sir.";
+          msg = "Verified Kai Cenat campaign rules: 50%+ US/UK audience, #KaiCenat tag required, 10.21-10.31 content, no logos, submit within 30 minutes of posting.";
         } else if (first.action === 'set_screen_size') {
-          msg = `I've resized the video preview to a sleek, compact ${first.size || 'small'} phone mockup, sir.`;
+          msg = `I've resized the video preview to a sleek, compact ${first.size || 'small'} phone mockup.`;
         } else if (first.action === 'set_mode') {
-          msg = "Switched to All-Around Universal AI Creator mode, ready for any video, sir.";
+          msg = "Switched to All-Around Universal AI Creator mode, ready for any video.";
         } else if (first.action === 'set_clipping_type') {
           const names = {
             'reaction': 'Reaction Clip formula with 60/40 Split and Face Tracking',
@@ -1630,7 +1668,7 @@
             'text-on-screen': 'Text-On-Screen formula with Kinetic Subtitles and Story Time Badge',
             'music-edit': 'Car Phonk Edit formula with 140 BPM beat-synced cuts, velocity ramps, and anti-lag exhaust pops'
           };
-          msg = `Applied the ${names[first.archetype] || 'Clipping Archetype'} formula across your sequence, sir.`;
+          msg = `Applied the ${names[first.archetype] || 'Clipping Archetype'} formula across your sequence.`;
         }
         const latencyMs = Math.max(1, Math.round(performance.now() - startTs));
         this.addChatMessage('user', rawText);
@@ -1648,14 +1686,14 @@
       if (window.WhopStudio?.setSystemPulse) window.WhopStudio.setSystemPulse(true);
 
       const dynamicFallbacks = [
-        "At your service, sir. All neural engines and editing timelines are active. What would you like to create?",
-        "Right here, sir. I am monitoring your timeline and ready for your next edit command.",
-        "Always at your disposal, sir. How may I assist your video project today?",
-        "Systems are primed and operational, sir. Tell me what needs to be cut, captioned, or styled.",
-        "Listening intently, sir. Shall we work on the cuts, or perhaps inspect the captions?",
-        "Standing by, sir. Let me know which direction you'd like to take this viral edit.",
-        "Indeed, sir. Every tool in our editing suite is at your fingertips. What is your command?",
-        "Delighted to assist, sir. Your footage is loaded and ready for our next creative move."
+        "At your service. All neural engines and editing timelines are active. What would you like to create?",
+        "Right here. I am monitoring your timeline and ready for your next edit command.",
+        "Always at your disposal. How may I assist your video project today?",
+        "Systems are primed and operational. Tell me what needs to be cut, captioned, or styled.",
+        "Listening intently. Shall we work on the cuts, or perhaps inspect the captions?",
+        "Standing by. Let me know which direction you'd like to take this viral edit.",
+        "Indeed. Every tool in our editing suite is at your fingertips. What is your command?",
+        "Delighted to assist. Your footage is loaded and ready for our next creative move."
       ];
       let responseText = dynamicFallbacks[Math.floor(Math.random() * dynamicFallbacks.length)];
       let aiText = '';
@@ -1689,13 +1727,13 @@
           }
         }
       } catch (err) {
-        console.warn('[JARVIS] Server chat notice, attempting direct endpoint fallback:', err);
+        console.warn('[AI Assistant] Server chat notice, attempting direct endpoint fallback:', err);
       }
 
       // Step 2: Direct browser API query if server was unreachable
       if (!aiText && this.googleKey) {
         try {
-          const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'JARVIS'}: ${turn.text}`).join('\n');
+          const recentHistory = this.chatHistory.slice(-6).map((turn) => `${turn.role === 'user' ? 'User' : 'AI Assistant'}: ${turn.text}`).join('\n');
           const systemPrompt = `You are J.A.R.V.I.S., Tony Stark's witty, polite, sophisticated AI assistant and master video editor.
 Always address the user as "Sir" or "sir".
 You possess full interactive control over the user's OpenChatCut / autobroll video editor timeline: you can execute 1-click AI auto-edit ('auto_edit'), translate speech/subtitles to fluent US/UK English with Gemini ('translate_captions'), auto-match Pixabay stock B-roll ('auto_broll'), search stock footage ('search_pixabay'), verify Kai Cenat Whop campaign rules ('whop_rules_check'), split clips, delete layers, add editable text overlays, and trigger 1080p vertical exports.
@@ -1704,13 +1742,13 @@ You understand Tagalog and Taglish 100% fluently.
 CRITICAL MANDATE: You MUST ALWAYS speak and reply in fluent, suave British English.
 Keep answers concise (1 to 2 spoken sentences) so it sounds like real-time voice speech.
 OUTPUT FORMAT: You MUST return a single JSON object:
-{"reply": "Your British spoken response here, sir.", "actions": []}
+{"reply": "Your British spoken response here.", "actions": []}
 Do NOT include markdown fences, thoughts, or extra explanations outside JSON.
 
 Conversation Context:
 ${recentHistory}
 User: ${prompt}
-JARVIS:`;
+AI Assistant:`;
 
           const modelsToTry = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
           for (const model of modelsToTry) {
@@ -1737,11 +1775,11 @@ JARVIS:`;
                 }
               }
             } catch (mErr) {
-              console.warn(`[JARVIS] Client query to ${model} notice:`, mErr);
+              console.warn(`[AI Assistant] Client query to ${model} notice:`, mErr);
             }
           }
         } catch (e) {
-          console.warn('[JARVIS] AI client query notice:', e);
+          console.warn('[AI Assistant] AI client query notice:', e);
         }
       }
 
@@ -1818,7 +1856,7 @@ JARVIS:`;
       const bubble = document.createElement('div');
       bubble.className = `jarvis-msg ${role === 'user' ? 'msg-user' : 'msg-jarvis'}`;
       bubble.innerHTML = `
-        <div class="msg-author">${role === 'user' ? 'YOU' : 'JARVIS • AI CO-DIRECTOR'}</div>
+        <div class="msg-author">${role === 'user' ? 'YOU' : 'AI ASSISTANT'}</div>
         <div class="msg-body">${this.escapeHtml(text)}</div>
         ${toolCardsHtml}
         ${xrayHtml}
@@ -1834,7 +1872,7 @@ JARVIS:`;
       const loadingBubble = document.createElement('div');
       loadingBubble.className = 'jarvis-msg msg-jarvis';
       loadingBubble.innerHTML = `
-        <div class="msg-author">JARVIS • ONLINE SEARCH</div>
+        <div class="msg-author">AI ASSISTANT • ONLINE SEARCH</div>
         <div class="msg-body">
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="spinner" style="width:14px; height:14px; border:2px solid #38bdf8; border-top-color:transparent; border-radius:50%; display:inline-block; animation:spin 0.8s linear infinite;"></span>
@@ -1855,7 +1893,7 @@ JARVIS:`;
         if (loadingBubble.parentNode) loadingBubble.remove();
 
         if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
-          this.addChatMessage('jarvis', `No online videos found for "${query}". You can try searching another channel or topic, sir.`);
+          this.addChatMessage('jarvis', `No online videos found for "${query}". You can try searching another channel or topic.`);
           return;
         }
 
@@ -1863,7 +1901,7 @@ JARVIS:`;
         cardsBubble.className = 'jarvis-msg msg-jarvis jarvis-yt-results';
         
         let listHtml = `
-          <div class="msg-author">JARVIS • YOUTUBE SEARCH RESULTS (${data.results.length} VIDEOS)</div>
+          <div class="msg-author">AI ASSISTANT • YOUTUBE SEARCH RESULTS (${data.results.length} VIDEOS)</div>
           <div style="font-size:12px; color:#94a3b8; margin-bottom:8px;">Found on YouTube for <b>${this.escapeHtml(query)}</b>:</div>
           <div class="jarvis-yt-cards" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; padding-right:4px;">
         `;
@@ -1902,8 +1940,8 @@ JARVIS:`;
             const vUrl = btn.getAttribute('data-url');
             const vTitle = btn.getAttribute('data-title');
             this.addChatMessage('user', `Auto-clip this video: ${vTitle}`);
-            this.addChatMessage('jarvis', `Executing 1-Click Auto-Edit for "${vTitle}" matching campaign requirements, Sir!`);
-            this.speak(`Executing auto-edit for this video, Sir.`);
+            this.addChatMessage('jarvis', `Executing 1-Click Auto-Edit for "${vTitle}" matching campaign requirements!`);
+            this.speak(`Executing auto-edit for this video.`);
             const studio = window.WhopStudio;
             if (studio?.extractAndAutoEditUrl) {
               studio.extractAndAutoEditUrl(vUrl);
@@ -1945,7 +1983,7 @@ JARVIS:`;
         : '<li>• Millionaire interview highlights / net worth</li>';
 
       bubble.innerHTML = `
-        <div class="msg-author">JARVIS • CAMPAIGN BOUNTY ACTIVATED 🎯</div>
+        <div class="msg-author">AI Assistant • CAMPAIGN BOUNTY ACTIVATED 🎯</div>
         <div style="background:#090d16; border:1px solid #059669; border-radius:8px; padding:10px; margin-top:4px;">
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:6px; margin-bottom:8px;">
             <span style="color:#10b981; font-weight:700; font-size:13px;">${this.escapeHtml(camp.campaign_name || 'Creator Bounty')}</span>
