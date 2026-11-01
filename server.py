@@ -450,6 +450,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # Redirect root directly to OpenChatCut NLE + Wayin Studio
+        if path in ("/", "/index.html", "/app"):
+            self.send_response(302)
+            self.send_header("Location", "http://localhost:5199/")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            return
+
         # REST API Routes
         if path == "/api/status":
             self.handle_api_status()
