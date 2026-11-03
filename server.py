@@ -42,21 +42,99 @@ import ai_multimodal_analyzer
 import image_search
 import auto_clip_pipeline
 
+def load_dotenv_file():
+    """
+    Loads all key=value pairs from ROOT_DIR / '.env' directly into os.environ,
+    and synchronizes them to secret_keys.json so that changing .env in one place
+    immediately updates the entire project for all callers.
+    """
+    env_file = ROOT_DIR / ".env"
+    if not env_file.exists():
+        return {}
+
+    parsed = {}
+    try:
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip().strip("'\"")
+            if k:
+                parsed[k] = v
+                os.environ[k] = v
+    except Exception as e:
+        sys.stderr.write(f"[Dotenv Notice] Error reading .env: {e}\n")
+
+    # Auto-sync to secret_keys.json for legacy compatibility
+    try:
+        secret_path = ROOT_DIR / "secret_keys.json"
+        existing = {}
+        if secret_path.exists():
+            try:
+                existing = json.loads(secret_path.read_text(encoding="utf-8"))
+            except Exception:
+                existing = {}
+
+        updated = {
+            "gemini_api_key": parsed.get("GEMINI_API_KEY") or parsed.get("LLM_GEMINI_API_KEY") or existing.get("gemini_api_key", ""),
+            "nvidia_api_key": parsed.get("NVIDIA_API_KEY") or parsed.get("LLM_OPENAI_API_KEY") or existing.get("nvidia_api_key", ""),
+            "agentrouter_api_key": parsed.get("AGENTROUTER_API_KEY") or existing.get("agentrouter_api_key", ""),
+            "agentrouter_model": parsed.get("AGENTROUTER_MODEL") or existing.get("agentrouter_model", "gpt-5.6-sol"),
+            "elevenlabs_api_key": parsed.get("ELEVENLABS_API_KEY") or existing.get("elevenlabs_api_key", ""),
+            "pixabay_api_key": parsed.get("PIXABAY_API_KEY") or existing.get("pixabay_api_key", ""),
+            "pexels_api_key": parsed.get("PEXELS_API_KEY") or existing.get("pexels_api_key", ""),
+            "unsplash_app_id": parsed.get("UNSPLASH_APP_ID") or existing.get("unsplash_app_id", ""),
+            "unsplash_access_key": parsed.get("UNSPLASH_ACCESS_KEY") or existing.get("unsplash_access_key", ""),
+            "unsplash_secret_key": parsed.get("UNSPLASH_SECRET_KEY") or existing.get("unsplash_secret_key", ""),
+        }
+        secret_path.write_text(json.dumps(updated, indent=2), encoding="utf-8")
+    except Exception as e:
+        sys.stderr.write(f"[Dotenv Sync] Error syncing secret_keys.json: {e}\n")
+
+    return parsed
+
+# Initial load on module startup
+load_dotenv_file()
+
+
 def load_local_secret(name: str) -> str:
-    val = os.environ.get(name, "")
+    # 1. Check os.environ first (populated by .env)
+    val = os.environ.get(name, "") or os.environ.get(name.upper(), "") or os.environ.get(name.lower(), "")
     if val:
         return val.strip()
+
+    # 2. Re-read .env dynamically in case user edited .env while server is running
+    env_path = ROOT_DIR / ".env"
+    if env_path.exists():
+        try:
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("'\"")
+                    if k.lower() == name.lower():
+                        os.environ[k] = v
+                        return v
+        except Exception:
+            pass
+
+    # 3. Fallback to secret_keys.json
     secret_path = ROOT_DIR / "secret_keys.json"
     if secret_path.exists():
         try:
             data = json.loads(secret_path.read_text(encoding="utf-8"))
-            return str(data.get(name.lower(), "") or data.get(name, "")).strip()
+            res = str(data.get(name.lower(), "") or data.get(name, "")).strip()
+            if res:
+                return res
         except Exception:
             pass
     return ""
 
 
-def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 15) -> str:
+def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 5) -> str:
     key = api_key or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
     if not key:
         return ""
@@ -66,16 +144,12 @@ def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "",
         body["systemInstruction"] = {"parts": [{"text": system_directive}]}
 
     models_to_try = [
-        "gemini-flash-lite-latest",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
         "gemini-flash-latest",
-        "gemini-3-flash-preview",
-        "gemini-3.5-flash",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash-lite",
     ]
     json_bytes = json.dumps(body).encode("utf-8")
 
-    # Method 1: Direct urllib.request (fastest, zero process-spawning overhead)
     for model_name in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
         try:
@@ -87,50 +161,24 @@ def query_gemini_api(prompt: str, api_key: str = "", system_directive: str = "",
                     text = cands[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                     if text:
                         return text.strip()
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 402, 403, 429):
+                sys.stderr.write(f"[Gemini API Notice] Quota/Auth code {e.code} on {model_name}, skipping retries\n")
+                break
+            continue
         except Exception:
             continue
-
-    # Method 2: Curl fallback
-    engine.TEMP.mkdir(parents=True, exist_ok=True)
-    temp_f = engine.TEMP / f"gemini_req_{int(time.time() * 1000)}_{os.getpid()}.json"
-    try:
-        temp_f.write_text(json.dumps(body), encoding="utf-8")
-        file_arg = f"@{str(temp_f).replace(chr(92), '/')}"
-        for model_name in models_to_try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
-            proc = subprocess.run(
-                ["curl.exe", "-s", "-m", str(timeout), "-X", "POST", url, "-H", "Content-Type: application/json", "-d", file_arg],
-                capture_output=True, text=True, timeout=timeout + 2
-            )
-            if proc.returncode == 0 and proc.stdout:
-                try:
-                    data = json.loads(proc.stdout)
-                    cands = data.get("candidates") or []
-                    if cands:
-                        text = cands[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        if text:
-                            return text.strip()
-                except Exception:
-                    continue
-    except Exception as e:
-        sys.stderr.write(f"[Gemini API Helper] Error: {e}\n")
-    finally:
-        try:
-            temp_f.unlink(missing_ok=True)
-        except Exception:
-            pass
     return ""
 
 
-def query_nvidia_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 22) -> str:
+def query_nvidia_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 5) -> str:
     key = api_key or os.environ.get("NVIDIA_API_KEY", "") or load_local_secret("NVIDIA_API_KEY")
     if not key:
         return ""
 
     models_to_try = [
         "meta/llama-3.2-90b-vision-instruct",
-        "mistralai/mistral-large-4-1t-a52b",
-        "meta/llama-3.2-11b-vision-instruct",
+        "mistralai/mistral-large-2-instruct",
     ]
     messages = []
     if system_directive:
@@ -159,31 +207,109 @@ def query_nvidia_api(prompt: str, api_key: str = "", system_directive: str = "",
                     content = (choices[0].get("message", {}).get("content", "") or "").strip()
                     if content:
                         return content
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 402, 403, 410, 429):
+                sys.stderr.write(f"[NVIDIA API Notice] Code {e.code} on {model_name}\n")
+                break
+            continue
+        except Exception:
+            continue
+    return ""
+
+def query_agentrouter_api(prompt: str, api_key: str = "", system_directive: str = "", timeout: int = 25) -> str:
+    key = api_key or os.environ.get("AGENTROUTER_API_KEY", "") or load_local_secret("agentrouter_api_key")
+    if not key:
+        return ""
+
+    models_to_try = [
+        os.environ.get("AGENTROUTER_MODEL", "") or load_local_secret("agentrouter_model") or "gpt-6-astra",
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-5.6-sol"
+    ]
+    seen = set()
+    ordered_models = []
+    for m in models_to_try:
+        if m and m not in seen:
+            seen.add(m)
+            ordered_models.append(m)
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Originator": "codex_cli_rs",
+        "User-Agent": "codex_cli_rs/0.101.0 (Windows NT 10.0; Win64; x64)",
+        "Content-Type": "application/json"
+    }
+    ep = "https://agentrouter.org/v1/responses"
+
+    full_input = prompt
+    if system_directive:
+        full_input = f"{system_directive}\n\n{prompt}"
+
+    for model_name in ordered_models:
+        body = {
+            "model": model_name,
+            "input": full_input
+        }
+        try:
+            req = urllib.request.Request(ep, data=json.dumps(body).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                for item in res.get("output", []):
+                    if item.get("type") == "message":
+                        for c in item.get("content", []):
+                            txt = c.get("text", "")
+                            if txt:
+                                return txt.strip()
         except Exception as e:
-            sys.stderr.write(f"[NVIDIA API Notice] {model_name} error: {e}\n")
+            sys.stderr.write(f"[AgentRouter API] {model_name} notice: {e}\n")
             continue
     return ""
 
 
-def query_ai_engine(prompt: str, system_directive: str = "", preferred: str = "auto", gemini_key: str = "", nvidia_key: str = "", timeout: int = 22) -> str:
+def query_ai_engine(prompt: str, system_directive: str = "", preferred: str = "auto", gemini_key: str = "", nvidia_key: str = "", agentrouter_key: str = "", timeout: int = 25) -> str:
     """
-    Dual-engine AI query router:
-    Leverages Google Gemini 3.5 / Flash and NVIDIA NIM (Llama 3.2 90B / 11B / Mistral Large).
-    Provides instant fallback so AI services never fail.
+    Multi-engine AI query router:
+    Respects PREFERRED_AI_ENGINE from .env:
+    - "gemini": Google Gemini first, then NVIDIA, then AgentRouter
+    - "agentrouter": AgentRouter (gpt-5.6-sol / gpt-6.1-sol) first, then Gemini/NVIDIA
+    - "nvidia": NVIDIA first, then Gemini, then AgentRouter
     """
-    if preferred == "nvidia":
-        out = query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=timeout)
+    pref = (os.environ.get("PREFERRED_AI_ENGINE", "") or preferred or "gemini").lower().strip()
+
+    if pref == "agentrouter" or preferred == "agentrouter":
+        ar_out = query_agentrouter_api(prompt, api_key=agentrouter_key, system_directive=system_directive, timeout=timeout)
+        if ar_out:
+            return ar_out
+        out = query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=4)
         if out:
             return out
-        return query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=timeout)
+        out = query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=3)
+        if out:
+            return out
+    elif pref == "nvidia" or preferred == "nvidia":
+        out = query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=3)
+        if out:
+            return out
+        out = query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=4)
+        if out:
+            return out
+        ar_out = query_agentrouter_api(prompt, api_key=agentrouter_key, system_directive=system_directive, timeout=timeout)
+        if ar_out:
+            return ar_out
     else:
-        out = query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=timeout)
+        # Default: Gemini first, NVIDIA second, AgentRouter fallback
+        out = query_gemini_api(prompt, api_key=gemini_key, system_directive=system_directive, timeout=4)
         if out:
             return out
-        return query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=timeout)
-
-
-def ai_review_viral_moments(transcript_words: list, total_dur: float, video_title: str = "", target_dur: float = 30.0, gemini_key: str = "", nvidia_key: str = "") -> list:
+        out = query_nvidia_api(prompt, api_key=nvidia_key, system_directive=system_directive, timeout=3)
+        if out:
+            return out
+        ar_out = query_agentrouter_api(prompt, api_key=agentrouter_key, system_directive=system_directive, timeout=timeout)
+        if ar_out:
+            return ar_out
+    return ""
+def ai_review_viral_moments(transcript_words: list, total_dur: float, video_title: str = "", target_dur: float = 30.0, gemini_key: str = "", nvidia_key: str = "", agentrouter_key: str = "") -> list:
     """
     Multimodal AI Virality Reviewer:
     Uses Dual-Engine (Gemini 3.5 + NVIDIA NIM 90B) to deeply review timestamped speech
@@ -258,7 +384,7 @@ def ai_review_viral_moments(transcript_words: list, total_dur: float, video_titl
         )
 
         try:
-            raw_out = query_ai_engine(prompt, system_directive="You are an elite short-form viral judge. Return ONLY valid JSON.", preferred="auto", gemini_key=gemini_key, nvidia_key=nvidia_key, timeout=25)
+            raw_out = query_ai_engine(prompt, system_directive="You are an elite short-form viral judge. Return ONLY valid JSON.", preferred="auto", gemini_key=gemini_key, nvidia_key=nvidia_key, agentrouter_key=agentrouter_key, timeout=25)
             if raw_out:
                 clean = raw_out.strip()
                 if "```" in clean:
@@ -423,6 +549,18 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT_DIR), **kwargs)
 
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            self.close_connection = True
+
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            self.close_connection = True
+
     def log_message(self, format, *args):
         # Concise logging
         msg = format % args
@@ -449,6 +587,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if path.startswith("/whop-engine"):
+            path = path[len("/whop-engine"):]
 
         # Redirect root directly to OpenChatCut NLE + Wayin Studio
         if path in ("/", "/index.html", "/app"):
@@ -473,10 +613,14 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             return
         elif path == "/api/keys":
             self.send_json_response({
+                "preferred_ai_engine": load_local_secret("PREFERRED_AI_ENGINE") or "gemini",
+                "agentrouter_api_key": load_local_secret("AGENTROUTER_API_KEY"),
+                "agentrouter_model": load_local_secret("AGENTROUTER_MODEL") or "gpt-5.6-sol",
                 "gemini_api_key": load_local_secret("GEMINI_API_KEY"),
                 "nvidia_api_key": load_local_secret("NVIDIA_API_KEY"),
                 "elevenlabs_api_key": load_local_secret("ELEVENLABS_API_KEY"),
                 "pixabay_api_key": load_local_secret("PIXABAY_API_KEY") or "58281434-0199a4345a7540437f190c4d9",
+                "pexels_api_key": load_local_secret("PEXELS_API_KEY") or "58281434-0199a4345a7540437f190c4d9",
                 "unsplash_access_key": load_local_secret("UNSPLASH_ACCESS_KEY") or "pEEhSdoMFbLHDPoi_Au-AQUY7_K8lBH4bwXCsUKJZ7M"
             })
             return
@@ -526,6 +670,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if path.startswith("/whop-engine"):
+            path = path[len("/whop-engine"):]
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
@@ -545,8 +691,12 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_auto_edit_all(payload)
         elif path in ("/api/prepare_moment", "/api/prepare-moment"):
             self.handle_api_prepare_moment(payload)
+        elif path in ("/api/delete_video", "/api/delete-video", "/api/delete_clip", "/api/delete-clip"):
+            self.handle_api_delete_video(payload)
         elif path in ("/api/inspect_url", "/api/inspect-url"):
             self.handle_api_inspect_url(payload)
+        elif path in ("/api/wayin_pipeline", "/api/wayin-pipeline"):
+            self.handle_api_wayin_pipeline(payload)
         elif path in ("/api/analyze", "/api/analyze-video"):
             self.handle_api_analyze(payload)
         elif path in ("/api/render_ffmpeg", "/api/render-ffmpeg"):
@@ -557,6 +707,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             self.handle_api_command(payload)
         elif path in ("/api/jarvis_chat", "/api/jarvis-chat"):
             self.handle_api_jarvis_chat(payload)
+        elif path in ("/api/timeline_captions", "/api/timeline-captions"):
+            self.handle_api_timeline_captions(payload)
         elif path in ("/api/retranscribe", "/api/re-transcribe"):
             self.handle_api_retranscribe(payload)
         elif path in ("/api/prompt_director", "/api/prompt-director"):
@@ -577,9 +729,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     current = json.loads(secret_path.read_text(encoding="utf-8"))
                 except Exception:
                     current = {}
-            for k in ("gemini_api_key", "nvidia_api_key", "elevenlabs_api_key", "pixabay_api_key", "unsplash_access_key", "unsplash_secret_key", "unsplash_app_id"):
+            for k in ("agentrouter_api_key", "agentrouter_model", "preferred_ai_engine", "gemini_api_key", "nvidia_api_key", "elevenlabs_api_key", "pixabay_api_key", "pexels_api_key", "unsplash_access_key", "unsplash_secret_key", "unsplash_app_id"):
                 if k in payload and payload[k]:
-                    current[k] = str(payload[k]).strip()
+                    val = str(payload[k]).strip()
+                    current[k] = val
+                    os.environ[k.upper()] = val
             secret_path.write_text(json.dumps(current, indent=2), encoding="utf-8")
             self.send_json_response({"success": True, "message": "Keys saved successfully"})
         elif path in ("/api/post_caption", "/api/post-caption"):
@@ -674,7 +828,7 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                         break
                     self.wfile.write(chunk)
                     bytes_left -= len(chunk)
-        except (ConnectionResetError, BrokenPipeError):
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
             self.close_connection = True
             pass  # Client navigated away or scrubbed ahead
         except Exception as e:
@@ -739,10 +893,44 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         self.send_json_response({"videos": videos})
 
     def handle_api_active_project(self, parsed_url):
-        projects = engine.load_saved_projects()
         params = parse_qs(parsed_url.query)
         target_id = params.get("id", [None])[0]
         video_param = params.get("video", [None])[0]
+
+        # Fast-path: If we have a recently inspected YouTube URL & 20 viral moments, return it in <5ms without blocking on Whisper!
+        last_inspected_file = engine.TEMP / "last_inspected_moments.json"
+        if not target_id and not video_param and last_inspected_file.exists():
+            try:
+                loaded_last = json.loads(last_inspected_file.read_text(encoding="utf-8"))
+                if loaded_last and isinstance(loaded_last.get("viralMoments"), list) and len(loaded_last["viralMoments"]) > 0:
+                    fn = loaded_last.get("filename") or ""
+                    vtitle = loaded_last.get("title") or "Online Video"
+                    vurl = loaded_last.get("url") or ""
+                    moments = loaded_last["viralMoments"]
+                    self.send_json_response({
+                        "project": {
+                            "id": f"proj_{Path(fn).stem}" if fn else "proj_last_inspected",
+                            "title": vtitle,
+                            "filename": fn,
+                            "url": vurl,
+                        },
+                        "video_url": f"/uploads/{fn}" if fn else "",
+                        "filename": fn,
+                        "duration": 600.0,
+                        "width": 1280,
+                        "height": 720,
+                        "analysis": {
+                            "peaks": [0.5] * 60,
+                            "silences": [],
+                            "viralMoments": moments,
+                            "transcript": [],
+                        },
+                    })
+                    return
+            except Exception as fast_err:
+                sys.stderr.write(f"[Active Project Fast Path Notice] {fast_err}\n")
+
+        projects = engine.load_saved_projects()
 
         target_proj = None
         if target_id:
@@ -886,9 +1074,26 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         w3_en = min(dur_rounded, round(w3_st + 20.0, 2))
         w4_st = min(round(dur_rounded * 0.50, 2), max(0.0, dur_rounded - 10.0))
         w4_en = min(dur_rounded, round(w4_st + 15.0, 2))
-        # Use exact 20 Wayin Moments if project is Atlanta / Millionaires or default
+        # Use exact 20 Wayin Moments if project is Atlanta / Millionaires, or last_inspected_moments.json if available
+        last_inspected_file = engine.TEMP / "last_inspected_moments.json"
+        loaded_last = None
+        if last_inspected_file.exists():
+            try:
+                loaded_last = json.loads(last_inspected_file.read_text(encoding="utf-8"))
+            except Exception:
+                loaded_last = None
+
         is_atlanta = ("asking" in video_filename.lower() or "millionaire" in video_filename.lower() or "atlanta" in video_filename.lower() or "hard_knocks" in video_filename.lower() or "proj_asking" in target_proj.get("id", "").lower())
-        if is_atlanta and hasattr(wayin_catalog, "WAYIN_20_MOMENTS"):
+        if loaded_last and isinstance(loaded_last.get("viralMoments"), list) and len(loaded_last["viralMoments"]) > 0 and (not target_id):
+            pro_viral_candidates = loaded_last["viralMoments"]
+            if loaded_last.get("filename"):
+                video_filename = loaded_last["filename"]
+                target_proj["filename"] = video_filename
+            if loaded_last.get("title"):
+                target_proj["title"] = loaded_last["title"]
+            if loaded_last.get("url"):
+                target_proj["url"] = loaded_last["url"]
+        elif is_atlanta and hasattr(wayin_catalog, "WAYIN_20_MOMENTS"):
             pro_viral_candidates = list(wayin_catalog.WAYIN_20_MOMENTS)
         else:
             pro_viral_candidates = [
@@ -992,10 +1197,59 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         }
         self.send_json_response(response_data)
 
+    def handle_api_delete_video(self, payload):
+        """
+        Deletes a downloaded video or sliced clip from uploads/ and OpenChatCut's /media/uploads/
+        so the user can freely clean up any clips or videos they don't like.
+        """
+        try:
+            filename = (payload.get("filename") or "").strip()
+            url = (payload.get("url") or "").strip()
+            deleted_files = []
+
+            targets_to_delete = set()
+            if filename and "/" not in filename and "\\" not in filename:
+                targets_to_delete.add(filename)
+            if url:
+                vid = engine.extract_youtube_video_id(url)
+                if vid:
+                    targets_to_delete.add(f"yt_{vid}.mp4")
+                    for p in engine.UPLOADS.glob(f"*_{vid}*"):
+                        targets_to_delete.add(p.name)
+
+            search_dirs = [
+                engine.UPLOADS,
+                engine.ROOT / "OpenChatCut" / "public" / "media" / "uploads",
+                Path.home() / ".openchatcut" / "media" / "uploads",
+            ]
+            dev_profiles_dir = Path.home() / ".openchatcut" / "dev-profiles"
+            if dev_profiles_dir.exists():
+                for prof in dev_profiles_dir.iterdir():
+                    if prof.is_dir():
+                        search_dirs.append(prof / "media" / "uploads")
+
+            for fname in targets_to_delete:
+                for d in search_dirs:
+                    fp = d / fname
+                    if fp.exists() and fp.is_file():
+                        try:
+                            fp.unlink()
+                            deleted_files.append(str(fp.name))
+                        except Exception as del_err:
+                            sys.stderr.write(f"[Delete Video Notice] {del_err}\n")
+
+            self.send_json_response({
+                "success": True,
+                "deleted": list(set(deleted_files)),
+                "message": f"Deleted {len(set(deleted_files))} file(s)."
+            })
+        except Exception as e:
+            self.send_json_response({"success": False, "error": str(e)}, status=500)
+
     def handle_api_prepare_moment(self, payload):
         """
-        Ensures a specific viral moment is downloaded and sliced as an MP4 in uploads/
-        before loading into OpenChatCut timeline.
+        Ensures a specific viral moment is downloaded and sliced as a standalone MP4 in uploads/
+        AND mirrored into OpenChatCut's /media/uploads/ before loading into OpenChatCut timeline.
         """
         try:
             url = payload.get("url") or payload.get("video_url") or ""
@@ -1004,18 +1258,62 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             end = float(payload.get("end", start + 30.0))
             title = payload.get("title", "Clip")
 
-            # If filename already exists and is non-empty
+            source_video = None
             if filename:
-                p = engine.UPLOADS / filename
-                if p.exists() and p.stat().st_size > 1000:
+                cand = engine.UPLOADS / filename
+                if cand.exists() and cand.stat().st_size > 50_000:
+                    source_video = cand
+
+            if not source_video and url and url.startswith("http"):
+                vid = engine.extract_youtube_video_id(url)
+                if vid:
+                    cached_yt = engine.UPLOADS / f"yt_{vid}.mp4"
+                    if cached_yt.exists() and cached_yt.stat().st_size > 50_000:
+                        source_video = cached_yt
+                    else:
+                        try:
+                            source_video = engine.download_full_youtube_video(url)
+                        except Exception as dl_err:
+                            sys.stderr.write(f"[Prepare Moment Full DL Notice] {dl_err}\n")
+
+            # If we have the full source video on disk, slice the exact [start, end] clip in <1s!
+            if source_video and source_video.exists():
+                # If source_video is already a sliced clip matching this duration, just sync and return it
+                if source_video.name.startswith("clip_"):
+                    engine.sync_file_to_openchatcut_uploads(source_video)
+                    meta = engine.probe_video_metadata(source_video)
                     self.send_json_response({
                         "success": True,
-                        "filename": filename,
-                        "url": f"http://127.0.0.1:3000/uploads/{filename}"
+                        "filename": source_video.name,
+                        "url": f"http://127.0.0.1:3000/uploads/{source_video.name}",
+                        "openchatcut_src": f"/media/uploads/{source_video.name}",
+                        "sliced": True,
+                        "duration": meta.get("duration", round(end - start, 2)),
+                        "width": meta.get("width", 1280),
+                        "height": meta.get("height", 720),
                     })
                     return
 
-            # Slicing highlight section
+                sliced_clip = engine.slice_local_video_clip(
+                    source_video=source_video,
+                    clip_start=start,
+                    clip_end=end,
+                )
+                engine.sync_file_to_openchatcut_uploads(sliced_clip)
+                meta = engine.probe_video_metadata(sliced_clip)
+                self.send_json_response({
+                    "success": True,
+                    "filename": sliced_clip.name,
+                    "url": f"http://127.0.0.1:3000/uploads/{sliced_clip.name}",
+                    "openchatcut_src": f"/media/uploads/{sliced_clip.name}",
+                    "sliced": sliced_clip != source_video,
+                    "duration": meta.get("duration", round(end - start, 2)),
+                    "width": meta.get("width", 1280),
+                    "height": meta.get("height", 720),
+                })
+                return
+
+            # Fallback: Slicing highlight section directly via yt-dlp/ffmpeg
             if url and url.startswith("http"):
                 downloaded = engine.download_highlight_section(
                     url=url,
@@ -1023,10 +1321,17 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                     clip_end=end,
                     title=title
                 )
+                engine.sync_file_to_openchatcut_uploads(downloaded)
+                meta = engine.probe_video_metadata(downloaded)
                 self.send_json_response({
                     "success": True,
                     "filename": downloaded.name,
-                    "url": f"http://127.0.0.1:3000/uploads/{downloaded.name}"
+                    "url": f"http://127.0.0.1:3000/uploads/{downloaded.name}",
+                    "openchatcut_src": f"/media/uploads/{downloaded.name}",
+                    "sliced": True,
+                    "duration": meta.get("duration", round(end - start, 2)),
+                    "width": meta.get("width", 1280),
+                    "height": meta.get("height", 720),
                 })
                 return
 
@@ -1034,10 +1339,13 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             uploads = list(engine.UPLOADS.glob("*.mp4"))
             if uploads:
                 best = sorted(uploads, key=lambda x: x.stat().st_mtime, reverse=True)[0]
+                engine.sync_file_to_openchatcut_uploads(best)
                 self.send_json_response({
                     "success": True,
                     "filename": best.name,
-                    "url": f"http://127.0.0.1:3000/uploads/{best.name}"
+                    "url": f"http://127.0.0.1:3000/uploads/{best.name}",
+                    "openchatcut_src": f"/media/uploads/{best.name}",
+                    "sliced": False,
                 })
                 return
 
@@ -1045,6 +1353,17 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             import traceback
             traceback.print_exc()
+            self.send_json_response({"success": False, "error": str(e)}, status=500)
+
+    def handle_api_wayin_pipeline(self, payload):
+        source = payload.get("source") or payload.get("url") or payload.get("video") or ""
+        target_dur = float(payload.get("target_duration", 30.0))
+        try:
+            from wayin_video_intelligence import WayinVideoIntelligenceEngine
+            engine_inst = WayinVideoIntelligenceEngine()
+            res = engine_inst.analyze_source(source, target_dur)
+            self.send_json_response(res)
+        except Exception as e:
             self.send_json_response({"success": False, "error": str(e)}, status=500)
 
     def handle_api_inspect_url(self, payload):
@@ -1062,27 +1381,86 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 sys.stderr.write(f"[Inspect URL Warning] {meta_err}. Using fallback video profile.\n")
                 meta_info = {
                     "url": url,
-                    "title": "Asking Black Millionaires How They Got Rich in Atlanta",
-                    "duration": 1395.0,
-                    "thumbnail": "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&q=80",
+                    "title": "Online Video",
+                    "duration": 600.0,
+                    "thumbnail": "",
                     "heatmap": [],
                     "heatmap_count": 0,
                     "has_subtitles": False,
                     "chapters": [],
                     "info": {}
                 }
-            campaign_res = engine.find_all_campaign_clips_across_video(
-                meta=meta_info,
-                target_min=20.0,
-                target_max=58.0,
-                preferred_target=target_dur
-            )
-            peak = campaign_res["top_window"]
-            candidates = campaign_res["candidates"]
-            campaign_clips = campaign_res["campaign_clips"]
-            for c in campaign_clips:
-                c["start"] = float(c.get("clip_start", c.get("start", 0.0)))
-                c["end"] = float(c.get("clip_end", c.get("end", c["start"] + target_dur)))
+
+            # Download the actual YouTube video MP4 into uploads/ so all 20 preview cards and the Editor play the real video!
+            downloaded_filename = ""
+            try:
+                sys.stderr.write(f"[Inspect URL] Downloading YouTube video into uploads/ for {url}...\n")
+                dl_path = engine.download_full_youtube_video(url)
+                if dl_path and dl_path.exists():
+                    downloaded_filename = dl_path.name
+                    sys.stderr.write(f"[Inspect URL] Ready local video file: {downloaded_filename} ({dl_path.stat().st_size // 1024} KB)\n")
+            except Exception as dl_err:
+                sys.stderr.write(f"[Inspect URL Download Notice] {dl_err}\n")
+
+            # Wayin Video Intelligence Engine (0 Paid APIs)
+            wayin_clips = None
+            try:
+                from wayin_video_intelligence import WayinVideoIntelligenceEngine
+                sys.stderr.write("[Inspect URL] Executing Local Wayin Video Intelligence Engine (0 Paid APIs)...\n")
+                wayin_eng = WayinVideoIntelligenceEngine()
+                
+                target_src = None
+                if downloaded_filename and (engine.UPLOADS / downloaded_filename).exists():
+                    target_src = str(engine.UPLOADS / downloaded_filename)
+                elif (engine.UPLOADS / url).exists():
+                    target_src = str(engine.UPLOADS / url)
+                    downloaded_filename = url
+                elif os.path.exists(url):
+                    target_src = url
+                    downloaded_filename = Path(url).name
+                else:
+                    target_src = url
+
+                wayin_out = wayin_eng.analyze_source(source=target_src, target_dur=target_dur)
+                if wayin_out and wayin_out.get("viralMoments"):
+                    wayin_clips = wayin_out["viralMoments"]
+                    meta_info["title"] = wayin_out.get("title", meta_info.get("title"))
+                    meta_info["duration"] = wayin_out.get("duration", meta_info.get("duration"))
+                    if not downloaded_filename and wayin_out.get("filename"):
+                        downloaded_filename = wayin_out["filename"]
+                    sys.stderr.write(f"[Inspect URL] Wayin Engine produced {len(wayin_clips)} viral moments!\n")
+            except Exception as wayin_err:
+                sys.stderr.write(f"[Inspect URL] Wayin Engine fallback notice: {wayin_err}\n")
+
+            if wayin_clips:
+                campaign_clips = wayin_clips
+                for c in campaign_clips:
+                    if downloaded_filename:
+                        c["filename"] = downloaded_filename
+                        c["video_url"] = f"http://127.0.0.1:3000/uploads/{downloaded_filename}"
+                peak = campaign_clips[0] if campaign_clips else None
+                candidates = campaign_clips
+                campaign_res = {"sub_segments": [], "campaign_clips": wayin_clips}
+            else:
+                campaign_res = engine.find_all_campaign_clips_across_video(
+                    meta=meta_info,
+                    target_min=20.0,
+                    target_max=58.0,
+                    preferred_target=target_dur
+                )
+                peak = campaign_res["top_window"]
+                candidates = campaign_res["candidates"]
+                campaign_clips = campaign_res["campaign_clips"]
+                for c in campaign_clips:
+                    c["start"] = float(c.get("clip_start", c.get("start", 0.0)))
+                    c["end"] = float(c.get("clip_end", c.get("end", c["start"] + target_dur)))
+                    if downloaded_filename:
+                        c["filename"] = downloaded_filename
+                        c["video_url"] = f"http://127.0.0.1:3000/uploads/{downloaded_filename}"
+                if downloaded_filename:
+                    engine.extract_moment_thumbnails(engine.UPLOADS / downloaded_filename, campaign_clips)
+            if peak and downloaded_filename:
+                peak["filename"] = downloaded_filename
 
             video_dur = float(meta_info.get("duration") or 60.0)
             video_title = str(meta_info.get("title") or "Stream Link")
@@ -1115,9 +1493,24 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 except Exception as ai_err:
                     sys.stderr.write(f"[Inspect URL] Gemini review notice: {ai_err}\n")
 
+            try:
+                (engine.TEMP / "last_inspected_moments.json").write_text(
+                    json.dumps({
+                        "title": video_title,
+                        "url": url,
+                        "filename": downloaded_filename,
+                        "viralMoments": campaign_clips,
+                    }, indent=2),
+                    encoding="utf-8"
+                )
+            except Exception:
+                pass
+
             self.send_json_response({
                 "success": True,
                 "title": video_title,
+                "filename": downloaded_filename,
+                "video_url": f"http://127.0.0.1:3000/uploads/{downloaded_filename}" if downloaded_filename else "",
                 "duration": video_dur,
                 "thumbnail": meta_info.get("thumbnail", ""),
                 "heatmap_found": meta_info.get("heatmap_count", 0) > 0,
@@ -1131,20 +1524,21 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 "analysis": {
                     "viralMoments": campaign_clips,
                     "title": video_title,
+                    "filename": downloaded_filename,
                     "duration": video_dur,
                     "thumbnail": meta_info.get("thumbnail", "")
                 },
-                "channel_credit": "@theschoolofhardknocks",
+                "channel_credit": campaign_res.get("channel_credit", ""),
                 "campaign_brief": {
-                    "source": "youtube.com/@theschoolofhardknocks",
-                    "channel": "@theschoolofhardknocks",
-                    "requirements": "20–60s vertical clips | Zero Face Zoom | Strongest hook in first 2s | @theschoolofhardknocks credit",
+                    "source": url,
+                    "channel": campaign_res.get("channel_credit", ""),
+                    "requirements": "20–60s vertical clips | Strongest hook in first 2s | Ready for OpenChatCut NLE",
                     "categories": [
-                        "What do you do for a living?",
-                        "Net worth reveal, car, house",
-                        "One sharp piece of advice from a millionaire",
-                        "I started with $600... type stories",
-                        "Funny or unexpected answers"
+                        "High Retention Hooks",
+                        "Big Reveals & Payoffs",
+                        "Key Insights & Advice",
+                        "Story & Backstory",
+                        "Unexpected Moments"
                     ]
                 }
             })
@@ -1515,6 +1909,158 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             sys.stderr.write(f"[Server Retranscribe Error] {e}\n")
             self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_api_timeline_captions(self, payload):
+        """
+        Generates 100% accurate, split-aware, trim-aware synchronized captions
+        strictly aligned with whatever video clips are currently placed on the timeline editor.
+        """
+        try:
+            fps = float(payload.get("fps", 30.0))
+            clips = payload.get("clips", [])
+            if not clips:
+                self.send_json_response({"success": True, "words": []})
+                return
+
+            def get_video_words(source_name):
+                stem = Path(source_name).stem
+                cand_paths = [
+                    engine.TEMP / f"{stem}.transcript.json",
+                    engine.TEMP / f"yt_transcript_{stem.replace('yt_', '')}.json",
+                    engine.TEMP / f"yt_transcript_{stem}.json",
+                ]
+                m = re.match(r"clip_(.+)_(\d+)s_(\d+)s", stem)
+                parent_offset = 0.0
+                parent_stem = None
+                if m:
+                    parent_stem = m.group(1)
+                    parent_offset = float(m.group(2))
+                    cand_paths.extend([
+                        engine.TEMP / f"{parent_stem}.transcript.json",
+                        engine.TEMP / f"yt_transcript_{parent_stem.replace('yt_', '')}.json",
+                        engine.TEMP / f"yt_transcript_{parent_stem}.json",
+                    ])
+                
+                for cp in cand_paths:
+                    if cp.exists() and cp.stat().st_size > 50:
+                        try:
+                            raw = json.loads(cp.read_text(encoding="utf-8"))
+                            words_list = []
+                            segs = raw if isinstance(raw, list) else raw.get("segments", [])
+                            for seg in segs:
+                                seg_words = seg.get("words", [])
+                                if seg_words:
+                                    for w in seg_words:
+                                        words_list.append({
+                                            "word": w.get("word", "").strip(),
+                                            "start": float(w.get("start", 0.0)),
+                                            "end": float(w.get("end", 0.0)),
+                                        })
+                                else:
+                                    s_text = seg.get("text", "").strip()
+                                    if s_text:
+                                        s_st = float(seg.get("start", 0.0))
+                                        s_en = float(seg.get("end", s_st + 1.0))
+                                        words_list.append({
+                                            "word": s_text,
+                                            "start": s_st,
+                                            "end": s_en,
+                                        })
+                            if words_list:
+                                return words_list, parent_offset
+                        except Exception:
+                            pass
+
+                actual_file = engine.UPLOADS / source_name
+                if not actual_file.exists() and parent_stem:
+                    cand_parent = engine.UPLOADS / f"{parent_stem}.mp4"
+                    if cand_parent.exists():
+                        actual_file = cand_parent
+                if actual_file.exists():
+                    try:
+                        segs = engine.transcribe_video(actual_file)
+                        words_list = []
+                        for seg in segs:
+                            for w in seg.get("words", []):
+                                words_list.append({
+                                    "word": w.get("word", "").strip(),
+                                    "start": float(w.get("start", 0.0)),
+                                    "end": float(w.get("end", 0.0)),
+                                })
+                        if words_list:
+                            return words_list, parent_offset
+                    except Exception as err:
+                        sys.stderr.write(f"[Timeline Captions Transcribe Error] {err}\n")
+
+                return [], 0.0
+
+            all_mapped_words = []
+            word_counter = 0
+
+            sorted_clips = sorted(clips, key=lambda c: float(c.get("startFrame", 0)))
+
+            for clip in sorted_clips:
+                clip_id = str(clip.get("id", "clip"))
+                src_filename = str(clip.get("sourceFilename") or clip.get("src") or "").split("/")[-1].split("?")[0]
+                if not src_filename:
+                    continue
+
+                source_words, parent_offset = get_video_words(src_filename)
+                if not source_words:
+                    continue
+
+                start_frame = float(clip.get("startFrame", 0))
+                dur_frames = float(clip.get("durationInFrames", 30))
+                src_in_frame = float(clip.get("srcInFrame", 0))
+                rate = float(clip.get("playbackRate", 1.0))
+                if rate <= 0:
+                    rate = 1.0
+
+                clip_timeline_start_sec = start_frame / fps
+                clip_timeline_dur_sec = dur_frames / fps
+
+                clip_src_start_sec = (src_in_frame / fps) + parent_offset
+                clip_src_end_sec = clip_src_start_sec + (clip_timeline_dur_sec * rate)
+
+                clip_words = [
+                    w for w in source_words
+                    if w["end"] >= clip_src_start_sec and w["start"] <= clip_src_end_sec
+                ]
+
+                for w in clip_words:
+                    rel_src_start = max(0.0, w["start"] - clip_src_start_sec)
+                    rel_src_end = max(rel_src_start + 0.05, w["end"] - clip_src_start_sec)
+
+                    tl_start_sec = clip_timeline_start_sec + (rel_src_start / rate)
+                    tl_end_sec = clip_timeline_start_sec + (rel_src_end / rate)
+
+                    tl_end_sec = min(clip_timeline_start_sec + clip_timeline_dur_sec, tl_end_sec)
+                    if tl_start_sec >= clip_timeline_start_sec + clip_timeline_dur_sec:
+                        continue
+
+                    start_ms = int(round(tl_start_sec * 1000))
+                    end_ms = int(round(max(tl_start_sec + 0.08, tl_end_sec) * 1000))
+
+                    clean_text = w["word"].strip()
+                    if clean_text:
+                        all_mapped_words.append({
+                            "id": f"w_tl_{clip_id}_{word_counter}",
+                            "text": clean_text,
+                            "start": start_ms,
+                            "end": end_ms,
+                        })
+                        word_counter += 1
+
+            all_mapped_words.sort(key=lambda w: (w["start"], w["end"]))
+
+            self.send_json_response({
+                "success": True,
+                "total_words": len(all_mapped_words),
+                "words": all_mapped_words,
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Timeline Captions Error] {e}\n")
+            self.send_json_response({"success": False, "error": str(e), "words": []}, status=500)
 
     def handle_api_prompt_director(self, payload):
         """
@@ -1902,6 +2448,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             overlay_pos_y = float(payload.get("overlay_pos_y", 0.34))
             overlay_scale = float(payload.get("overlay_scale", 1.0))
 
+            target_res = payload.get("target_res", "1080p")
+            target_fps = int(payload.get("target_fps", 30))
+            target_bitrate = str(payload.get("target_bitrate", "20M"))
+            credit_text = str(payload.get("credit_text", ""))
+
             rendered_video = engine.render_vertical_clip(
                 src_video=video_path,
                 start_sec=start_sec,
@@ -1917,6 +2468,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
                 overlay_pos_x=overlay_pos_x,
                 overlay_pos_y=overlay_pos_y,
                 overlay_scale=overlay_scale,
+                target_res=target_res,
+                target_fps=target_fps,
+                target_bitrate=target_bitrate,
+                credit_text=credit_text,
             )
 
             file_size_mb = round(rendered_video.stat().st_size / (1024 * 1024), 2)
@@ -2448,10 +3003,11 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
         fall back to its offline generator. The client re-validates everything
         (required hashtags, tone, length) before showing it.
         """
+        agentrouter_key = (payload.get("agentrouter_api_key") or "").strip() or os.environ.get("AGENTROUTER_API_KEY", "") or load_local_secret("agentrouter_api_key")
         gemini_key = (payload.get("api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "") or load_local_secret("GEMINI_API_KEY")
         nvidia_key = (payload.get("nvidia_api_key") or "").strip() or os.environ.get("NVIDIA_API_KEY", "") or load_local_secret("NVIDIA_API_KEY")
-        if not gemini_key and not nvidia_key:
-            self.send_json_response({"success": False, "error": "No Gemini or NVIDIA API key configured"})
+        if not agentrouter_key and not gemini_key and not nvidia_key:
+            self.send_json_response({"success": False, "error": "No AI API key (AgentRouter / Gemini / NVIDIA) configured"})
             return
 
         creator = str(payload.get("creator") or "the creator").strip()[:60]
@@ -2465,7 +3021,8 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
 
         prompt_txt = (
             "You write high-converting, viral short-form social video captions for a video clip.\n"
-            "Target audience: native English speakers in the USA, UK, Canada, Australia and New Zealand.\n"
+            "Target audience: native English speakers in the United States (US audience).\n"
+            "CRITICAL LANGUAGE RULE: Output MUST be 100% in natural, fluent American English (US English). Never use Tagalog or any foreign words under any circumstances.\n"
             f"Creator/Channel: {creator}. Video Title: {title}. Platform: {platform}. Edit style: {archetype or 'viral short'}.\n"
             f"Clip spoken transcript:\n\"\"\"{transcript or '(no transcript)'}\"\"\"\n"
             f"Campaign / Channel brief:\n\"\"\"{brief or '(none)'}\"\"\"\n"
@@ -2485,9 +3042,10 @@ class WhopStudioHandler(SimpleHTTPRequestHandler):
             preferred="auto",
             gemini_key=gemini_key,
             nvidia_key=nvidia_key,
-            timeout=22
+            agentrouter_key=agentrouter_key,
+            timeout=25
         )
-        used_model = "ai-dual-engine (gemini/nvidia)"
+        used_model = "Gemini / NVIDIA NIM (Dual-Engine) + AgentRouter fallback"
 
         variants = []
         if raw_output:

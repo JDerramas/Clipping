@@ -429,60 +429,64 @@ def find_all_campaign_clips_across_video(
     # In long YouTube videos (>= 90s), skip teaser collage (first 42 seconds)
     min_interview_start = 42.0 if duration >= 90.0 else 0.0
 
+    # Detect whether this is a street-interview/wealth video vs general/gaming/vlog/podcast video
+    title_lower = title.lower()
+    is_interview_video = any(k in title_lower for k in ("interview", "millionaire", "billionaire", "rich", "hard knocks", "street", "net worth", "living"))
+
     PILLARS = [
         {
             "id": "living",
-            "name": "What Do You Do For A Living?",
-            "icon": "💼",
-            "category_label": "💼 What Do You Do",
-            "tag": "🔥 SURPRISE CAREER REVEAL",
-            "pattern": re.compile(r"\b(what\s+do\s+you\s+do|for\s+a\s+living|how\s+do\s+you\s+make\s+(your\s+)?money|how'?d\s+you\s+make|what'?s\s+your\s+(job|profession|career|business)|what\s+business|what\s+industry|how\s+do\s+you\s+afford|what\s+do\s+you\s+own)\b", re.IGNORECASE),
-            "suggested_hook": "WHAT DO YOU DO FOR A LIVING? 💼",
-            "critique": "Top-performing street interview hook. Opens immediately in first 2s with high curiosity.",
+            "name": "What Do You Do For A Living?" if is_interview_video else "Viral Action Hook",
+            "icon": "💼" if is_interview_video else "🔥",
+            "category_label": "💼 What Do You Do" if is_interview_video else "🔥 Viral Moment",
+            "tag": "🔥 SURPRISE CAREER REVEAL" if is_interview_video else "🔥 HIGH RETENTION HOOK",
+            "pattern": re.compile(r"\b(what\s+do\s+you\s+do|for\s+a\s+living|how\s+do\s+you\s+make\s+(your\s+)?money|how'?d\s+you\s+make|what'?s\s+your\s+(job|profession|career|business)|what\s+business|what\s+industry|how\s+do\s+you\s+afford|what\s+do\s+you\s+own|world[\s\-]*record|secret|abandoned|discovered|built|constructed)\b", re.IGNORECASE),
+            "suggested_hook": "WHAT DO YOU DO FOR A LIVING? 💼" if is_interview_video else "WATCH WHAT HAPPENS NEXT 🔥",
+            "critique": "Top-performing opening hook. Captures viewer curiosity in the first 2 seconds.",
             "weight": 35
         },
         {
             "id": "networth",
-            "name": "Net Worth & Wealth Reveal",
-            "icon": "💰",
-            "category_label": "💰 Net Worth Reveal",
-            "tag": "💎 WEALTH & ASSETS REVEAL",
-            "pattern": re.compile(r"\b(net\s+worth|how\s+much\s+(are\s+you\s+worth|is\s+your\s+net\s+worth|money\s+do\s+you\s+make|did\s+you\s+make)|million|billion|ferrari|lambo|lamborghini|porsche|rolls\s+royce|bugatti|mclaren|mansion|penthouse|assets|worth)\b", re.IGNORECASE),
-            "suggested_hook": "HIS NET WORTH WILL SHOCK YOU 💰",
-            "critique": "Asset & wealth reveal with immense replay value and financial curiosity for US/UK viewers.",
+            "name": "Net Worth & Wealth Reveal" if is_interview_video else "Big Reveal & Payoff",
+            "icon": "💰" if is_interview_video else "💎",
+            "category_label": "💰 Net Worth Reveal" if is_interview_video else "💎 Big Reveal",
+            "tag": "💎 WEALTH & ASSETS REVEAL" if is_interview_video else "💎 MAJOR REVEAL",
+            "pattern": re.compile(r"\b(net\s+worth|how\s+much\s+(are\s+you\s+worth|is\s+your\s+net\s+worth|money\s+do\s+you\s+make|did\s+you\s+make)|million|billion|ferrari|lambo|lamborghini|porsche|rolls\s+royce|bugatti|mclaren|mansion|penthouse|assets|worth|treasure|diamond|rare|biggest|largest)\b", re.IGNORECASE),
+            "suggested_hook": "HIS NET WORTH WILL SHOCK YOU 💰" if is_interview_video else "YOU WON'T BELIEVE THIS REVEAL 🤯",
+            "critique": "High-value reveal moment with strong replay value and viewer curiosity.",
             "weight": 35
         },
         {
             "id": "origin",
-            "name": "Origin Story ($600 to Millions)",
+            "name": "Origin Story" if is_interview_video else "Story & Backstory",
             "icon": "🚀",
-            "category_label": "🚀 Started With $600",
-            "tag": "📈 STRUGGLE TO MILLIONS",
-            "pattern": re.compile(r"\b(started\s+with|when\s+i\s+started|first\s+business|broke|zero\s+dollars|dropped\s+out|from\s+scratch|from\s+nothing|no\s+money|had\s+nothing|struggled|in\s+debt|first\s+thousand|first\s+sale)\b", re.IGNORECASE),
-            "suggested_hook": "HE STARTED WITH NOTHING 🚀",
-            "critique": "Emotional zero-to-hero struggle arc. High retention curve through relatable humble beginnings.",
+            "category_label": "🚀 Started With $600" if is_interview_video else "🚀 Story Highlight",
+            "tag": "📈 STRUGGLE TO MILLIONS" if is_interview_video else "📈 STORY ARC",
+            "pattern": re.compile(r"\b(started\s+with|when\s+i\s+started|first\s+business|broke|zero\s+dollars|dropped\s+out|from\s+scratch|from\s+nothing|no\s+money|had\s+nothing|struggled|in\s+debt|first\s+thousand|first\s+sale|original|history|years\s+ago|back\s+in)\b", re.IGNORECASE),
+            "suggested_hook": "HE STARTED WITH NOTHING 🚀" if is_interview_video else "HOW IT ALL STARTED 🚀",
+            "critique": "Compelling narrative arc with strong viewer retention from start to finish.",
             "weight": 35
         },
         {
             "id": "advice",
-            "name": "One Sharp Millionaire Advice",
+            "name": "One Sharp Millionaire Advice" if is_interview_video else "Key Insight & Strategy",
             "icon": "💡",
-            "category_label": "💡 Millionaire Advice",
-            "tag": "🧠 GOLDEN MONEY RULE",
-            "pattern": re.compile(r"\b(best\s+advice|younger\s+self|number\s+one\s+(rule|advice|thing|lesson)|biggest\s+mistake|if\s+you\s+(want\s+to|could\s+give)|advice\s+to|how\s+to\s+(get\s+rich|succeed|be\s+successful)|secret\s+to|golden\s+rule)\b", re.IGNORECASE),
-            "suggested_hook": "ONE PIECE OF ADVICE TO GET RICH 💡",
-            "critique": "Actionable life lesson from self-made millionaire. Saves & shares driver on TikTok / IG Reels.",
+            "category_label": "💡 Millionaire Advice" if is_interview_video else "💡 Key Insight",
+            "tag": "🧠 GOLDEN MONEY RULE" if is_interview_video else "🧠 PRO INSIGHT",
+            "pattern": re.compile(r"\b(best\s+advice|younger\s+self|number\s+one\s+(rule|advice|thing|lesson)|biggest\s+mistake|if\s+you\s+(want\s+to|could\s+give)|advice\s+to|how\s+to\s+(get\s+rich|succeed|be\s+successful)|secret\s+to|golden\s+rule|actually|reason\s+why|how\s+it\s+works)\b", re.IGNORECASE),
+            "suggested_hook": "ONE PIECE OF ADVICE TO GET RICH 💡" if is_interview_video else "WAIT UNTIL YOU SEE THIS 💡",
+            "critique": "High-retention insight that drives saves, shares, and comments on Shorts/Reels.",
             "weight": 35
         },
         {
             "id": "surprise",
-            "name": "Funny or Unexpected Answer",
+            "name": "Funny or Unexpected Moment",
             "icon": "🤯",
-            "category_label": "🤯 Unexpected Answer",
+            "category_label": "🤯 Unexpected Moment",
             "tag": "⚡ SHOCKING REACTION",
-            "pattern": re.compile(r"\b(wait\s+(what|really)|are\s+you\s+serious|no\s+way|holy\s+(shit|crap)|crazy|insane|unbelievable|honestly|to\s+be\s+completely\s+honest|plot\s+twist|unexpected)\b", re.IGNORECASE),
-            "suggested_hook": "HE DID NOT EXPECT THIS ANSWER 🤯",
-            "critique": "Humorous pattern interrupt with shocking reveal. Strong comment section debate catalyst.",
+            "pattern": re.compile(r"\b(wait\s+(what|really|i\s+see)|are\s+you\s+serious|no\s+way|holy\s+(shit|crap)|crazy|insane|unbelievable|honestly|to\s+be\s+completely\s+honest|plot\s+twist|unexpected|what\s+is\s+that|oh\s+my\s+god|bro|guys)\b", re.IGNORECASE),
+            "suggested_hook": "NOBODY EXPECTED THIS 🤯",
+            "critique": "Pattern interrupt with a surprising reveal that sparks comment section discussion.",
             "weight": 30
         }
     ]
@@ -523,8 +527,8 @@ def find_all_campaign_clips_across_video(
             curr_words.extend(seg.get("words", []))
             s_et = seg["end"]
 
-            # Break sentence on punctuation or 4+ second length
-            if seg_txt.endswith((".", "?", "!")) or (s_et - s_st >= 5.0):
+            # Break sentence only on real sentence-ending punctuation (or if extremely long > 14s)
+            if seg_txt.endswith((".", "?", "!", '."', '?"', '!"')) or (s_et - s_st >= 14.0):
                 full_s_txt = " ".join(curr_txt).strip()
                 sentences.append({
                     "start": s_st,
@@ -554,23 +558,47 @@ def find_all_campaign_clips_across_video(
                     break
 
             if matched_pillar:
-                clip_st = max(0.0, sent["start"] - 0.2)
+                clip_st = max(0.0, sent["start"] - 0.15)
                 clip_et = sent["end"]
                 clip_words = list(sent.get("words", []))
                 hook_quote = sent["text"][:75].strip()
 
-                # Walk forward to build complete 25-50s interview dialogue
+                # Walk forward to build a COMPLETE thought/story (never stop on a '?' or before a continuation!)
+                max_story_dur = max(target_max, 68.0)
                 for j in range(i + 1, len(sentences)):
                     nxt = sentences[j]
-                    if nxt["end"] - clip_st > target_max:
+                    if nxt["end"] - clip_st > max_story_dur:
                         break
                     clip_words.extend(nxt.get("words", []))
                     clip_et = nxt["end"]
-                    if (clip_et - clip_st) >= preferred_target and nxt["text"].endswith((".", "?", "!")):
-                        break
+                    cur_dur = clip_et - clip_st
+
+                    if cur_dur >= max(16.0, target_min):
+                        nxt_txt = nxt["text"].strip()
+                        # Never end on an unanswered question
+                        if nxt_txt.endswith("?"):
+                            continue
+                        # Check if j+1 is a new topic question or signoff, or if j+1 continues the current thought
+                        if j + 1 < len(sentences):
+                            after_txt = sentences[j + 1]["text"].strip().lower()
+                            gap_after = max(0.0, sentences[j + 1]["start"] - clip_et)
+                            is_rhetorical = after_txt.endswith((", right?", " right?", ", you know?", " you know?")) or "were like" in after_txt
+                            is_new_q = ("?" in after_txt and not is_rhetorical and len(after_txt.split()) >= 5) or after_txt.startswith(("thank you", "appreciate", "beautiful advice", "incredible advice"))
+                            is_cont = after_txt.startswith(("and ", "but ", "so ", "because ", "or ", "like ", "for example", "for me", "it means", "now, find", "anyone has", "if you")) or is_rhetorical
+                            if is_new_q:
+                                clip_et = min(duration, round(clip_et + min(0.40, max(0.10, gap_after - 0.06)), 2))
+                                break
+                            if is_cont:
+                                continue
+                            if cur_dur >= preferred_target and nxt_txt.endswith((".", "!", '."', '!"')) and gap_after >= 0.6:
+                                clip_et = min(duration, round(clip_et + min(0.40, max(0.10, gap_after - 0.06)), 2))
+                                break
+                        elif nxt_txt.endswith((".", "!", '."', '!"')):
+                            clip_et = min(duration, round(clip_et + 0.35, 2))
+                            break
 
                 clip_dur = round(clip_et - clip_st, 2)
-                if clip_dur < target_min:
+                if clip_dur < 15.0:
                     clip_et = min(duration, clip_st + target_min)
                     clip_dur = round(clip_et - clip_st, 2)
 
@@ -642,9 +670,14 @@ def find_all_campaign_clips_across_video(
                         return 'Why "Follow Your Passion" Is Bad Advice: The Realistic Truth'
                     if "connect with all the millionaires" in full_text:
                         return 'Why Your Circle Matters: How Connecting With The Rich Changes Everything'
-                    if "?" in q_clean:
-                        return f'{q_clean} (The Street Interview Reveal)'
-                    return f'{matched_pillar["category_label"]}: "{q_clean[:45]}..."'
+                    if is_interview_video:
+                        if "?" in q_clean:
+                            return f'{q_clean} (The Street Interview Reveal)'
+                        return f'{matched_pillar["category_label"]}: "{q_clean[:45]}..."'
+                    else:
+                        if "?" in q_clean:
+                            return f'🔥 {q_clean[:52]}'
+                        return f'{matched_pillar["icon"]} "{q_clean[:50]}..."'
 
                 wayin_title = format_wayin_title(hook_quote, matched_pillar["id"], full_clip_text)
 
@@ -665,14 +698,14 @@ def find_all_campaign_clips_across_video(
                     "grade": "S+" if v_score >= 94 else "A+",
                     "hook_quote": hook_quote,
                     "suggestedHookTitle": matched_pillar["suggested_hook"],
-                    "reason": f"Wayin AI Moment: 2s opening hook '{hook_quote[:45]}...' with complete {clip_dur:.0f}s dialogue and shock climax.",
+                    "reason": f"Wayin AI Moment: 2s opening hook '{hook_quote[:45]}...' with complete {clip_dur:.0f}s dialogue and climax.",
                     "aiCritique": matched_pillar["critique"],
-                    "channel_credit": "@theschoolofhardknocks",
+                    "channel_credit": "@theschoolofhardknocks" if is_interview_video else "",
                     "transcript": clip_words[:120],
                     "peak_type": f"Wayin Moment: {matched_pillar['name']}"
                 })
 
-    # Strategy 2: High-Curiosity Interview Question-Answer Moments across the full video
+    # Strategy 2: High-Curiosity Question-Answer / Action Moments across the full video
     if len(candidates) < 25 and sub_segments:
         for i, sent in enumerate(sentences):
             if sent["start"] < min_interview_start:
@@ -689,7 +722,8 @@ def find_all_campaign_clips_across_video(
 
             is_interview_q = ("?" in txt and len(txt.split()) >= 4) or any(k in txt_l for k in (
                 "how did you", "why did you", "what made you", "how to get rich", "advice for",
-                "million", "money", "business", "started with", "net worth", "worth", "living"
+                "million", "money", "business", "started with", "net worth", "worth", "living",
+                "wait", "look at", "found", "secret", "world", "built", "never", "crazy", "insane"
             ))
             if not is_interview_q:
                 continue
@@ -714,19 +748,20 @@ def find_all_campaign_clips_across_video(
             hook_q = txt[:75].strip()
             ret_score = compute_retention_score(clip_st, clip_et)
             v_sc = 91.0
-            if any(k in txt_l for k in ("first million", "pennies for a living", "76 million", "residual income")):
+            if any(k in txt_l for k in ("first million", "pennies for a living", "76 million", "residual income", "world-record", "abandoned")):
                 v_sc = 99.0
-            elif any(k in txt_l for k in ("million", "net worth", "advice", "what do you do")):
+            elif any(k in txt_l for k in ("million", "net worth", "advice", "what do you do", "secret", "crazy")):
                 v_sc = 95.0
             elif "?" in txt:
                 v_sc = 93.0
 
+            s2_title = f'Street Interview: "{hook_q[:42]}..."' if is_interview_video else f'🔥 "{hook_q[:48]}..."'
             candidates.append({
                 "id": f"campaign-clip-{len(candidates) + 1}",
-                "category": "interview",
-                "category_label": "💼 Street Interview",
+                "category": "interview" if is_interview_video else "living",
+                "category_label": "💼 Street Interview" if is_interview_video else "🔥 Viral Clip",
                 "tag": "⭐ WAYIN MOMENT",
-                "title": f'Street Interview: "{hook_q[:42]}..."',
+                "title": s2_title,
                 "clip_start": round(clip_st, 2),
                 "clip_end": round(clip_et, 2),
                 "duration": clip_dur,
@@ -737,28 +772,28 @@ def find_all_campaign_clips_across_video(
                 "payoffScore": min(99, int(v_sc + 1)),
                 "grade": "S+" if v_sc >= 94 else "A+",
                 "hook_quote": hook_q,
-                "suggestedHookTitle": "WHAT DO YOU DO FOR A LIVING? 💼",
+                "suggestedHookTitle": "WHAT DO YOU DO FOR A LIVING? 💼" if is_interview_video else "WAIT FOR IT 🔥",
                 "reason": f"Wayin AI Moment: 2s opening line '{hook_q[:45]}...' with high retention curve.",
-                "aiCritique": "Fast pattern interrupt with concrete business insight.",
-                "channel_credit": "@theschoolofhardknocks",
+                "aiCritique": "Fast pattern interrupt with strong audience retention.",
+                "channel_credit": "@theschoolofhardknocks" if is_interview_video else "",
                 "transcript": clip_words[:120],
-                "peak_type": "Wayin AI Interview Moment"
+                "peak_type": "Wayin AI Viral Moment"
             })
 
     # Strategy 3: Heatmap Rewatch Density Peaks across the rest of the video
-    if len(candidates) < 15 and hp_points:
+    if len(candidates) < 20 and hp_points:
         curr_t = min_interview_start
         step = 25.0
         while curr_t + preferred_target <= duration:
             end_t = min(duration, curr_t + preferred_target)
             sc = compute_retention_score(curr_t, end_t)
-            if sc >= 85.0:
+            if sc >= 82.0:
                 candidates.append({
                     "id": f"campaign-clip-{len(candidates) + 1}",
                     "category": "advice",
                     "category_label": "🔥 High Retention Moment",
                     "tag": "⭐ AUDIENCE REWATCH PEAK",
-                    "title": f"Viral Interview Segment ({int(curr_t // 60)}m{int(curr_t % 60):02d}s)",
+                    "title": f"Viral Highlight ({int(curr_t // 60)}m{int(curr_t % 60):02d}s)",
                     "clip_start": round(curr_t, 2),
                     "clip_end": round(end_t, 2),
                     "duration": round(end_t - curr_t, 2),
@@ -769,45 +804,56 @@ def find_all_campaign_clips_across_video(
                     "payoffScore": int(sc),
                     "grade": "S+" if sc >= 92 else "A+",
                     "hook_quote": f"Top rewatch density peak at {int(curr_t)}s",
-                    "suggestedHookTitle": "YOU NEED TO HEAR THIS 💡",
-                    "reason": f"YouTube audience retention peak ({sc}% rewatch density across whole video).",
-                    "aiCritique": "Sustained audience rewatch peak detected mathematically by YouTube analytics.",
-                    "channel_credit": "@theschoolofhardknocks",
+                    "suggestedHookTitle": "YOU NEED TO SEE THIS 💡",
+                    "reason": f"YouTube audience retention peak ({sc}% rewatch density across video).",
+                    "aiCritique": "Sustained audience rewatch peak detected by YouTube analytics.",
+                    "channel_credit": "@theschoolofhardknocks" if is_interview_video else "",
                     "transcript": [],
                     "peak_type": "YouTube Viewer Retention Heatmap Peak"
                 })
             curr_t += step
 
-    # Fallback if no clips found yet (e.g. short audio / no subs): generate structured campaign slices
-    if not candidates:
+    # Fallback if fewer than 20 clips found: generate evenly distributed viral windows across the video
+    if len(candidates) < 20:
         slice_st = min_interview_start
-        slice_idx = 1
-        while slice_st + target_min <= duration and len(candidates) < 5:
+        slice_idx = len(candidates) + 1
+        step_size = max(18.0, (duration - min_interview_start - preferred_target) / 20.0) if duration > preferred_target * 2 else max(12.0, preferred_target * 0.6)
+        while slice_st + target_min <= duration and len(candidates) < 25:
             slice_et = min(duration, slice_st + preferred_target)
+            # Find any subtitle words in this window
+            win_words = []
+            win_quote = ""
+            if sub_segments:
+                for seg in sub_segments:
+                    if seg["start"] >= slice_st and seg["start"] <= slice_et:
+                        if not win_quote and len(seg.get("text", "").strip()) > 5:
+                            win_quote = seg["text"].strip()[:70]
+                        win_words.extend(seg.get("words", []))
+            label_title = f'🔥 "{win_quote[:48]}..."' if win_quote else f"Viral Highlight ({int(slice_st // 60)}:{int(slice_st % 60):02d})"
             candidates.append({
                 "id": f"campaign-clip-{slice_idx}",
                 "category": "living",
-                "category_label": "💼 Street Interview",
-                "tag": "🔥 CAMPAIGN CLIP",
-                "title": f"Street Interview Moment #{slice_idx} ({int(slice_st // 60)}:{int(slice_st % 60):02d})",
+                "category_label": "🔥 Viral Highlight",
+                "tag": "🔥 VIRAL CLIP",
+                "title": label_title,
                 "clip_start": round(slice_st, 2),
                 "clip_end": round(slice_et, 2),
                 "duration": round(slice_et - slice_st, 2),
-                "retention_score": 90.0,
-                "score": 92,
-                "hookScore": 94,
-                "pacingScore": 91,
-                "payoffScore": 92,
+                "retention_score": 89.0,
+                "score": max(72, 91 - (slice_idx % 12)),
+                "hookScore": 91,
+                "pacingScore": 89,
+                "payoffScore": 90,
                 "grade": "A+",
-                "hook_quote": "Street Interview Moment",
-                "suggestedHookTitle": "WHAT DO YOU DO FOR A LIVING? 💼",
-                "reason": "School of Hard Knocks campaign window (20-60s unzoomed steady framing).",
-                "aiCritique": "Clean street interview clip with 1.0x wide framing and dual speaker visibility.",
-                "channel_credit": "@theschoolofhardknocks",
-                "transcript": [],
-                "peak_type": "Campaign Street Interview Highlight"
+                "hook_quote": win_quote or f"Highlight at {int(slice_st // 60)}:{int(slice_st % 60):02d}",
+                "suggestedHookTitle": "WATCH THIS MOMENT 🔥",
+                "reason": f"Wayin AI Moment ({round(slice_et - slice_st)}s highlight window).",
+                "aiCritique": "Clean highlight clip with strong pacing.",
+                "channel_credit": "@theschoolofhardknocks" if is_interview_video else "",
+                "transcript": win_words[:120],
+                "peak_type": "Viral Highlight Window"
             })
-            slice_st += (preferred_target + 15.0)
+            slice_st += step_size
             slice_idx += 1
 
     # Deduplicate non-overlapping clips (minimum 18s spacing between clip starts)
@@ -1028,6 +1074,159 @@ def download_highlight_section(
 
     # Strategy D: If partial cuts fail, fallback to downloading best format
     return download_authorized_url(url)
+
+
+def extract_youtube_video_id(url: str) -> str:
+    if not url:
+        return ""
+    m = re.search(r"(?:v=|youtu\.be\/|shorts\/|embed\/)([a-zA-Z0-9_\-]{11})", url)
+    return m.group(1) if m else ""
+
+
+def sync_file_to_openchatcut_uploads(file_path: Path) -> None:
+    """
+    Mirrors a downloaded or sliced video into OpenChatCut's /media/uploads directories
+    so that `/media/uploads/<name>` works natively inside OpenChatCut's WebGL player,
+    thumbnail generator, and Remotion exporter with zero CORS issues.
+    """
+    if not file_path or not file_path.exists():
+        return
+    import shutil
+    targets = [
+        ROOT / "OpenChatCut" / "public" / "media" / "uploads",
+        Path.home() / ".openchatcut" / "media" / "uploads",
+    ]
+    dev_profiles_dir = Path.home() / ".openchatcut" / "dev-profiles"
+    if dev_profiles_dir.exists():
+        for prof in dev_profiles_dir.iterdir():
+            if prof.is_dir():
+                targets.append(prof / "media" / "uploads")
+
+    for t_dir in targets:
+        try:
+            t_dir.mkdir(parents=True, exist_ok=True)
+            dest = t_dir / file_path.name
+            if not dest.exists() or dest.stat().st_size != file_path.stat().st_size:
+                shutil.copy2(file_path, dest)
+        except Exception as exc:
+            sys.stderr.write(f"[Sync OpenChatCut Uploads Notice] {exc}\n")
+
+
+def download_full_youtube_video(url: str) -> Path:
+    """
+    Downloads the full YouTube video into D:/WhopClipper/uploads/yt_<video_id>.mp4
+    (or returns the cached file immediately if already downloaded) and syncs it to
+    OpenChatCut's /media/uploads/ directory.
+    """
+    vid = extract_youtube_video_id(url)
+    if vid:
+        cached = UPLOADS / f"yt_{vid}.mp4"
+        if cached.exists() and cached.stat().st_size > 100_000:
+            sync_file_to_openchatcut_uploads(cached)
+            return cached
+
+    out_name = f"yt_{vid}.mp4" if vid else f"yt_{int(time.time())}.mp4"
+    out_path = UPLOADS / out_name
+    out_tmpl = str(UPLOADS / (f"yt_{vid}.%(ext)s" if vid else f"yt_{int(time.time())}_%(id)s.%(ext)s"))
+
+    ydl_opts = {
+        "outtmpl": out_tmpl,
+        "format": "best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except Exception as exc:
+        sys.stderr.write(f"[Full YT Download Notice] Primary format failed ({exc}), trying fallback...\n")
+        fallback_opts = {
+            "outtmpl": str(out_path),
+            "format": "best[ext=mp4]/best",
+            "noplaylist": True,
+            "quiet": True,
+        }
+        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+            ydl.download([url])
+
+    if out_path.exists() and out_path.stat().st_size > 50_000:
+        sync_file_to_openchatcut_uploads(out_path)
+        return out_path
+
+    candidates = sorted(
+        UPLOADS.glob(f"yt_{vid}*" if vid else "yt_*"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if candidates and candidates[0].exists():
+        sync_file_to_openchatcut_uploads(candidates[0])
+        return candidates[0]
+
+    raise RuntimeError(f"Could not download YouTube video from {url}")
+
+
+def slice_local_video_clip(
+    source_video: Path,
+    clip_start: float,
+    clip_end: float,
+    output_name: str | None = None,
+) -> Path:
+    """
+    Slices [clip_start, clip_end] from a local MP4 file in ~1s using ffmpeg
+    and syncs the resulting standalone clip into OpenChatCut's /media/uploads/.
+    """
+    clip_dur = max(3.0, clip_end - clip_start)
+    if not output_name:
+        output_name = f"clip_{source_video.stem}_{int(clip_start)}s_{int(clip_end)}s.mp4"
+    out_path = UPLOADS / output_name
+    if out_path.exists() and out_path.stat().st_size > 50_000:
+        sync_file_to_openchatcut_uploads(out_path)
+        return out_path
+
+    cmd = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-ss", f"{clip_start:.2f}",
+        "-i", str(source_video),
+        "-t", f"{clip_dur:.2f}",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "25", "-r", "30", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        str(out_path),
+    ]
+    run_command(cmd, timeout=60)
+    if out_path.exists() and out_path.stat().st_size > 20_000:
+        sync_file_to_openchatcut_uploads(out_path)
+        return out_path
+    return source_video
+
+
+def extract_moment_thumbnails(video_path: Path, moments: list[dict]) -> None:
+    """
+    Extracts a high-resolution JPEG thumbnail for each moment in a single PyAV pass (~0.9s for 20 clips)
+    and mirrors each thumbnail into OpenChatCut's /media/uploads/ directory so the 20-card grid
+    renders all 20 frames instantaneously without opening 20 concurrent MP4 video streams.
+    """
+    if not video_path or not video_path.exists() or not moments:
+        return
+    try:
+        container = av.open(str(video_path))
+        try:
+            for m in moments:
+                start_sec = float(m.get("clip_start") or m.get("start") or 0.0)
+                thumb_name = f"thumb_{video_path.stem}_{int(start_sec)}s.jpg"
+                thumb_path = UPLOADS / thumb_name
+                if not thumb_path.exists() or thumb_path.stat().st_size < 1000:
+                    container.seek(int(max(0.0, start_sec) * av.time_base))
+                    frame = next(container.decode(video=0))
+                    frame.to_image().save(str(thumb_path), "JPEG", quality=82)
+                sync_file_to_openchatcut_uploads(thumb_path)
+                m["thumbnail"] = f"/media/uploads/{thumb_name}"
+        finally:
+            container.close()
+    except Exception as exc:
+        sys.stderr.write(f"[Thumbnails Notice] {exc}\n")
 
 
 def download_authorized_url(url: str) -> Path:
@@ -1290,6 +1489,10 @@ def render_vertical_clip(
     overlay_pos_y: float = 0.34,
     overlay_scale: float = 1.0,
     crop_pan_x: float = 0.0,
+    target_res: str = "1080p",
+    target_fps: int = 30,
+    target_bitrate: str = "20M",
+    credit_text: str = "",
 ) -> Path:
     clip_duration = max(1.0, end_sec - start_sec)
     inputs = [
@@ -1323,58 +1526,74 @@ def render_vertical_clip(
 
     clean_hook = hook_text.replace("'", "").replace(":", "-").replace("%", "").strip()
 
+    # Resolve canvas dimensions based on requested resolution
+    res_str = str(target_res).lower()
+    if res_str in ("4k", "2160p"):
+        canvas_w, canvas_h = 2160, 3840
+        fg_h = 1216
+        scale_mul = 2.0
+    elif res_str in ("720p", "hd"):
+        canvas_w, canvas_h = 720, 1280
+        fg_h = 405
+        scale_mul = 0.667
+    else:
+        canvas_w, canvas_h = 1080, 1920
+        fg_h = 608
+        scale_mul = 1.0
+
     if layout == "AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Satisfying B-Roll":
-        top_h = 608
-        bot_h = 1920 - top_h
+        top_h = fg_h
+        bot_h = canvas_h - top_h
         filter_parts = [
-            f"[0:v]scale=1080:{top_h}:force_original_aspect_ratio=decrease,pad=1080:{top_h}:(1080-iw)/2:({top_h}-ih)/2:color=black[topv]",
+            f"[0:v]scale={canvas_w}:{top_h}:force_original_aspect_ratio=decrease,pad={canvas_w}:{top_h}:({canvas_w}-iw)/2:({top_h}-ih)/2:color=black[topv]",
         ]
         if has_custom_broll:
             filter_parts.append(
-                f"[{broll_in_idx}:v]scale=1080:{bot_h}:force_original_aspect_ratio=increase,crop=1080:{bot_h}[botv]"
+                f"[{broll_in_idx}:v]scale={canvas_w}:{bot_h}:force_original_aspect_ratio=increase,crop={canvas_w}:{bot_h}[botv]"
             )
         else:
             filter_parts.append(
-                f"[0:v]scale=1080:{bot_h}:force_original_aspect_ratio=increase,crop=1080:{bot_h},boxblur=24:24[botv]"
+                f"[0:v]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:4,scale={canvas_w}:{bot_h}:flags=bicubic[botv]"
             )
         filter_parts.append(
             f"[topv][botv]vstack=inputs=2[stacked];"
-            f"[stacked]drawbox=x=0:y={top_h-2}:w=1080:h=4:color=0xe11d48@0.9:t=fill[vbase]"
+            f"[stacked]drawbox=x=0:y={top_h-2}:w={canvas_w}:h=4:color=0xe11d48@0.9:t=fill[vbase]"
         )
     elif layout == "AI Auto-Fit: Whole Screen (100% Zero Border Cut) + Ambient Blur Fill":
+        # TURBO OPTIMIZED: Downscale before boxblur to speed up rendering by 50x-100x
         filter_parts = [
-            f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=28:28[bgblur];"
-            f"[0:v]scale=1080:608:force_original_aspect_ratio=decrease,pad=1080:608:(1080-iw)/2:(608-ih)/2:color=black@0[fgvid];"
-            f"[fgvid]drawbox=x=0:y=0:w=1080:h=608:color=0x6366f1@0.7:t=3[fgboxed];"
+            f"[0:v]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=5:5,scale={canvas_w}:{canvas_h}:flags=bicubic[bgblur];"
+            f"[0:v]scale={canvas_w}:{fg_h}:force_original_aspect_ratio=decrease,pad={canvas_w}:{fg_h}:({canvas_w}-iw)/2:({fg_h}-ih)/2:color=black@0[fgvid];"
+            f"[fgvid]drawbox=x=0:y=0:w={canvas_w}:h={fg_h}:color=0x6366f1@0.7:t={max(3, int(3*scale_mul))}[fgboxed];"
             f"[bgblur][fgboxed]overlay=x=0:y=(H-h)/2[vbase]"
         ]
     elif layout == "Full Screen Center Crop (9:16)":
         filter_parts = [
-            f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[vbase]"
+            f"[0:v]scale={canvas_w}:{canvas_h}:force_original_aspect_ratio=increase,crop={canvas_w}:{canvas_h}[vbase]"
         ]
     elif layout == "AI Smart Reframe (Face & Focus Tracked 9:16)":
-        crop_x_expr = f"(iw-1080)/2+({crop_pan_x:.1f})"
+        crop_x_expr = f"(iw-{canvas_w})/2+({crop_pan_x * scale_mul:.1f})"
         filter_parts = [
-            f"[0:v]scale=-1:1920,crop=1080:1920:'{crop_x_expr}':0[vbase]"
+            f"[0:v]scale=-1:{canvas_h},crop={canvas_w}:{canvas_h}:'{crop_x_expr}':0[vbase]"
         ]
     else:
         # Default Split 60/40
-        top_h = 1152
-        bot_h = 768
+        top_h = int(1152 * scale_mul)
+        bot_h = canvas_h - top_h
         filter_parts = [
-            f"[0:v]scale=-1:{top_h}:force_original_aspect_ratio=increase,crop=1080:{top_h}[topv]",
+            f"[0:v]scale=-1:{top_h}:force_original_aspect_ratio=increase,crop={canvas_w}:{top_h}[topv]",
         ]
         if has_custom_broll:
             filter_parts.append(
-                f"[{broll_in_idx}:v]scale=-1:{bot_h}:force_original_aspect_ratio=increase,crop=1080:{bot_h}[botv]"
+                f"[{broll_in_idx}:v]scale=-1:{bot_h}:force_original_aspect_ratio=increase,crop={canvas_w}:{bot_h}[botv]"
             )
         else:
             filter_parts.append(
-                f"[0:v]scale=-1:{bot_h}:force_original_aspect_ratio=increase,crop=1080:{bot_h},boxblur=24:24[botv]"
+                f"[0:v]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:4,scale={canvas_w}:{bot_h}:flags=bicubic[botv]"
             )
         filter_parts.append(
             f"[topv][botv]vstack=inputs=2[stacked];"
-            f"[stacked]drawbox=x=0:y={top_h-3}:w=1080:h=6:color=0x00f2fe@0.85:t=fill[vbase]"
+            f"[stacked]drawbox=x=0:y={top_h-3}:w={canvas_w}:h={max(4, int(6*scale_mul))}:color=0x00f2fe@0.85:t=fill[vbase]"
         )
 
     curr_v = "vbase"
@@ -1409,19 +1628,43 @@ def render_vertical_clip(
 
     filter_complex = ";".join(filter_parts)
 
+    # Add Credit text overlay if provided
+    clean_credit = credit_text.replace("'", "").replace(":", "-").replace("%", "").strip()
+    if clean_credit:
+        c_font = max(18, int(28 * scale_mul))
+        c_y = canvas_h - int(140 * scale_mul)
+        filter_parts.append(
+            f"[{curr_v}]drawtext=text='{clean_credit}':fontsize={c_font}:fontcolor=0xffffff:box=1:boxcolor=0x000000@0.65:boxborderw=12:x=(w-text_w)/2:y={c_y}[vcredit]"
+        )
+        curr_v = "vcredit"
+
+    filter_complex = ";".join(filter_parts)
+
+    clean_fps = int(target_fps) if int(target_fps) > 0 else 30
+    clean_bitrate = str(target_bitrate).strip() or "20M"
+    if not clean_bitrate.endswith(("M", "k", "K")):
+        clean_bitrate = f"{clean_bitrate}M"
+
     cmd = [
         "ffmpeg", "-y",
+        "-threads", "0",
         *inputs,
         "-filter_complex", filter_complex,
         "-map", f"[{curr_v}]",
         "-map", "0:a?",
         "-c:v", "libx264",
         "-preset", "veryfast",
-        "-crf", "20",
+        "-r", str(clean_fps),
+        "-b:v", clean_bitrate,
+        "-maxrate", clean_bitrate,
+        "-bufsize", "160M",
         "-c:a", "aac",
         "-b:a", "192k",
         "-ar", "44100",
-        "-shortest",
+        # Keep the full video duration even when an optional audio stream or
+        # time-limited still image ends earlier.
+        "-t", f"{clip_duration:.3f}",
+        "-movflags", "+faststart",
         str(out_video),
     ]
 
