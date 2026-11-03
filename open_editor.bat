@@ -1,0 +1,3 @@
+@echo off
+echo Opening WhopClipper Video Editor...
+start http://localhost:5199/
