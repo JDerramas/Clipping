@@ -147,6 +147,10 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
+        # Always drain incoming request body to prevent HTTP keep-alive socket corruption
+        content_length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+
         # Ollama probe: /api/show
         if path in ("/api/show", "/show"):
             show_data = {
@@ -164,8 +168,6 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
 
         # Handle chat completions
         if path in ("/v1/chat/completions", "/chat/completions", "/api/chat/completions"):
-            content_length = int(self.headers.get("Content-Length", 0))
-            raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
             try:
                 payload = json.loads(raw_body.decode("utf-8", errors="replace"))
             except Exception:
