@@ -2,13 +2,13 @@
 """
 Hermes & OpenAI Bridge for AgentRouter (gpt-6-astra / gpt-6.1-sol / gpt-5.6-sol)
 ---------------------------------------------------------------------------------
-High-performance local proxy with:
-  * Full Server-Sent Events (SSE) streaming support (live token streaming)
+Features:
+  * Full MCP & OpenAI Function Calling (Tools) Translation
+  * Real-time Server-Sent Events (SSE) Streaming for text & tool call deltas
   * Multi-threaded request handling (never blocks parallel checks)
-  * Endpoint compatibility for OpenAI (/v1/models, /v1/models/<id>),
-    Ollama (/api/tags, /api/show), and LM Studio (/props, /version)
-  * Private network CORS support for Electron / browser clients
-  * 120s timeout for complex agent prompts
+  * Seamless compatibility for OpenAI, Hermes MCP, Ollama & LM Studio
+  * Private network CORS for browser / Electron clients
+  * 120s timeout for deep reasoning models
 """
 
 import os
@@ -147,7 +147,7 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
-        # Always drain incoming request body to prevent HTTP keep-alive socket corruption
+        # Drain body early to prevent keep-alive socket pollution
         content_length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
@@ -184,18 +184,56 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
             model = payload.get("model") or "gpt-6-astra"
             is_stream = bool(payload.get("stream", False))
             messages = payload.get("messages", [])
+            raw_tools = payload.get("tools", [])
 
-            # Format messages cleanly into unified prompt
+            # Format messages cleanly into unified prompt with MCP tool calls & results
             prompt_parts = []
             for m in messages:
                 role = str(m.get("role", "user")).capitalize()
                 content = m.get("content", "")
                 if isinstance(content, list):
                     content = " ".join([c.get("text", "") for c in content if isinstance(c, dict)])
-                prompt_parts.append(f"{role}: {content}")
+                elif content is None:
+                    content = ""
+
+                # Handle assistant tool calls in conversation history
+                tool_calls = m.get("tool_calls", [])
+                if tool_calls:
+                    calls_str = []
+                    for tc in tool_calls:
+                        fn = tc.get("function", {})
+                        fn_name = fn.get("name", "tool")
+                        fn_args = fn.get("arguments", "{}")
+                        calls_str.append(f"{fn_name}({fn_args})")
+                    action_note = f"[Action: Called {', '.join(calls_str)}]"
+                    content = f"{content} {action_note}".strip()
+
+                # Handle tool outputs from MCP execution
+                if role.lower() == "tool":
+                    tool_name = m.get("name") or m.get("tool_call_id") or "tool"
+                    prompt_parts.append(f"Tool Output ({tool_name}): {content}")
+                else:
+                    prompt_parts.append(f"{role}: {content}")
+
             full_input = "\n\n".join(prompt_parts) if prompt_parts else "Hello"
 
-            print(f"[Bridge] Incoming chat request | model: {model} | stream: {is_stream} | msgs: {len(messages)} | chars: {len(full_input)}")
+            # Normalize OpenAI tools -> AgentRouter flat tools format
+            ar_tools = []
+            for t in raw_tools:
+                if not isinstance(t, dict):
+                    continue
+                if t.get("type") == "function":
+                    fn = t.get("function") if isinstance(t.get("function"), dict) else t
+                    name = fn.get("name")
+                    if name:
+                        ar_tools.append({
+                            "type": "function",
+                            "name": name,
+                            "description": fn.get("description", ""),
+                            "parameters": fn.get("parameters", {})
+                        })
+
+            print(f"[Bridge] Chat request | model: {model} | stream: {is_stream} | msgs: {len(messages)} | tools: {len(ar_tools)} | chars: {len(full_input)}")
 
             ar_url = "https://agentrouter.org/v1/responses"
             ar_headers = {
@@ -208,20 +246,22 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
             completion_id = f"chatcmpl-astra-{int(time.time()*1000)}"
             created_ts = int(time.time())
 
-            # STREAMING MODE (Hermes live tokens)
+            # STREAMING MODE (Hermes live tokens & MCP tool calls)
             if is_stream:
                 ar_body = {
                     "model": model,
                     "input": full_input,
                     "stream": True
                 }
+                if ar_tools:
+                    ar_body["tools"] = ar_tools
+
                 try:
                     req = urllib.request.Request(
                         ar_url,
                         data=json.dumps(ar_body).encode("utf-8"),
                         headers=ar_headers
                     )
-                    # 120s timeout for initial response
                     resp = urllib.request.urlopen(req, timeout=120)
 
                     self.send_response(200)
@@ -242,48 +282,121 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
                     self.wfile.write(f"data: {json.dumps(init_chunk)}\n\n".encode("utf-8"))
                     self.wfile.flush()
 
+                    # Track active tool calls for indexing
+                    tool_calls_map = {}  # fc_id -> tool_index
+                    tool_call_counter = 0
+                    has_tool_calls = False
+
                     # Stream AgentRouter deltas
                     for raw_line in resp:
                         line = raw_line.decode("utf-8", errors="replace").strip()
-                        if line.startswith("data: "):
-                            raw_data = line[6:].strip()
-                            if raw_data in ("[DONE]", ""):
-                                continue
-                            try:
-                                event_data = json.loads(raw_data)
-                                # AgentRouter responses emit output_text.delta
-                                if event_data.get("type") == "response.output_text.delta":
-                                    delta_text = event_data.get("delta", "")
-                                    if delta_text:
-                                        chunk_obj = {
-                                            "id": completion_id,
-                                            "object": "chat.completion.chunk",
-                                            "created": created_ts,
-                                            "model": model,
-                                            "choices": [{"index": 0, "delta": {"content": delta_text}, "finish_reason": None}]
-                                        }
-                                        self.wfile.write(f"data: {json.dumps(chunk_obj)}\n\n".encode("utf-8"))
-                                        self.wfile.flush()
-                            except Exception:
-                                pass
+                        if not line.startswith("data: "):
+                            continue
+                        raw_data = line[6:].strip()
+                        if raw_data in ("[DONE]", ""):
+                            continue
+                        try:
+                            event_data = json.loads(raw_data)
+                            event_type = event_data.get("type")
 
-                    # Send stop chunk & [DONE]
+                            # Text streaming
+                            if event_type == "response.output_text.delta":
+                                delta_text = event_data.get("delta", "")
+                                if delta_text:
+                                    chunk_obj = {
+                                        "id": completion_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": created_ts,
+                                        "model": model,
+                                        "choices": [{"index": 0, "delta": {"content": delta_text}, "finish_reason": None}]
+                                    }
+                                    self.wfile.write(f"data: {json.dumps(chunk_obj)}\n\n".encode("utf-8"))
+                                    self.wfile.flush()
+
+                            # MCP Tool Call: Output item added
+                            elif event_type == "response.output_item.added":
+                                item = event_data.get("item", {})
+                                if item.get("type") == "function_call":
+                                    has_tool_calls = True
+                                    fc_id = item.get("id")
+                                    call_id = item.get("call_id") or fc_id
+                                    fn_name = item.get("name", "")
+                                    idx = tool_call_counter
+                                    tool_calls_map[fc_id] = idx
+                                    tool_call_counter += 1
+
+                                    # Emit initial tool call chunk
+                                    tool_chunk = {
+                                        "id": completion_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": created_ts,
+                                        "model": model,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "tool_calls": [{
+                                                    "index": idx,
+                                                    "id": call_id,
+                                                    "type": "function",
+                                                    "function": {
+                                                        "name": fn_name,
+                                                        "arguments": ""
+                                                    }
+                                                }]
+                                            },
+                                            "finish_reason": None
+                                        }]
+                                    }
+                                    self.wfile.write(f"data: {json.dumps(tool_chunk)}\n\n".encode("utf-8"))
+                                    self.wfile.flush()
+
+                            # MCP Tool Call: Arguments delta
+                            elif event_type == "response.function_call_arguments.delta":
+                                fc_id = event_data.get("item_id")
+                                delta_args = event_data.get("delta", "")
+                                if fc_id in tool_calls_map and delta_args:
+                                    idx = tool_calls_map[fc_id]
+                                    arg_chunk = {
+                                        "id": completion_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": created_ts,
+                                        "model": model,
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "tool_calls": [{
+                                                    "index": idx,
+                                                    "function": {
+                                                        "arguments": delta_args
+                                                    }
+                                                }]
+                                            },
+                                            "finish_reason": None
+                                        }]
+                                    }
+                                    self.wfile.write(f"data: {json.dumps(arg_chunk)}\n\n".encode("utf-8"))
+                                    self.wfile.flush()
+
+                        except Exception:
+                            pass
+
+                    # Finish reason: "tool_calls" if tools triggered, else "stop"
+                    finish_reason = "tool_calls" if has_tool_calls else "stop"
                     final_chunk = {
                         "id": completion_id,
                         "object": "chat.completion.chunk",
                         "created": created_ts,
                         "model": model,
-                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}]
                     }
                     self.wfile.write(f"data: {json.dumps(final_chunk)}\n\n".encode("utf-8"))
                     self.wfile.write(b"data: [DONE]\n\n")
                     self.wfile.flush()
-                    print(f"[Bridge] Stream finished successfully for {model}")
+                    print(f"[Bridge] Stream finished ({finish_reason}) for {model} (tools triggered: {has_tool_calls})")
                     return
 
                 except Exception as e:
                     sys.stderr.write(f"[Bridge Stream Error] {e}\n")
-                    # If stream hasn't started headers yet, send 500
                     try:
                         err_chunk = {
                             "id": completion_id,
@@ -305,6 +418,9 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
                 "input": full_input,
                 "stream": False
             }
+            if ar_tools:
+                ar_body["tools"] = ar_tools
+
             try:
                 req = urllib.request.Request(
                     ar_url,
@@ -315,15 +431,33 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
                     res = json.loads(resp.read().decode("utf-8", errors="replace"))
 
                 reply_text = ""
+                tool_calls = []
                 for item in res.get("output", []):
-                    if item.get("type") == "message":
+                    item_type = item.get("type")
+                    if item_type == "message":
                         for c in item.get("content", []):
                             txt = c.get("text", "")
                             if txt:
                                 reply_text += txt
+                    elif item_type == "function_call":
+                        tool_calls.append({
+                            "id": item.get("call_id") or item.get("id"),
+                            "type": "function",
+                            "function": {
+                                "name": item.get("name", ""),
+                                "arguments": item.get("arguments", "{}")
+                            }
+                        })
 
-                if not reply_text:
+                if not reply_text and not tool_calls:
                     reply_text = "No response generated."
+
+                msg_obj = {
+                    "role": "assistant",
+                    "content": reply_text if reply_text else None
+                }
+                if tool_calls:
+                    msg_obj["tool_calls"] = tool_calls
 
                 openai_res = {
                     "id": completion_id,
@@ -333,11 +467,8 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
                     "choices": [
                         {
                             "index": 0,
-                            "message": {
-                                "role": "assistant",
-                                "content": reply_text
-                            },
-                            "finish_reason": "stop"
+                            "message": msg_obj,
+                            "finish_reason": "tool_calls" if tool_calls else "stop"
                         }
                     ],
                     "usage": {
@@ -353,7 +484,7 @@ class AgentRouterBridgeHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(out_bytes)))
                 self.end_headers()
                 self.wfile.write(out_bytes)
-                print(f"[Bridge] Successfully served {model} response ({len(reply_text)} chars)")
+                print(f"[Bridge] Successfully served {model} response (tools: {len(tool_calls)})")
                 return
 
             except urllib.error.HTTPError as e:
@@ -383,13 +514,14 @@ def main():
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadedHTTPServer(server_address, AgentRouterBridgeHandler)
     print("=" * 65)
-    print("Hermes & OpenAI Bridge for AgentRouter (gpt-6-astra / gpt-6.1-sol)")
+    print("Hermes & OpenAI Bridge for AgentRouter (with MCP & Tool Calling)")
     print(f"Listening on: http://127.0.0.1:{PORT}/v1 (0.0.0.0)")
     print("=" * 65)
     print("Config for Hermes / any OpenAI app:")
     print(f"  * Base URL: http://127.0.0.1:{PORT}/v1")
     print(f"  * API Key:  {DEFAULT_KEY[:12]}...")
     print("  * Models:   gpt-6-astra, gpt-6.1-sol, gpt-5.6-sol")
+    print("  * MCP:      Full Function Calling / Tool Calling supported!")
     print("=" * 65)
     try:
         httpd.serve_forever()
